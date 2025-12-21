@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { ActivityIndicator, Button, Image, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 export default function ScanScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -35,33 +35,51 @@ export default function ScanScreen() {
       return;
     }
 
-    const res = await ImagePicker.launchCameraAsync({
-      quality: 0.8,
-    });
-
+    const res = await ImagePicker.launchCameraAsync({ quality: 0.8 });
     if (!res.canceled) {
       setImageUri(res.assets[0].uri);
     }
   };
 
-const analyzeMock = async () => {
-  if (!imageUri) return;
+  const analyzeMock = async () => {
+    if (!imageUri) return;
 
-  setLoading(true);
-  setError(null);
-  setIngredients([]);
+    const API_URL = process.env.EXPO_PUBLIC_API_URL;
+    if (!API_URL) {
+      setError("缺少 EXPO_PUBLIC_API_URL。請檢查前端 .env 是否設定正確。");
+      return;
+    }
 
-  try {
-    // 模擬 API 等待時間，讓你看到 loading
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setIngredients(["tequila", "lime", "triple sec"]);
-  } catch (e: any) {
-    setError(e?.message ?? "分析失敗，請稍後再試。");
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+    setError(null);
+    setIngredients([]);
 
+    try {
+      // 用最穩的方式讀 base64：不要用 EncodingType.Base64（你的環境會是 undefined）
+      const base64 = await FileSystem.readAsStringAsync(
+        imageUri,
+        { encoding: "base64" } as any
+      );
+
+      const resp = await fetch(`${API_URL}/analyze-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: base64 }),
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`API 失敗：${resp.status} ${t}`);
+      }
+
+      const data = (await resp.json()) as { ingredients: string[] };
+      setIngredients(Array.isArray(data.ingredients) ? data.ingredients : []);
+    } catch (e: any) {
+      setError(e?.message ?? "分析失敗，請稍後再試。");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
@@ -110,4 +128,3 @@ const analyzeMock = async () => {
     </ScrollView>
   );
 }
-
