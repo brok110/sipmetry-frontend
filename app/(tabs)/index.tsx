@@ -1,23 +1,31 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
+import { router } from "expo-router";
 import {
   Alert,
   Button,
+  Dimensions,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
-  Dimensions,
 } from "react-native";
 
+// ✅ [UPDATED] useFeedback (NOT useFeedbackStore)
+import { useFeedback } from "@/context/feedback";
 
-import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import * as ImagePicker from "expo-image-picker";
+
+type Safety = {
+  non_consumable_items: string[];
+  risk_level: "none" | "possible" | "high";
+  message: string;
+};
 
 export default function TabOneScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
@@ -26,18 +34,27 @@ export default function TabOneScreen() {
   const [recipesStale, setRecipesStale] = useState(false);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
-  const [stage, setStage] = useState<
-    "idle" | "identifying ingredients" | "generating"
-  >("idle");
+  const [stage, setStage] = useState<"idle" | "identifying ingredients" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [safety, setSafety] = useState<Safety | null>(null);
+
   const [newIngredient, setNewIngredient] = useState("");
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState("");
   const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
 
-  
   // keyboard height (iPhone)
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  // ✅ [UPDATED] read ratings map from shared feedback context
+  const feedback = useFeedback() as any;
+  const ratingsByKey: Record<string, "like" | "dislike"> =
+    feedback?.ratingsByKey ?? feedback?.ratings ?? {};
+
+  const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const ingredientYRef = useRef<Record<number, number>>({});
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -47,9 +64,7 @@ export default function TabOneScreen() {
       const h = e.endCoordinates?.height ?? 0;
       setKeyboardHeight(h);
 
-      // 關鍵：鍵盤要出現時（iOS willShow），才做 scroll
       if (pendingScrollIndex !== null) {
-        // 等下一個 frame，讓 layout/keyboard 生效再捲（更穩）
         requestAnimationFrame(() => {
           scrollToIngredient(pendingScrollIndex);
           setPendingScrollIndex(null);
@@ -67,40 +82,44 @@ export default function TabOneScreen() {
     };
   }, [pendingScrollIndex]);
 
-
-
-  const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
-  const scrollRef = useRef<ScrollView>(null);
-  const ingredientYRef = useRef<Record<number, number>>({});
-
   const scrollToIngredient = (idx: number) => {
     const y = ingredientYRef.current[idx];
     if (typeof y !== "number") return;
+
     const windowH = Dimensions.get("window").height;
-    // 這個 padding 是預留給上方標題/安全區/卡片間距
     const topPadding = 140;
-    // 可視高度 = 螢幕高度 - 鍵盤高度 - 上方預留
     const visibleH = Math.max(200, windowH - keyboardHeight - topPadding);
-    // 0.45：讓輸入框落在「可視區偏中間」
     const targetY = Math.max(0, y - visibleH * 0.35);
+
     scrollRef.current?.scrollTo({ y: targetY, animated: true });
   };
 
   const invalidateRecipes = () => {
-    // ingredients 變了 → 舊 recipes 不可信
     setRecipes([]);
     setExpandedIndex(null);
     setRecipesStale(true);
   };
 
+  const openRecipeInTab2 = (r: any, idx: number) => {
+    const recipe_json = encodeURIComponent(JSON.stringify(r));
+    const ingredients_json = encodeURIComponent(JSON.stringify(ingredients));
 
+    router.push({
+      pathname: "/(tabs)/two",
+      params: {
+        idx: String(idx),
+        recipe_json,
+        ingredients_json,
+      },
+    });
+  };
 
   const pickImage = async () => {
     setError(null);
 
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("需要權限", "請允許相簿權限以選擇照片。");
+      Alert.alert("Permission required", "Please allow photo library access.");
       return;
     }
 
@@ -115,7 +134,9 @@ export default function TabOneScreen() {
     setImageUri(uri);
     setIngredients([]);
     setRecipes([]);
+    setSafety(null);
     setExpandedIndex(null);
+    setRecipesStale(false);
     setStage("idle");
   };
 
@@ -124,7 +145,7 @@ export default function TabOneScreen() {
 
     const perm = await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("需要權限", "請允許相機權限以拍照。");
+      Alert.alert("Permission required", "Please allow camera access.");
       return;
     }
 
@@ -135,7 +156,9 @@ export default function TabOneScreen() {
     setImageUri(uri);
     setIngredients([]);
     setRecipes([]);
+    setSafety(null);
     setExpandedIndex(null);
+    setRecipesStale(false);
     setStage("idle");
   };
 
@@ -143,11 +166,10 @@ export default function TabOneScreen() {
     if (!imageUri) return;
 
     if (!API_URL) {
-      setError("缺少 EXPO_PUBLIC_API_URL。請檢查前端 .env 是否設定正確。");
+      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
 
-    // reset UI state
     setLoading(true);
     setStage("identifying ingredients");
     setExpandedIndex(null);
@@ -155,16 +177,12 @@ export default function TabOneScreen() {
 
     setIngredients([]);
     setRecipes([]);
-    setRecipesStale(false); // ←【新增】重新辨識時先清掉「recipes 過期」提示（此時也沒有 recipes）
+    setRecipesStale(false);
+    setSafety(null);
 
     try {
-      // 1) 讀取圖片為 base64
-      const base64 = await FileSystem.readAsStringAsync(
-        imageUri,
-        { encoding: "base64" } as any
-      );
+      const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: "base64" } as any);
 
-      // 2) 呼叫辨識 ingredients（只做到這裡，不生成 recipes）
       const resp = await fetch(`${API_URL}/analyze-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -173,34 +191,23 @@ export default function TabOneScreen() {
 
       if (!resp.ok) {
         const t = await resp.text();
-        throw new Error(`Ingredient API 失敗：${resp.status} ${t}`);
+        throw new Error(`Ingredient API failed: ${resp.status} ${t}`);
       }
 
-      const data = (await resp.json()) as { ingredients: string[] };
+      // ✅ [UPDATED] parse safety too
+      const data = (await resp.json()) as { ingredients: string[]; safety?: Safety };
       const list = Array.isArray(data.ingredients) ? data.ingredients : [];
       setIngredients(list);
+      setSafety(data.safety ?? null);
 
-      // ←【改動】不再 setStage("generating")，也不呼叫 /generate-recipes
       setStage("idle");
     } catch (e: any) {
-      setError(e?.message ?? "分析失敗，請稍後再試。");
+      setError(e?.message ?? "Failed to analyze image.");
       setStage("idle");
     } finally {
       setLoading(false);
     }
   };
-
-
-
-
-
-  const removeIngredient = (idx: number) => {
-    // 只有當目前有 recipes 時才提示過期（避免一開始就顯示）
-    if (recipes.length > 0) invalidateRecipes();
-
-    setIngredients((prev) => prev.filter((_, i) => i !== idx));
-  };
-
 
   const addIngredient = () => {
     const v = newIngredient.trim();
@@ -210,7 +217,6 @@ export default function TabOneScreen() {
       const exists = prev.some((x) => x.toLowerCase() === v.toLowerCase());
       if (exists) return prev;
 
-      // 真的有新增才讓 recipes 失效
       if (recipes.length > 0) invalidateRecipes();
       return [...prev, v];
     });
@@ -218,16 +224,20 @@ export default function TabOneScreen() {
     setNewIngredient("");
   };
 
+  const removeIngredient = (idx: number) => {
+    if (recipes.length > 0) invalidateRecipes();
+    setIngredients((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const regenerateRecipes = async () => {
     if (!API_URL) {
-      setError("缺少 EXPO_PUBLIC_API_URL。請檢查前端 .env 是否設定正確。");
+      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
     if (!ingredients || ingredients.length === 0) {
-      setError("目前沒有 ingredients，請先辨識或新增。");
+      setError("No ingredients yet. Please scan or add ingredients first.");
       return;
-    } 
+    }
 
     setLoading(true);
     setStage("generating");
@@ -244,7 +254,7 @@ export default function TabOneScreen() {
 
       if (!resp.ok) {
         const t = await resp.text();
-        throw new Error(`Recipe API 失敗：${resp.status} ${t}`);
+        throw new Error(`Recipe API failed: ${resp.status} ${t}`);
       }
 
       const data = (await resp.json()) as { recipes: any[] };
@@ -252,7 +262,7 @@ export default function TabOneScreen() {
       setRecipesStale(false);
       setStage("idle");
     } catch (e: any) {
-      setError(e?.message ?? "生成失敗，請稍後再試。");
+      setError(e?.message ?? "Failed to generate recipes.");
       setStage("idle");
     } finally {
       setLoading(false);
@@ -269,11 +279,10 @@ export default function TabOneScreen() {
 
     const v = editingValue.trim();
     if (!v) {
-      setError("Ingredient 不能是空白。");
+      setError("Ingredient cannot be empty.");
       return;
     }
 
-    // 若其實沒變更（忽略大小寫），就直接收起來，不要讓 recipes 過期
     const before = (ingredients[editingIndex] ?? "").trim();
     if (before && before.toLowerCase() === v.toLowerCase()) {
       setEditingIndex(null);
@@ -284,7 +293,6 @@ export default function TabOneScreen() {
     let changed = false;
 
     setIngredients((prev) => {
-      // 避免和其他項重複（大小寫不敏感）
       const exists = prev.some(
         (x, i) => i !== editingIndex && x.toLowerCase() === v.toLowerCase()
       );
@@ -296,32 +304,30 @@ export default function TabOneScreen() {
       return next;
     });
 
-    // 只有真的改動才讓 recipes 過期
     if (changed && recipes.length > 0) invalidateRecipes();
 
     setEditingIndex(null);
     setEditingValue("");
   };
 
-  
   return (
-      <ScrollView
-            ref={scrollRef}
-            contentContainerStyle={{ padding: 16, gap: 12 }}
-            keyboardShouldPersistTaps="handled"
-      >
-      <Text style={{ fontSize: 20, fontWeight: "800" }}>Scan Ingredients</Text>
+    <ScrollView
+      ref={scrollRef}
+      contentContainerStyle={{ padding: 16, gap: 12 }}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={{ fontSize: 20, fontWeight: "800" }}>Scan</Text>
 
-      {/* Debug info: only show in development */}
       {__DEV__ ? (
         <View style={{ gap: 4 }}>
           <Text style={{ color: "#555" }}>BUILD: RECIPES_V1</Text>
-
           <Text style={{ color: "#555" }}>API_URL: {API_URL ?? "(missing)"}</Text>
-
           <Text style={{ color: "#555" }}>
-            stage: {stage} | loading: {String(loading)} | recipes:{" "}
-            {recipes.length}
+            stage: {stage} | loading: {String(loading)} | recipes: {recipes.length}
+          </Text>
+          <Text style={{ color: "#555" }}>
+            safety:{" "}
+            {safety ? `${safety.risk_level} | non=${safety.non_consumable_items.length}` : "null"}
           </Text>
         </View>
       ) : null}
@@ -350,14 +356,14 @@ export default function TabOneScreen() {
                 ? stage === "identifying ingredients"
                   ? "Identifying ingredients..."
                   : "Generating recipes..."
-                : "Run Ingredient"
+                : "Run Ingredients"
             }
             onPress={analyze}
             disabled={loading}
           />
         </View>
       ) : (
-        <Text style={{ color: "#666" }}>先選一張照片或拍照。</Text>
+        <Text style={{ color: "#666" }}>Choose a photo or take a photo to start.</Text>
       )}
 
       {error ? (
@@ -367,24 +373,49 @@ export default function TabOneScreen() {
         </View>
       ) : null}
 
+      {/* Safety warning */}
+      {safety && (safety.risk_level !== "none" || safety.non_consumable_items.length > 0) ? (
+        <View style={{ padding: 12, borderWidth: 2, borderRadius: 12 }}>
+          <Text style={{ fontWeight: "900", marginBottom: 6 }}>Warning</Text>
+
+          <Text style={{ marginBottom: 8 }}>
+            {safety.message && safety.message.trim()
+              ? safety.message
+              : safety.risk_level === "high"
+              ? "Non-consumable item(s) detected. Do NOT ingest."
+              : "Possible non-consumable item(s) detected. Do NOT ingest and please double-check."}
+          </Text>
+
+          <Text style={{ fontWeight: "800", marginBottom: 4 }}>
+            Risk: {safety.risk_level}
+          </Text>
+
+          {safety.non_consumable_items.length > 0 ? (
+            <View style={{ gap: 4 }}>
+              <Text style={{ fontWeight: "800" }}>Detected:</Text>
+              {safety.non_consumable_items.map((x, i) => (
+                <Text key={i}>• {x}</Text>
+              ))}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Ingredients */}
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-        <Text style={{ fontWeight: "800", marginBottom: 8 }}>
-          Ingredients (editable)
-        </Text>
+        <Text style={{ fontWeight: "800", marginBottom: 8 }}>Ingredients (editable)</Text>
 
         {recipesStale ? (
           <View style={{ padding: 10, borderWidth: 1, borderRadius: 10, marginBottom: 8 }}>
             <Text style={{ fontWeight: "800" }}>Recipes out of date</Text>
             <Text style={{ color: "#555" }}>
-              Ingredients 已變更。請按「Regenerate Recipes」重新生成 recipes。
+              Ingredients changed. Please regenerate recipes.
             </Text>
           </View>
         ) : null}
 
-
         {ingredients.length === 0 ? (
-          <Text>（尚無 ingredients）</Text>
+          <Text style={{ color: "#666" }}>(No ingredients yet)</Text>
         ) : (
           <View style={{ gap: 8 }}>
             {ingredients.map((ing, idx) => {
@@ -400,7 +431,6 @@ export default function TabOneScreen() {
                     paddingVertical: 4,
                   }}
                 >
-                  {/* Left: text or input */}
                   <View style={{ flex: 1, minWidth: 0 }}>
                     {isEditing ? (
                       <TextInput
@@ -409,12 +439,11 @@ export default function TabOneScreen() {
                         onChangeText={setEditingValue}
                         autoCapitalize="none"
                         onFocus={(e) => {
-                          // iPhone: scroll input above keyboard (most stable)
                           // @ts-ignore
                           scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
                             // @ts-ignore
                             e.target,
-                            120, // 額外往上推的距離（iPhone 建議 120~180）
+                            120,
                             true
                           );
                         }}
@@ -435,7 +464,6 @@ export default function TabOneScreen() {
                     )}
                   </View>
 
-                  {/* Right: actions */}
                   <View style={{ flexDirection: "row", gap: 8, flexShrink: 0 }}>
                     {isEditing ? (
                       <>
@@ -500,7 +528,6 @@ export default function TabOneScreen() {
           </View>
         )}
 
-        {/* Add new ingredient (independent state: newIngredient) */}
         <View style={{ marginTop: 12, gap: 8 }}>
           <Text style={{ fontWeight: "800" }}>Add ingredient</Text>
 
@@ -527,159 +554,95 @@ export default function TabOneScreen() {
                   loading
                     ? "Generating..."
                     : recipes.length === 0
-                      ? "Run Recipes"
-                      : "Regenerate Recipes"
+                    ? "Run Recipes"
+                    : "Regenerate Recipes"
                 }
                 onPress={regenerateRecipes}
                 disabled={loading || ingredients.length === 0}
               />
-
             </View>
           </View>
         </View>
       </View>
 
-      {/* Recipes */}
+      {/* Recipes (compact list) */}
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
         <Text style={{ fontWeight: "800", marginBottom: 8 }}>Recipes</Text>
 
         {recipes.length === 0 ? (
-          <Text>（尚無 recipes）</Text>
+          <Text style={{ color: "#666" }}>(No recipes yet)</Text>
         ) : (
-          recipes.map((r, idx) => {
-            const isOpen = expandedIndex === idx;
-            const title = r?.short_name ?? r?.name ?? `Recipe ${idx + 1}`;
-            const tags =
-              Array.isArray(r?.flavor_4) && r.flavor_4.length === 4
-                ? r.flavor_4
-                : [];
+          <View style={{ gap: 10 }}>
+            {recipes.map((r, idx) => {
+              const title = String(r?.short_name ?? r?.name ?? `Recipe ${idx + 1}`).trim();
+              const recipeKey = `${idx + 1}-${title}`;
+              const rated = Boolean(ratingsByKey?.[recipeKey]);
 
-            const liquids = Array.isArray(r?.ingredients_ml)
-              ? r.ingredients_ml
-              : [];
-            const steps = Array.isArray(r?.instructions) ? r.instructions : [];
-            const garnish = Array.isArray(r?.garnish) ? r.garnish : [];
+              const tags =
+                Array.isArray(r?.flavor_4) && r.flavor_4.length === 4 ? r.flavor_4 : [];
 
-            return (
-              <View
-                key={idx}
-                style={{
-                  borderWidth: 1,
-                  borderRadius: 12,
-                  padding: 12,
-                  marginBottom: 12,
-                }}
-              >
+              return (
                 <View
+                  key={`${title}-${idx}`}
                   style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    padding: 12,
+                    gap: 8,
                   }}
                 >
-                  <Text style={{ fontWeight: "800", flex: 1, paddingRight: 8 }}>
-                    {idx + 1}. {title}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <Text style={{ fontWeight: "800", flex: 1 }}>
+                      {idx + 1}. {title}
+                    </Text>
 
-                  <Text
-                    onPress={() => setExpandedIndex(isOpen ? null : idx)}
-                    style={{ fontWeight: "800" }}
-                  >
-                    {isOpen ? "Hide" : "View"}
-                  </Text>
-                </View>
-
-                {tags.length > 0 ? (
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      flexWrap: "wrap",
-                      gap: 8,
-                      marginTop: 8,
-                    }}
-                  >
-                    {tags.map((t: string, tIdx: number) => (
+                    {/* Rated badge (no liked/disliked text) */}
+                    {rated ? (
                       <View
-                        key={tIdx}
                         style={{
                           borderWidth: 1,
                           borderRadius: 999,
                           paddingHorizontal: 10,
                           paddingVertical: 4,
+                          borderColor: "#DDD", 
                         }}
                       >
-                        <Text style={{ fontWeight: "700" }}>{t}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : (
-                  <Text style={{ marginTop: 8, color: "#666" }}>
-                    （無 flavor tags）
-                  </Text>
-                )}
-
-                {isOpen ? (
-                  <View style={{ marginTop: 12, gap: 10 }}>
-                    <View>
-                      <Text style={{ fontWeight: "800", marginBottom: 6 }}>
-                        Ingredients (ml)
-                      </Text>
-                      {liquids.length === 0 ? (
-                        <Text style={{ color: "#666" }}>（無 ingredients_ml）</Text>
-                      ) : (
-                        liquids.map((it: any, i2: number) => (
-                          <Text key={i2}>
-                            • {String(it?.item ?? "").trim() || "unknown"} —{" "}
-                            {Number.isFinite(it?.ml) ? `${it.ml} ml` : "n/a"}
-                          </Text>
-                        ))
-                      )}
-                    </View>
-
-                    <View>
-                      <Text style={{ fontWeight: "800", marginBottom: 6 }}>
-                        Garnish
-                      </Text>
-                      {garnish.length === 0 ? (
-                        <Text style={{ color: "#666" }}>（無 garnish）</Text>
-                      ) : (
-                        garnish.map((g: any, gIdx: number) => (
-                          <Text key={gIdx}>• {String(g)}</Text>
-                        ))
-                      )}
-                    </View>
-
-                    <View>
-                      <Text style={{ fontWeight: "800", marginBottom: 6 }}>
-                        Instructions
-                      </Text>
-                      {steps.length === 0 ? (
-                        <Text style={{ color: "#666" }}>（無 instructions）</Text>
-                      ) : (
-                        steps.map((s: any, sIdx: number) => (
-                          <Text key={sIdx}>
-                            {sIdx + 1}. {String(s)}
-                          </Text>
-                        ))
-                      )}
-                    </View>
-
-                    {typeof r?.why_it_works === "string" &&
-                    r.why_it_works.trim() ? (
-                      <View>
-                        <Text style={{ fontWeight: "800", marginBottom: 6 }}>
-                          Why it works
+                        <Text
+                          style={{
+                            fontWeight: "400", 
+                            color: "#777", 
+                          }}
+                        >
+                          Rated
                         </Text>
-                        <Text>{r.why_it_works}</Text>
                       </View>
                     ) : null}
+
+
+                    <Pressable
+                      onPress={() => openRecipeInTab2(r, idx)}
+                      style={{
+                        borderWidth: 1,
+                        borderRadius: 999,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                      }}
+                    >
+                      <Text style={{ fontWeight: "800" }}>View</Text>
+                    </Pressable>
                   </View>
-                ) : null}
-              </View>
-            );
-          })
+
+                  {tags.length === 4 ? (
+                    <Text style={{ color: "#555" }}>{tags.join(" • ")}</Text>
+                  ) : (
+                    <Text style={{ color: "#666" }}>(No flavor tags)</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
         )}
       </View>
     </ScrollView>
-
   );
 }
