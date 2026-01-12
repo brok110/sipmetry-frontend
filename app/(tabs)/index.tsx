@@ -316,7 +316,25 @@ export default function TabOneScreen() {
       contentContainerStyle={{ padding: 16, gap: 12 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={{ fontSize: 20, fontWeight: "800" }}>Scan</Text>
+
+      <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1 }}>
+          Scan Ingredients
+        </Text>
+
+        <Pressable
+          onPress={() => router.push("/(tabs)/three")}
+          style={{
+            borderWidth: 1,
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+          }}
+        >
+          <Text style={{ fontWeight: "800", color: "#666" }}>My Favorites</Text>
+        </Pressable>
+      </View>
+
 
       {__DEV__ ? (
         <View style={{ gap: 4 }}>

@@ -1,11 +1,10 @@
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-
-// shared feedback store
-import { useFeedback, type FeedbackRating } from "@/context/feedback";
+import { FeedbackRating, useFeedback } from "@/context/feedback";
 
 export default function TabTwoScreen() {
   const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
@@ -13,13 +12,62 @@ export default function TabTwoScreen() {
   const navigation = useNavigation<any>();
 
   useEffect(() => {
-    navigation.setOptions({ title: "Recipe" });
+    // ✅ [UPDATED] header title
+    navigation?.setOptions?.({ title: "Recipe" });
   }, [navigation]);
 
+  const createShareAndGo = async () => {
+    setError(null);
+
+    if (!API_URL) {
+      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${API_URL}/share-recipe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe,
+          ingredients,
+        }),
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`Share API failed: ${resp.status} ${t}`);
+      }
+
+      const data = (await resp.json()) as { share_id: string; share_url: string };
+
+      // ✅ [ADDED] carry the SAME recipe params so Tab 4 can return back to this recipe
+      const recipe_json = encodeURIComponent(JSON.stringify(recipe));
+      const ingredients_json = encodeURIComponent(JSON.stringify(ingredients));
+
+      router.push({
+        pathname: "/(tabs)/four",
+        params: {
+          share_id: encodeURIComponent(data.share_id),
+          share_url: encodeURIComponent(data.share_url),
+
+          // ✅ [ADDED] pass through for "Back to Recipe"
+          idx: String(idxNum),
+          recipe_json,
+          ingredients_json,
+        },
+      });
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to create share link.");
+    }
+  };
+
+  
   const params = useLocalSearchParams<{
     idx?: string;
     recipe_json?: string;
     ingredients_json?: string;
+    recipe_key?: string; // ✅ [ADDED] stable key when opening from Favorites
   }>();
 
   const idxNum = Number(params.idx ?? "0");
@@ -45,18 +93,22 @@ export default function TabTwoScreen() {
     }
   }, [params.ingredients_json]);
 
+  const { ratingsByKey, setRating, clearRating, favoritesByKey, toggleFavorite } =
+    useFeedback();
+
   const [error, setError] = useState<string | null>(null);
 
-  // shared ratings (per recipeKey)
-  const { ratingsByKey, setRating } = useFeedback();
-
   const recipeTitle = String(recipe?.short_name ?? recipe?.name ?? "Recipe").trim();
-  const recipeKey = `${idxNum + 1}-${recipeTitle}`;
 
-  // current rating for THIS recipe only
-  const currentRating: FeedbackRating | null = ratingsByKey?.[recipeKey] ?? null;
+  // ✅ [UPDATED] prefer stable key if passed
+  const recipeKey =
+    typeof params.recipe_key === "string" && params.recipe_key.trim()
+      ? params.recipe_key.trim()
+      : `${idxNum + 1}-${recipeTitle}`;
 
-  // when switching recipes, clear error only (keep ratings in store)
+  const currentRating: FeedbackRating | null =
+    (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
+
   useEffect(() => {
     setError(null);
   }, [recipeKey]);
@@ -64,13 +116,15 @@ export default function TabTwoScreen() {
   const sendFeedback = async (next: FeedbackRating) => {
     setError(null);
 
-    // optimistic update (per-recipe)
-    const prev: FeedbackRating | null = ratingsByKey?.[recipeKey] ?? null;
+    // optimistic UI (shared)
+    const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
     setRating(recipeKey, next);
 
     if (!API_URL) {
-      // rollback if missing API URL
+      // revert
       if (prev) setRating(recipeKey, prev);
+      else clearRating(recipeKey);
+
       setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
@@ -93,8 +147,10 @@ export default function TabTwoScreen() {
         throw new Error(`Feedback API failed: ${resp.status} ${t}`);
       }
     } catch (e: any) {
-      // rollback on failure
+      // revert on failure
       if (prev) setRating(recipeKey, prev);
+      else clearRating(recipeKey);
+
       setError(e?.message ?? "Failed to send feedback.");
     }
   };
@@ -106,6 +162,20 @@ export default function TabTwoScreen() {
         <Text style={{ color: "#666" }}>
           No recipe selected. Go back to Scan and tap “View”.
         </Text>
+
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            alignSelf: "flex-start",
+            borderWidth: 1,
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            marginTop: 8,
+          }}
+        >
+          <Text style={{ fontWeight: "800" }}>Back</Text>
+        </Pressable>
       </ScrollView>
     );
   }
@@ -119,23 +189,55 @@ export default function TabTwoScreen() {
   const steps = Array.isArray(recipe?.instructions) ? recipe.instructions : [];
   const garnish = Array.isArray(recipe?.garnish) ? recipe.garnish : [];
 
+  // ✅ [ADDED] favorite state for this recipe
+  const isFavorite = !!favoritesByKey?.[recipeKey];
+
+  const onToggleFavorite = () => {
+    toggleFavorite({
+      recipeKey,
+      title: recipeTitle || "Recipe",
+      tags,
+      recipe,
+      ingredients,
+    });
+  };
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-      <Text style={{ fontSize: 22, fontWeight: "900" }}>
-        {recipe?.short_name?.trim() ? recipe.short_name : "Recipe"}
-      </Text>
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={{
+          padding: 16,
+          gap: 12,
+          paddingBottom: 180, // ✅ [ADDED] leave space for the floating Share button
+        }}
+       >
+        {/* ✅ [UPDATED] Title row + Heart */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Text style={{ fontSize: 22, fontWeight: "900", flex: 1 }}>
+            {recipeTitle ? recipeTitle : "Recipe"}
+          </Text>
 
-      {tags.length > 0 ? (
-        <Text style={{ color: "#555" }}>{tags.join(" • ")}</Text>
-      ) : (
-        <Text style={{ color: "#666" }}>(No flavor tags)</Text>
-      )}
+          <Pressable
+            onPress={onToggleFavorite}
+            hitSlop={10}
+            style={{ paddingHorizontal: 6, paddingVertical: 4 }}
+          >
+            <FontAwesome
+              name={isFavorite ? "heart" : "heart-o"}
+              color={isFavorite ? "#E11D48" : "#888"}
+              size={20}
+            />
+          </Pressable>
+        </View>
 
-      {/* Feedback */}
-      <View style={{ borderWidth: 1, borderRadius: 12, padding: 12, gap: 10 }}>
-        <Text style={{ fontWeight: "800" }}>Feedback</Text>
+        {/* Flavor tags */}
+        {tags.length > 0 ? (
+          <Text style={{ color: "#555" }}>{tags.join(" • ")}</Text>
+        ) : (
+          <Text style={{ color: "#666" }}>(No flavor tags)</Text>
+        )}
 
-        <View style={{ flexDirection: "row", gap: 12 }}>
+        {/* Like / Dislike */}
+        <View style={{ flexDirection: "row", gap: 10 }}>
           <Pressable
             onPress={() => sendFeedback("like")}
             style={{
@@ -169,86 +271,107 @@ export default function TabTwoScreen() {
           </Pressable>
         </View>
 
-        <Text style={{ color: "#666" }}>
-          {currentRating === "like"
-            ? "You rated this recipe."
-            : currentRating === "dislike"
-            ? "You rated this recipe."
-            : "Not rated yet."}
-        </Text>
-      </View>
-
-      {error ? (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-          <Text style={{ fontWeight: "800" }}>Error</Text>
-          <Text>{error}</Text>
-        </View>
-      ) : null}
-
-      {/* Details */}
-      <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 12 }}>
-        <View>
-          <Text style={{ fontWeight: "900", marginBottom: 6 }}>
-            Ingredients (ml)
-          </Text>
-          {liquids.length === 0 ? (
-            <Text style={{ color: "#666" }}>(Missing ingredients_ml)</Text>
-          ) : (
-            liquids.map((it: any, i: number) => (
-              <Text key={i}>
-                • {String(it?.item ?? "").trim() || "unknown"} —{" "}
-                {Number.isFinite(it?.ml) ? `${it.ml} ml` : "n/a"}
-              </Text>
-            ))
-          )}
-        </View>
-
-        <View>
-          <Text style={{ fontWeight: "900", marginBottom: 6 }}>Garnish</Text>
-          {garnish.length === 0 ? (
-            <Text style={{ color: "#666" }}>(None)</Text>
-          ) : (
-            garnish.map((g: any, i: number) => <Text key={i}>• {String(g)}</Text>)
-          )}
-        </View>
-
-        <View>
-          <Text style={{ fontWeight: "900", marginBottom: 6 }}>Instructions</Text>
-          {steps.length === 0 ? (
-            <Text style={{ color: "#666" }}>(Missing instructions)</Text>
-          ) : (
-            steps.map((s: any, i: number) => (
-              <Text key={i}>
-                {i + 1}. {String(s)}
-              </Text>
-            ))
-          )}
-        </View>
-
-        {typeof recipe?.why_it_works === "string" && recipe.why_it_works.trim() ? (
-          <View>
-            <Text style={{ fontWeight: "900", marginBottom: 6 }}>Why it works</Text>
-            <Text>{recipe.why_it_works}</Text>
+        {error ? (
+          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
+            <Text style={{ fontWeight: "800" }}>Error</Text>
+            <Text>{error}</Text>
           </View>
         ) : null}
-      </View>
 
-      <Pressable
-        onPress={() => router.back()}
-        style={{
-          alignSelf: "flex-start",
-          borderWidth: 1,
-          borderRadius: 999,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-        }}
-      >
-        <Text style={{ fontWeight: "800" }}>Back</Text>
-      </Pressable>
+        {/* Details card */}
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 12 }}>
+          <View>
+            <Text style={{ fontWeight: "900", marginBottom: 6 }}>
+              Ingredients (ml)
+            </Text>
+            {liquids.length === 0 ? (
+              <Text style={{ color: "#666" }}>(Missing ingredients_ml)</Text>
+            ) : (
+              liquids.map((it: any, i: number) => (
+                <Text key={i}>
+                  • {String(it?.item ?? "").trim() || "unknown"} —{" "}
+                  {Number.isFinite(it?.ml) ? `${it.ml} ml` : "n/a"}
+                </Text>
+              ))
+            )}
+          </View>
 
-      <Text style={{ color: "#666" }}>
-        You can switch back to Scan anytime to view another recipe.
-      </Text>
-    </ScrollView>
+          <View>
+            <Text style={{ fontWeight: "900", marginBottom: 6 }}>Garnish</Text>
+            {garnish.length === 0 ? (
+              <Text style={{ color: "#666" }}>(None)</Text>
+            ) : (
+              garnish.map((g: any, i: number) => <Text key={i}>• {String(g)}</Text>)
+            )}
+          </View>
+
+          <View>
+            <Text style={{ fontWeight: "900", marginBottom: 6 }}>
+              Instructions
+            </Text>
+            {steps.length === 0 ? (
+              <Text style={{ color: "#666" }}>(Missing instructions)</Text>
+            ) : (
+              steps.map((s: any, i: number) => (
+                <Text key={i}>
+                  {i + 1}. {String(s)}
+                </Text>
+              ))
+            )}
+          </View>
+
+          {typeof recipe?.why_it_works === "string" && recipe.why_it_works.trim() ? (
+            <View>
+              <Text style={{ fontWeight: "900", marginBottom: 6 }}>
+                Why it works
+              </Text>
+              <Text>{recipe.why_it_works}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Back + Share row (aligned) */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 12,
+            marginTop: 4,
+          }}
+          >
+          <Pressable
+            onPress={() => router.back()}
+            style={{
+              borderWidth: 1,
+              borderRadius: 999,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ fontWeight: "800" }}>Back</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={createShareAndGo}
+            style={{
+              borderWidth: 1,
+              borderRadius: 999,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              backgroundColor: "white",
+            }}
+           >
+            <Text style={{ fontWeight: "900" }}>Share</Text>
+          </Pressable>
+        </View>
+
+        <Text style={{ color: "#666" }}>
+          You can switch back to Scan anytime to view another recipe.
+        </Text>
+      </ScrollView>
+    </View>
   );
+
+
 }
