@@ -5,6 +5,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { FeedbackRating, useFeedback } from "@/context/feedback";
+import { useFavorites } from "../../context/favorites";
 
 export default function TabTwoScreen() {
   const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
@@ -12,62 +13,15 @@ export default function TabTwoScreen() {
   const navigation = useNavigation<any>();
 
   useEffect(() => {
-    // ✅ [UPDATED] header title
+    // ✅ header title
     navigation?.setOptions?.({ title: "Recipe" });
   }, [navigation]);
 
-  const createShareAndGo = async () => {
-    setError(null);
-
-    if (!API_URL) {
-      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
-      return;
-    }
-
-    try {
-      const resp = await fetch(`${API_URL}/share-recipe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipe,
-          ingredients,
-        }),
-      });
-
-      if (!resp.ok) {
-        const t = await resp.text();
-        throw new Error(`Share API failed: ${resp.status} ${t}`);
-      }
-
-      const data = (await resp.json()) as { share_id: string; share_url: string };
-
-      // ✅ [ADDED] carry the SAME recipe params so Tab 4 can return back to this recipe
-      const recipe_json = encodeURIComponent(JSON.stringify(recipe));
-      const ingredients_json = encodeURIComponent(JSON.stringify(ingredients));
-
-      router.push({
-        pathname: "/(tabs)/four",
-        params: {
-          share_id: encodeURIComponent(data.share_id),
-          share_url: encodeURIComponent(data.share_url),
-
-          // ✅ [ADDED] pass through for "Back to Recipe"
-          idx: String(idxNum),
-          recipe_json,
-          ingredients_json,
-        },
-      });
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to create share link.");
-    }
-  };
-
-  
   const params = useLocalSearchParams<{
     idx?: string;
     recipe_json?: string;
     ingredients_json?: string;
-    recipe_key?: string; // ✅ [ADDED] stable key when opening from Favorites
+    recipe_key?: string; // ✅ stable key when opening from Favorites
   }>();
 
   const idxNum = Number(params.idx ?? "0");
@@ -93,30 +47,58 @@ export default function TabTwoScreen() {
     }
   }, [params.ingredients_json]);
 
-  const { ratingsByKey, setRating, clearRating, favoritesByKey, toggleFavorite } =
-    useFeedback();
+  // ✅ Feedback store (like/dislike)
+  const { ratingsByKey, setRating, clearRating } = useFeedback();
+
+  // ✅ Favorites store
+  const { favoritesByKey, toggleFavorite } = useFavorites();
 
   const [error, setError] = useState<string | null>(null);
 
   const recipeTitle = String(recipe?.short_name ?? recipe?.name ?? "Recipe").trim();
 
-  // ✅ [UPDATED] prefer stable key if passed
+  // ✅ prefer stable key if passed
   const recipeKey =
     typeof params.recipe_key === "string" && params.recipe_key.trim()
       ? params.recipe_key.trim()
       : `${idxNum + 1}-${recipeTitle}`;
 
+  // ✅ rating for this recipe
   const currentRating: FeedbackRating | null =
     (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
 
+  // ✅ favorite state for this recipe (single source of truth)
+  const isFav = !!favoritesByKey?.[recipeKey];
+
   useEffect(() => {
+    // ✅ clear local error when switching recipes
     setError(null);
   }, [recipeKey]);
+
+  const onToggleFavorite = () => {
+    // ✅ [UPDATED] Always provide title + clean tags so Favorites tab can render safely
+    const safeTitle =
+      String(recipeTitle ?? "").trim() ||
+      String(recipe?.short_name ?? recipe?.name ?? "").trim() ||
+      "Recipe";
+
+    const safeTags =
+      Array.isArray(tags) ? tags.map((x: any) => String(x).trim()).filter(Boolean) : [];
+
+    toggleFavorite({
+      recipe_key: recipeKey,
+      title: safeTitle,
+      tags: safeTags,
+      recipe,
+      ingredients,
+      saved_at: Date.now(),
+    });
+  };
 
   const sendFeedback = async (next: FeedbackRating) => {
     setError(null);
 
-    // optimistic UI (shared)
+    // optimistic UI
     const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
     setRating(recipeKey, next);
 
@@ -155,6 +137,50 @@ export default function TabTwoScreen() {
     }
   };
 
+  const createShareAndGo = async () => {
+    setError(null);
+
+    if (!API_URL) {
+      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${API_URL}/share-recipe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipe, ingredients }),
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`Share API failed: ${resp.status} ${t}`);
+      }
+
+      const data = (await resp.json()) as { share_id: string; share_url: string };
+
+      // carry through for back-to-recipe behavior in Tab 4
+      const recipe_json = encodeURIComponent(JSON.stringify(recipe));
+      const ingredients_json = encodeURIComponent(JSON.stringify(ingredients));
+
+      router.push({
+        pathname: "/(tabs)/four",
+        params: {
+          share_id: encodeURIComponent(data.share_id),
+          share_url: encodeURIComponent(data.share_url),
+
+          idx: String(idxNum),
+          recipe_key: recipeKey,
+          recipe_json,
+          ingredients_json,
+        },
+      });
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to create share link.");
+    }
+  };
+
+  // --------- UI fallbacks ----------
   if (!recipe) {
     return (
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
@@ -189,28 +215,16 @@ export default function TabTwoScreen() {
   const steps = Array.isArray(recipe?.instructions) ? recipe.instructions : [];
   const garnish = Array.isArray(recipe?.garnish) ? recipe.garnish : [];
 
-  // ✅ [ADDED] favorite state for this recipe
-  const isFavorite = !!favoritesByKey?.[recipeKey];
-
-  const onToggleFavorite = () => {
-    toggleFavorite({
-      recipeKey,
-      title: recipeTitle || "Recipe",
-      tags,
-      recipe,
-      ingredients,
-    });
-  };
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={{
           padding: 16,
           gap: 12,
-          paddingBottom: 180, // ✅ [ADDED] leave space for the floating Share button
+          paddingBottom: 40,
         }}
-       >
-        {/* ✅ [UPDATED] Title row + Heart */}
+      >
+        {/* Title row + Heart */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Text style={{ fontSize: 22, fontWeight: "900", flex: 1 }}>
             {recipeTitle ? recipeTitle : "Recipe"}
@@ -222,8 +236,8 @@ export default function TabTwoScreen() {
             style={{ paddingHorizontal: 6, paddingVertical: 4 }}
           >
             <FontAwesome
-              name={isFavorite ? "heart" : "heart-o"}
-              color={isFavorite ? "#E11D48" : "#888"}
+              name={isFav ? "heart" : "heart-o"}
+              color={isFav ? "#E11D48" : "#888"}
               size={20}
             />
           </Pressable>
@@ -301,7 +315,9 @@ export default function TabTwoScreen() {
             {garnish.length === 0 ? (
               <Text style={{ color: "#666" }}>(None)</Text>
             ) : (
-              garnish.map((g: any, i: number) => <Text key={i}>• {String(g)}</Text>)
+              garnish.map((g: any, i: number) => (
+                <Text key={i}>• {String(g)}</Text>
+              ))
             )}
           </View>
 
@@ -339,7 +355,7 @@ export default function TabTwoScreen() {
             gap: 12,
             marginTop: 4,
           }}
-          >
+        >
           <Pressable
             onPress={() => router.back()}
             style={{
@@ -361,7 +377,7 @@ export default function TabTwoScreen() {
               paddingVertical: 8,
               backgroundColor: "white",
             }}
-           >
+          >
             <Text style={{ fontWeight: "900" }}>Share</Text>
           </Pressable>
         </View>
@@ -372,6 +388,4 @@ export default function TabTwoScreen() {
       </ScrollView>
     </View>
   );
-
-
 }

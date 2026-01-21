@@ -3,15 +3,18 @@ import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
-import { useFeedback } from "@/context/feedback";
+import { useFavorites } from "../../context/favorites"; // ✅ [UPDATED]
 
 export default function TabThreeScreen() {
   const router = useRouter();
-  const { favoritesByKey, removeFavorite } = useFeedback();
+
+  // ✅ [UPDATED] Favorites store (NOT feedback)
+  const { favoritesByKey, removeFavorite } = useFavorites();
 
   const favoritesList = useMemo(() => {
     const arr = Object.values(favoritesByKey ?? {});
-    return arr.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    // ✅ [UPDATED] sort by saved_at (newest first)
+    return arr.sort((a: any, b: any) => (b.saved_at ?? 0) - (a.saved_at ?? 0));
   }, [favoritesByKey]);
 
   const openFavorite = (favKey: string) => {
@@ -22,7 +25,8 @@ export default function TabThreeScreen() {
       pathname: "/(tabs)/two",
       params: {
         idx: "0",
-        recipe_key: fav.recipeKey,
+        // ✅ [UPDATED] stable key for Tab 2
+        recipe_key: fav.recipe_key,
         recipe_json: encodeURIComponent(JSON.stringify(fav.recipe)),
         ingredients_json: encodeURIComponent(JSON.stringify(fav.ingredients)),
       },
@@ -42,9 +46,11 @@ export default function TabThreeScreen() {
         <View style={{ gap: 10 }}>
           {favoritesList.map((fav: any) => {
             const favTags = Array.isArray(fav.tags) ? fav.tags : [];
+            const key = String(fav.recipe_key || "");
+
             return (
               <View
-                key={fav.recipeKey}
+                key={key}
                 style={{
                   borderWidth: 1,
                   borderRadius: 12,
@@ -58,7 +64,7 @@ export default function TabThreeScreen() {
                   </Text>
 
                   <Pressable
-                    onPress={() => openFavorite(fav.recipeKey)}
+                    onPress={() => openFavorite(key)}
                     style={{
                       borderWidth: 1,
                       borderRadius: 999,
@@ -77,7 +83,7 @@ export default function TabThreeScreen() {
                 )}
 
                 <Pressable
-                  onPress={() => removeFavorite(fav.recipeKey)}
+                  onPress={() => removeFavorite(key)}
                   style={{
                     alignSelf: "flex-start",
                     borderWidth: 1,
