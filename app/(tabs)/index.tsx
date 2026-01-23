@@ -15,7 +15,6 @@ import {
   View,
 } from "react-native";
 
-// ✅ [UPDATED] useFeedback (NOT useFeedbackStore)
 import { useFeedback } from "@/context/feedback";
 
 import * as FileSystem from "expo-file-system/legacy";
@@ -27,10 +26,38 @@ type Safety = {
   message: string;
 };
 
+type ClassicItem = {
+  iba_code: string;
+  name: string;
+  iba_category?: string;
+  missing_count: number;
+  total_ings: number;
+  missing_items?: string[];
+  bucket?: "ready" | "one_missing" | "two_missing";
+};
+
+type SectionTone = "ready" | "one_missing" | "two_missing";
+
+type AnalyzeImageResponse = {
+  ingredients?: string[];
+  ingredients_raw?: string[];
+  safety?: Safety;
+  alias?: { loaded_at: string | null; count: number };
+};
+
+type CanonicalizeResponse = {
+  raw?: string;
+  canonical?: string;
+  alias?: { loaded_at: string | null; count: number };
+};
+
 export default function TabOneScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
+
   const [ingredients, setIngredients] = useState<string[]>([]);
-  const [recipes, setRecipes] = useState<any[]>([]);
+  const [ingredientsCanonical, setIngredientsCanonical] = useState<string[]>([]);
+
+  const [recipes, setRecipes] = useState<ClassicItem[]>([]);
   const [recipesStale, setRecipesStale] = useState(false);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,15 +70,32 @@ export default function TabOneScreen() {
   const [editingValue, setEditingValue] = useState("");
   const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
 
-  // keyboard height (iPhone)
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
-  // ✅ [UPDATED] read ratings map from shared feedback context
   const feedback = useFeedback() as any;
   const ratingsByKey: Record<string, "like" | "dislike"> =
     feedback?.ratingsByKey ?? feedback?.ratings ?? {};
 
-  const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
+  const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_BASE_URL, []);
+
+  const [hasRecommended, setHasRecommended] = useState(false);
+
+  const pingApi = async () => {
+    try {
+      const base = process.env.EXPO_PUBLIC_API_BASE_URL;
+      if (!base) {
+        Alert.alert("Missing env", "EXPO_PUBLIC_API_BASE_URL is not set");
+        return;
+      }
+
+      const r = await fetch(`${base}/health`);
+      const j = await r.json();
+
+      Alert.alert("API /health", JSON.stringify(j));
+    } catch (e: any) {
+      Alert.alert("API error", String(e?.message || e));
+    }
+  };
 
   const scrollRef = useRef<ScrollView>(null);
   const ingredientYRef = useRef<Record<number, number>>({});
@@ -98,6 +142,7 @@ export default function TabOneScreen() {
     setRecipes([]);
     setExpandedIndex(null);
     setRecipesStale(true);
+    setHasRecommended(false);
   };
 
   const openRecipeInTab2 = (r: any, idx: number) => {
@@ -133,10 +178,12 @@ export default function TabOneScreen() {
     const uri = result.assets?.[0]?.uri ?? null;
     setImageUri(uri);
     setIngredients([]);
+    setIngredientsCanonical([]);
     setRecipes([]);
     setSafety(null);
     setExpandedIndex(null);
     setRecipesStale(false);
+    setHasRecommended(false);
     setStage("idle");
   };
 
@@ -155,10 +202,12 @@ export default function TabOneScreen() {
     const uri = result.assets?.[0]?.uri ?? null;
     setImageUri(uri);
     setIngredients([]);
+    setIngredientsCanonical([]);
     setRecipes([]);
     setSafety(null);
     setExpandedIndex(null);
     setRecipesStale(false);
+    setHasRecommended(false);
     setStage("idle");
   };
 
@@ -166,7 +215,7 @@ export default function TabOneScreen() {
     if (!imageUri) return;
 
     if (!API_URL) {
-      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
+      setError("Missing EXPO_PUBLIC_API_BASE_URL. Please check .env.");
       return;
     }
 
@@ -176,9 +225,11 @@ export default function TabOneScreen() {
     setError(null);
 
     setIngredients([]);
+    setIngredientsCanonical([]);
     setRecipes([]);
     setRecipesStale(false);
     setSafety(null);
+    setHasRecommended(false);
 
     try {
       const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: "base64" } as any);
@@ -194,10 +245,16 @@ export default function TabOneScreen() {
         throw new Error(`Ingredient API failed: ${resp.status} ${t}`);
       }
 
-      // ✅ [UPDATED] parse safety too
-      const data = (await resp.json()) as { ingredients: string[]; safety?: Safety };
-      const list = Array.isArray(data.ingredients) ? data.ingredients : [];
-      setIngredients(list);
+      const data = (await resp.json()) as AnalyzeImageResponse;
+
+      const canonical = Array.isArray(data.ingredients) ? data.ingredients : [];
+      const raw =
+        Array.isArray(data.ingredients_raw) && data.ingredients_raw.length > 0
+          ? data.ingredients_raw
+          : canonical;
+
+      setIngredients(raw);
+      setIngredientsCanonical(canonical);
       setSafety(data.safety ?? null);
 
       setStage("idle");
@@ -207,6 +264,55 @@ export default function TabOneScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const canonicalizeOne = async (raw: string) => {
+    const v = String(raw || "").trim();
+    if (!v) return "";
+
+    if (!API_URL) return v;
+
+    try {
+      const url = `${API_URL}/debug/canonicalize?q=${encodeURIComponent(v)}`;
+      const r = await fetch(url);
+      if (!r.ok) return v;
+
+      const j = (await r.json()) as CanonicalizeResponse;
+      const c = String(j?.canonical || "").trim();
+      return c || v;
+    } catch {
+      return v;
+    }
+  };
+
+  const canonicalizeList = async (rawList: string[]) => {
+    const seenRaw = new Set<string>();
+    const cleanedRaw = rawList
+      .map((s) => String(s || "").trim())
+      .filter(Boolean)
+      .filter((s) => {
+        const k = s.toLowerCase();
+        if (seenRaw.has(k)) return false;
+        seenRaw.add(k);
+        return true;
+      });
+
+    const out: string[] = [];
+    const seenCanon = new Set<string>();
+
+    for (const raw of cleanedRaw) {
+      const c = await canonicalizeOne(raw);
+      const k = String(c || "").trim();
+      if (!k) continue;
+
+      const kk = k.toLowerCase();
+      if (seenCanon.has(kk)) continue;
+
+      seenCanon.add(kk);
+      out.push(k);
+    }
+
+    return out;
   };
 
   const addIngredient = () => {
@@ -221,17 +327,21 @@ export default function TabOneScreen() {
       return [...prev, v];
     });
 
+    setIngredientsCanonical([]);
     setNewIngredient("");
+    setHasRecommended(false);
   };
 
   const removeIngredient = (idx: number) => {
     if (recipes.length > 0) invalidateRecipes();
     setIngredients((prev) => prev.filter((_, i) => i !== idx));
+    setIngredientsCanonical([]);
+    setHasRecommended(false);
   };
 
   const regenerateRecipes = async () => {
     if (!API_URL) {
-      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
+      setError("Missing EXPO_PUBLIC_API_BASE_URL. Please check .env.");
       return;
     }
     if (!ingredients || ingredients.length === 0) {
@@ -244,25 +354,48 @@ export default function TabOneScreen() {
     setExpandedIndex(null);
     setError(null);
     setRecipes([]);
+    setHasRecommended(true);
 
     try {
-      const resp = await fetch(`${API_URL}/generate-recipes`, {
+      const canonicalList = await canonicalizeList(ingredients);
+      setIngredientsCanonical(canonicalList);
+
+      if (canonicalList.length === 0) {
+        throw new Error("No canonical ingredients resolved. Please try again.");
+      }
+
+      const resp = await fetch(`${API_URL}/recommend-classics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ingredients }),
+        body: JSON.stringify({ detected_ingredients: canonicalList }),
       });
 
       if (!resp.ok) {
         const t = await resp.text();
-        throw new Error(`Recipe API failed: ${resp.status} ${t}`);
+        throw new Error(`Recommend API failed: ${resp.status} ${t}`);
       }
 
-      const data = (await resp.json()) as { recipes: any[] };
-      setRecipes(Array.isArray(data.recipes) ? data.recipes : []);
+      const data = (await resp.json()) as {
+        can_make?: any[];
+        one_away?: any[];
+        two_away?: any[];
+      };
+
+      const canMake = Array.isArray(data.can_make) ? data.can_make : [];
+      const oneAway = Array.isArray(data.one_away) ? data.one_away : [];
+      const twoAway = Array.isArray(data.two_away) ? data.two_away : [];
+
+      const flattened: ClassicItem[] = [
+        ...canMake.map((x) => ({ ...x, bucket: "ready" as const })),
+        ...oneAway.map((x) => ({ ...x, bucket: "one_missing" as const })),
+        ...twoAway.map((x) => ({ ...x, bucket: "two_missing" as const })),
+      ];
+
+      setRecipes(flattened);
       setRecipesStale(false);
       setStage("idle");
     } catch (e: any) {
-      setError(e?.message ?? "Failed to generate recipes.");
+      setError(e?.message ?? "Failed to recommend classics.");
       setStage("idle");
     } finally {
       setLoading(false);
@@ -306,8 +439,145 @@ export default function TabOneScreen() {
 
     if (changed && recipes.length > 0) invalidateRecipes();
 
+    if (changed) setIngredientsCanonical([]);
+
     setEditingIndex(null);
     setEditingValue("");
+    setHasRecommended(false);
+  };
+
+  const ready = recipes.filter((x) => x.bucket === "ready");
+  const oneMissing = recipes.filter((x) => x.bucket === "one_missing");
+  const twoMissing = recipes.filter((x) => x.bucket === "two_missing");
+
+  const toneStyles = (tone: SectionTone) => {
+    if (tone === "ready") {
+      return {
+        bar: "#6F8F7C",
+        bg: "#EEF2EF",
+        text: "#3F5A4B",
+        border: "#D7E0DA",
+      };
+    }
+    if (tone === "one_missing") {
+      return {
+        bar: "#B6A77A",
+        bg: "#F4F1E8",
+        text: "#6B5D36",
+        border: "#E6DECC",
+      };
+    }
+    return {
+      bar: "#B78A7A",
+      bg: "#F5EEEB",
+      text: "#6A3F34",
+      border: "#E6D3CD",
+    };
+  };
+
+  const Section = ({
+    title,
+    items,
+    tone,
+  }: {
+    title: string;
+    items: ClassicItem[];
+    tone: SectionTone;
+  }) => {
+    if (items.length === 0) return null;
+
+    const t = toneStyles(tone);
+
+    return (
+      <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <View
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 999,
+              backgroundColor: t.bar,
+            }}
+          />
+          <View
+            style={{
+              borderWidth: 1,
+              borderRadius: 999,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              backgroundColor: t.bg,
+              borderColor: t.border,
+            }}
+          >
+            <Text style={{ fontWeight: "900", color: t.text }}>
+              {title} ({items.length})
+            </Text>
+          </View>
+        </View>
+
+        {items.map((r, idx) => {
+          const name = String(r?.name ?? "").trim() || "Recipe";
+          const ratedKey = `${idx + 1}-${name}`;
+          const rated = Boolean(ratingsByKey?.[ratedKey]);
+
+          const miss = Array.isArray(r.missing_items)
+            ? r.missing_items.map((s) => String(s).trim()).filter(Boolean)
+            : [];
+
+          return (
+            <View
+              key={`${r.iba_code}-${idx}`}
+              style={{
+                borderWidth: 1,
+                borderRadius: 12,
+                padding: 12,
+                gap: 8,
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <Text style={{ fontWeight: "800", flex: 1 }} numberOfLines={1}>
+                  {name}
+                </Text>
+
+                {rated ? (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderRadius: 999,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderColor: "#DDD",
+                    }}
+                  >
+                    <Text style={{ fontWeight: "400", color: "#777" }}>Rated</Text>
+                  </View>
+                ) : null}
+
+                <Pressable
+                  onPress={() => openRecipeInTab2(r, idx)}
+                  style={{
+                    borderWidth: 1,
+                    borderRadius: 999,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                  }}
+                >
+                  <Text style={{ fontWeight: "800" }}>View</Text>
+                </Pressable>
+              </View>
+
+              {miss.length > 0 ? (
+                <Text style={{ color: "#555" }} numberOfLines={2}>
+                  Missing: {miss.join(" • ")}
+                </Text>
+              ) : (
+                <Text style={{ color: "#666" }}>(No missing items)</Text>
+              )}
+            </View>
+          );
+        })}
+      </View>
+    );
   };
 
   return (
@@ -316,11 +586,8 @@ export default function TabOneScreen() {
       contentContainerStyle={{ padding: 16, gap: 12 }}
       keyboardShouldPersistTaps="handled"
     >
-
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1 }}>
-          Scan Ingredients
-        </Text>
+        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1 }}>Scan Ingredients</Text>
 
         <Pressable
           onPress={() => router.push("/(tabs)/three")}
@@ -335,17 +602,22 @@ export default function TabOneScreen() {
         </Pressable>
       </View>
 
+      <Button title="Ping API (/health)" onPress={pingApi} />
 
       {__DEV__ ? (
         <View style={{ gap: 4 }}>
           <Text style={{ color: "#555" }}>BUILD: RECIPES_V1</Text>
           <Text style={{ color: "#555" }}>API_URL: {API_URL ?? "(missing)"}</Text>
           <Text style={{ color: "#555" }}>
-            stage: {stage} | loading: {String(loading)} | recipes: {recipes.length}
+            stage: {stage} | loading: {String(loading)} | results: {recipes.length}
           </Text>
           <Text style={{ color: "#555" }}>
             safety:{" "}
             {safety ? `${safety.risk_level} | non=${safety.non_consumable_items.length}` : "null"}
+          </Text>
+          <Text style={{ color: "#555" }}>hasRecommended: {String(hasRecommended)}</Text>
+          <Text style={{ color: "#555" }}>
+            canonical_count: {ingredientsCanonical.length}
           </Text>
         </View>
       ) : null}
@@ -373,7 +645,7 @@ export default function TabOneScreen() {
               loading
                 ? stage === "identifying ingredients"
                   ? "Identifying ingredients..."
-                  : "Generating recipes..."
+                  : "Loading..."
                 : "Run Ingredients"
             }
             onPress={analyze}
@@ -391,7 +663,6 @@ export default function TabOneScreen() {
         </View>
       ) : null}
 
-      {/* Safety warning */}
       {safety && (safety.risk_level !== "none" || safety.non_consumable_items.length > 0) ? (
         <View style={{ padding: 12, borderWidth: 2, borderRadius: 12 }}>
           <Text style={{ fontWeight: "900", marginBottom: 6 }}>Warning</Text>
@@ -404,9 +675,7 @@ export default function TabOneScreen() {
               : "Possible non-consumable item(s) detected. Do NOT ingest and please double-check."}
           </Text>
 
-          <Text style={{ fontWeight: "800", marginBottom: 4 }}>
-            Risk: {safety.risk_level}
-          </Text>
+          <Text style={{ fontWeight: "800", marginBottom: 4 }}>Risk: {safety.risk_level}</Text>
 
           {safety.non_consumable_items.length > 0 ? (
             <View style={{ gap: 4 }}>
@@ -419,15 +688,14 @@ export default function TabOneScreen() {
         </View>
       ) : null}
 
-      {/* Ingredients */}
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
         <Text style={{ fontWeight: "800", marginBottom: 8 }}>Ingredients (editable)</Text>
 
         {recipesStale ? (
           <View style={{ padding: 10, borderWidth: 1, borderRadius: 10, marginBottom: 8 }}>
-            <Text style={{ fontWeight: "800" }}>Recipes out of date</Text>
+            <Text style={{ fontWeight: "800" }}>Results out of date</Text>
             <Text style={{ color: "#555" }}>
-              Ingredients changed. Please regenerate recipes.
+              Ingredients changed. Please refresh recommendations.
             </Text>
           </View>
         ) : null}
@@ -457,10 +725,8 @@ export default function TabOneScreen() {
                         onChangeText={setEditingValue}
                         autoCapitalize="none"
                         onFocus={(e) => {
-                          // @ts-ignore
                           scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
-                            // @ts-ignore
-                            e.target,
+                            e.target as any,
                             120,
                             true
                           );
@@ -473,10 +739,7 @@ export default function TabOneScreen() {
                         }}
                       />
                     ) : (
-                      <Text
-                        style={{ flex: 1, flexShrink: 1, paddingRight: 8 }}
-                        numberOfLines={1}
-                      >
+                      <Text style={{ flex: 1, flexShrink: 1, paddingRight: 8 }} numberOfLines={1}>
                         • {ing}
                       </Text>
                     )}
@@ -568,13 +831,7 @@ export default function TabOneScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Button
-                title={
-                  loading
-                    ? "Generating..."
-                    : recipes.length === 0
-                    ? "Run Recipes"
-                    : "Regenerate Recipes"
-                }
+                title={loading ? "Loading..." : hasRecommended ? "Refresh Classics" : "Recommend Classics"}
                 onPress={regenerateRecipes}
                 disabled={loading || ingredients.length === 0}
               />
@@ -583,84 +840,21 @@ export default function TabOneScreen() {
         </View>
       </View>
 
-      {/* Recipes (compact list) */}
-      <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-        <Text style={{ fontWeight: "800", marginBottom: 8 }}>Recipes</Text>
-
-        {recipes.length === 0 ? (
-          <Text style={{ color: "#666" }}>(No recipes yet)</Text>
-        ) : (
-          <View style={{ gap: 10 }}>
-            {recipes.map((r, idx) => {
-              const title = String(r?.short_name ?? r?.name ?? `Recipe ${idx + 1}`).trim();
-              const recipeKey = `${idx + 1}-${title}`;
-              const rated = Boolean(ratingsByKey?.[recipeKey]);
-
-              const tags =
-                Array.isArray(r?.flavor_4) && r.flavor_4.length === 4 ? r.flavor_4 : [];
-
-              return (
-                <View
-                  key={`${title}-${idx}`}
-                  style={{
-                    borderWidth: 1,
-                    borderRadius: 12,
-                    padding: 12,
-                    gap: 8,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <Text style={{ fontWeight: "800", flex: 1 }}>
-                      {idx + 1}. {title}
-                    </Text>
-
-                    {/* Rated badge (no liked/disliked text) */}
-                    {rated ? (
-                      <View
-                        style={{
-                          borderWidth: 1,
-                          borderRadius: 999,
-                          paddingHorizontal: 10,
-                          paddingVertical: 4,
-                          borderColor: "#DDD", 
-                        }}
-                      >
-                        <Text
-                          style={{
-                            fontWeight: "400", 
-                            color: "#777", 
-                          }}
-                        >
-                          Rated
-                        </Text>
-                      </View>
-                    ) : null}
-
-
-                    <Pressable
-                      onPress={() => openRecipeInTab2(r, idx)}
-                      style={{
-                        borderWidth: 1,
-                        borderRadius: 999,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                      }}
-                    >
-                      <Text style={{ fontWeight: "800" }}>View</Text>
-                    </Pressable>
-                  </View>
-
-                  {tags.length === 4 ? (
-                    <Text style={{ color: "#555" }}>{tags.join(" • ")}</Text>
-                  ) : (
-                    <Text style={{ color: "#666" }}>(No flavor tags)</Text>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        )}
-      </View>
+      {hasRecommended ? (
+        <View style={{ gap: 12 }}>
+          <Section title="Ready" items={ready} tone="ready" />
+          <Section title="1 missing" items={oneMissing} tone="one_missing" />
+          <Section title="2 missing" items={twoMissing} tone="two_missing" />
+          {recipes.length === 0 ? (
+            <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
+              <Text style={{ fontWeight: "800" }}>No matches</Text>
+              <Text style={{ color: "#666" }}>
+                Try adding more ingredients, or check spelling.
+              </Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
