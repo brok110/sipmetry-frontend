@@ -42,3 +42,6 @@ yarn-error.*
 
 # env
 .env
+
+.vscode/
+app/.vscode/
