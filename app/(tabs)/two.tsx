@@ -2,9 +2,20 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useNavigation } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+
+import * as Clipboard from "expo-clipboard";
 
 import { FeedbackRating, useFeedback } from "@/context/feedback";
+import {
+  aggregateIngredientVectors,
+  buildFourWordDescriptor,
+  compareFlavorVectors,
+  DEFAULT_FLAVOR_WEIGHTS,
+  getUnknownIngredients,
+  PreferencePreset,
+  PRESET_VECTORS,
+} from "@/context/ontology";
 import { useFavorites } from "../../context/favorites";
 
 type DbRecipeIngredient = {
@@ -28,7 +39,11 @@ type DbRecipe = {
 };
 
 export default function TabTwoScreen() {
-  const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_BASE_URL, []);
+  const API_URL = useMemo(() => {
+    const v = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
+    return v ? v.replace(/\/+$/, "") : "";
+  }, []);
+
   const router = useRouter();
   const navigation = useNavigation<any>();
 
@@ -68,9 +83,7 @@ export default function TabTwoScreen() {
 
   const missingItems = useMemo<string[]>(() => {
     try {
-      const raw = params.missing_items_json
-        ? decodeURIComponent(params.missing_items_json)
-        : "";
+      const raw = params.missing_items_json ? decodeURIComponent(params.missing_items_json) : "";
       const arr = raw ? JSON.parse(raw) : [];
       return Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean) : [];
     } catch {
@@ -81,8 +94,8 @@ export default function TabTwoScreen() {
   const ibaCode = useMemo(() => {
     const fromParam = typeof params.iba_code === "string" ? params.iba_code.trim() : "";
     const fromLegacy =
-      legacyRecipe && typeof legacyRecipe === "object" && legacyRecipe.iba_code
-        ? String(legacyRecipe.iba_code).trim()
+      legacyRecipe && typeof legacyRecipe === "object" && (legacyRecipe as any).iba_code
+        ? String((legacyRecipe as any).iba_code).trim()
         : "";
     return fromParam || fromLegacy || "";
   }, [params.iba_code, legacyRecipe]);
@@ -107,7 +120,7 @@ export default function TabTwoScreen() {
 
       if (!API_URL) {
         setDbRecipe(null);
-        setError("Missing EXPO_PUBLIC_API_BASE_URL. Please check .env.");
+        setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
         return;
       }
 
@@ -163,7 +176,7 @@ export default function TabTwoScreen() {
 
   const recipeTitle = useMemo(() => {
     if (dbRecipe?.name) return dbRecipe.name;
-    return String(recipe?.short_name ?? recipe?.name ?? "Recipe").trim();
+    return String((recipe as any)?.short_name ?? (recipe as any)?.name ?? "Recipe").trim();
   }, [dbRecipe, recipe]);
 
   const recipeKey =
@@ -198,6 +211,82 @@ export default function TabTwoScreen() {
     });
   };
 
+  const recipeIngredientsForOntology = useMemo<string[]>(() => {
+    if (
+      dbRecipe?.ingredients &&
+      Array.isArray(dbRecipe.ingredients) &&
+      dbRecipe.ingredients.length > 0
+    ) {
+      return dbRecipe.ingredients.map((it) => String(it?.item ?? "").trim()).filter(Boolean);
+    }
+
+    const legacy = legacyRecipe as any;
+    const legacyList = Array.isArray(legacy?.ingredients_ml)
+      ? legacy.ingredients_ml
+      : Array.isArray(legacy?.ingredients)
+      ? legacy.ingredients
+      : null;
+
+    if (Array.isArray(legacyList) && legacyList.length > 0) {
+      return legacyList
+        .map((x: any) => {
+          if (typeof x === "string") return x.trim();
+          if (x && typeof x === "object") return String(x.item ?? x.name ?? "").trim();
+          return "";
+        })
+        .filter(Boolean);
+    }
+
+    return ingredientsFromScan;
+  }, [dbRecipe, legacyRecipe, ingredientsFromScan]);
+
+  const recipeFlavorVector = useMemo(() => {
+    return aggregateIngredientVectors(recipeIngredientsForOntology);
+  }, [recipeIngredientsForOntology]);
+
+  const unknownIngredients = useMemo(() => {
+    return getUnknownIngredients(recipeIngredientsForOntology);
+  }, [recipeIngredientsForOntology]);
+
+  const descriptor = useMemo(() => {
+    return buildFourWordDescriptor(recipeFlavorVector);
+  }, [recipeFlavorVector]);
+
+  const copyUnknownTemplate = async () => {
+    if (!unknownIngredients || unknownIngredients.length === 0) return;
+
+    const lines = unknownIngredients.map((k) => `  "${k}": {  },`).join("\n");
+    const payload = "{\n" + lines + "\n}";
+
+    try {
+      await Clipboard.setStringAsync(payload);
+      Alert.alert("Copied", "Unknown ingredient template copied to clipboard.");
+    } catch (e: any) {
+      Alert.alert("Copy failed", String(e?.message || e));
+    }
+  };
+
+  const copyDebug = async () => {
+    try {
+      const payload = {
+        ibaCode,
+        recipeTitle,
+        recipeKey,
+        API_URL: API_URL || "(missing)",
+        recipe_ingredients_for_ontology: recipeIngredientsForOntology,
+        unknown_ingredients: unknownIngredients,
+        recipe_flavor_vector: recipeFlavorVector,
+        four_word_descriptor: descriptor,
+        db_loaded: Boolean(dbRecipe),
+      };
+
+      await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
+      Alert.alert("Copied", "Debug JSON copied to clipboard.");
+    } catch (e: any) {
+      Alert.alert("Copy failed", String(e?.message || e));
+    }
+  };
+
   const sendFeedback = async (next: FeedbackRating) => {
     setError(null);
 
@@ -207,7 +296,7 @@ export default function TabTwoScreen() {
     if (!API_URL) {
       if (prev) setRating(recipeKey, prev);
       else clearRating(recipeKey);
-      setError("Missing EXPO_PUBLIC_API_BASE_URL. Please check .env.");
+      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
 
@@ -239,7 +328,7 @@ export default function TabTwoScreen() {
     setError(null);
 
     if (!API_URL) {
-      setError("Missing EXPO_PUBLIC_API_BASE_URL. Please check .env.");
+      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
 
@@ -275,36 +364,6 @@ export default function TabTwoScreen() {
       setError(e?.message ?? "Failed to create share link.");
     }
   };
-
-  if (!recipe) {
-    return (
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Text style={{ fontSize: 20, fontWeight: "800" }}>Recipe</Text>
-        <Text style={{ color: "#666" }}>
-          No recipe selected. Go back to Scan and tap “View”.
-        </Text>
-
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            alignSelf: "flex-start",
-            borderWidth: 1,
-            borderRadius: 999,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            marginTop: 8,
-          }}
-        >
-          <Text style={{ fontWeight: "800" }}>Back</Text>
-        </Pressable>
-      </ScrollView>
-    );
-  }
-
-  const headerTags: string[] = [];
-  if (dbRecipe?.iba_category) headerTags.push(String(dbRecipe.iba_category));
-  if (dbRecipe?.method) headerTags.push(String(dbRecipe.method));
-  if (dbRecipe?.glass) headerTags.push(String(dbRecipe.glass));
 
   const renderDbIngredients = () => {
     const list = Array.isArray(dbRecipe?.ingredients) ? dbRecipe!.ingredients : [];
@@ -347,6 +406,87 @@ export default function TabTwoScreen() {
     );
   };
 
+  const [prefPreset, setPrefPreset] = useState<PreferencePreset>("Balanced");
+
+  const userPreferenceVector = useMemo(() => {
+    return PRESET_VECTORS[prefPreset];
+  }, [prefPreset]);
+
+  const vectorComparison = useMemo(() => {
+    return compareFlavorVectors(recipeFlavorVector, userPreferenceVector, DEFAULT_FLAVOR_WEIGHTS);
+  }, [recipeFlavorVector, userPreferenceVector]);
+
+  const copyComparison = async () => {
+    try {
+      const payload = {
+        ibaCode,
+        recipeTitle,
+        recipeKey,
+        API_URL: API_URL || "(missing)",
+        prefPreset,
+        user_preference_vector: userPreferenceVector,
+        recipe_ingredients_for_ontology: recipeIngredientsForOntology,
+        unknown_ingredients: unknownIngredients,
+        recipe_flavor_vector: recipeFlavorVector,
+        four_word_descriptor: descriptor,
+        comparison_rows: vectorComparison.rows,
+        overall_score_100: vectorComparison.score100,
+        db_loaded: Boolean(dbRecipe),
+      };
+
+      await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
+      Alert.alert("Copied", "Comparison JSON copied to clipboard.");
+    } catch (e: any) {
+      Alert.alert("Copy failed", String(e?.message || e));
+    }
+  };
+
+  if (!recipe) {
+    return (
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+        <Text style={{ fontSize: 20, fontWeight: "800" }}>Recipe</Text>
+        <Text style={{ color: "#666" }}>No recipe selected. Go back to Scan and tap “View”.</Text>
+
+        <Pressable
+          onPress={() => router.back()}
+          style={{
+            alignSelf: "flex-start",
+            borderWidth: 1,
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            marginTop: 8,
+          }}
+        >
+          <Text style={{ fontWeight: "800" }}>Back</Text>
+        </Pressable>
+      </ScrollView>
+    );
+  }
+
+  const headerTags: string[] = [];
+  if (dbRecipe?.iba_category) headerTags.push(String(dbRecipe.iba_category));
+  if (dbRecipe?.method) headerTags.push(String(dbRecipe.method));
+  if (dbRecipe?.glass) headerTags.push(String(dbRecipe.glass));
+
+  const presetButtons: PreferencePreset[] = ["Balanced", "Boozy", "Citrus", "Herbal", "Sweet"];
+  const canCopyUnknown = unknownIngredients && unknownIngredients.length > 0;
+
+  const Chip = ({ label }: { label: string }) => {
+    return (
+      <View
+        style={{
+          borderWidth: 1,
+          borderRadius: 999,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+        }}
+      >
+        <Text style={{ fontWeight: "800" }}>{label}</Text>
+      </View>
+    );
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -380,6 +520,148 @@ export default function TabTwoScreen() {
           <Text style={{ color: "#666" }}>(No tags)</Text>
         )}
 
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10 }}>
+          <Text style={{ fontWeight: "900" }}>Taste</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {descriptor.words.map((w, i) => (
+              <Chip key={`${w}-${i}`} label={w} />
+            ))}
+          </View>
+        </View>
+
+        {__DEV__ ? (
+          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10 }}>
+            <Text style={{ fontWeight: "900" }}>DEBUG: RecipeVector vs UserPreferenceVector</Text>
+
+            <Text style={{ color: "#555" }}>iba_code: {ibaCode || "(missing)"}</Text>
+            <Text style={{ color: "#555" }}>API_URL: {API_URL || "(missing)"}</Text>
+            <Text style={{ color: "#555" }}>overall_score: {vectorComparison.score100}/100</Text>
+
+            <View style={{ gap: 8 }}>
+              <Text style={{ fontWeight: "800", color: "#555" }}>Preference preset</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {presetButtons.map((p) => {
+                  const active = p === prefPreset;
+                  return (
+                    <Pressable
+                      key={p}
+                      onPress={() => setPrefPreset(p)}
+                      style={{
+                        borderWidth: 1,
+                        borderRadius: 999,
+                        paddingHorizontal: 12,
+                        paddingVertical: 8,
+                        opacity: active ? 1 : 0.75,
+                      }}
+                    >
+                      <Text style={{ fontWeight: "800" }}>{active ? `• ${p}` : p}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <Text style={{ color: "#555", marginTop: 2 }}>
+              recipe_ingredients_for_ontology ({recipeIngredientsForOntology.length}):
+            </Text>
+            <Text style={{ color: "#555" }}>
+              {recipeIngredientsForOntology.length ? recipeIngredientsForOntology.join(", ") : "(none)"}
+            </Text>
+
+            <Text style={{ color: "#555" }}>
+              unknown_ingredients: {unknownIngredients.length ? unknownIngredients.join(", ") : "(none)"}
+            </Text>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 }}>
+              <Pressable
+                onPress={copyDebug}
+                style={{
+                  borderWidth: 1,
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ fontWeight: "800" }}>Copy Debug</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={copyComparison}
+                style={{
+                  borderWidth: 1,
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                }}
+              >
+                <Text style={{ fontWeight: "800" }}>Copy Comparison</Text>
+              </Pressable>
+
+              <Pressable
+                onPress={copyUnknownTemplate}
+                disabled={!canCopyUnknown}
+                style={{
+                  borderWidth: 1,
+                  borderRadius: 999,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  opacity: canCopyUnknown ? 1 : 0.5,
+                }}
+              >
+                <Text style={{ fontWeight: "800" }}>Copy Unknown Template</Text>
+              </Pressable>
+            </View>
+
+            <View style={{ gap: 6, marginTop: 8 }}>
+              <Text style={{ fontWeight: "800", color: "#555" }}>Top gaps</Text>
+              {vectorComparison.topGaps.length ? (
+                vectorComparison.topGaps.map((x) => (
+                  <Text key={x.key} style={{ color: "#555" }}>
+                    • {x.key}: recipe={String(x.recipe)} user={String(x.user)} delta={String(x.delta)}
+                  </Text>
+                ))
+              ) : (
+                <Text style={{ color: "#555" }}>(none)</Text>
+              )}
+            </View>
+
+            <View style={{ gap: 6, marginTop: 6 }}>
+              <Text style={{ fontWeight: "800", color: "#555" }}>Top contributions</Text>
+              {vectorComparison.topContrib.length ? (
+                vectorComparison.topContrib.map((x) => (
+                  <Text key={x.key} style={{ color: "#555" }}>
+                    • {x.key}: contribution={x.contribution.toFixed(2)} / {x.maxContribution.toFixed(2)}
+                  </Text>
+                ))
+              ) : (
+                <Text style={{ color: "#555" }}>(none)</Text>
+              )}
+            </View>
+
+            <View style={{ gap: 6, marginTop: 8 }}>
+              <Text style={{ fontWeight: "800", color: "#555" }}>Per-dimension</Text>
+              {vectorComparison.rows.map((x) => (
+                <Text key={x.key} style={{ color: "#555" }}>
+                  • {x.key}: r={String(x.recipe)} u={String(x.user)}{" "}
+                  {x.delta === null ? "" : `delta=${x.delta} abs=${x.absDelta}`}{" "}
+                  {x.maxContribution > 0
+                    ? `contrib=${x.contribution.toFixed(2)}/${x.maxContribution.toFixed(2)}`
+                    : `note=${x.note}`}
+                </Text>
+              ))}
+            </View>
+
+            <Text style={{ color: "#555", marginTop: 8 }}>recipe_flavor_vector:</Text>
+            <Text style={{ color: "#555" }}>{JSON.stringify(recipeFlavorVector)}</Text>
+
+            <Text style={{ color: "#555", marginTop: 8 }}>user_preference_vector:</Text>
+            <Text style={{ color: "#555" }}>{JSON.stringify(userPreferenceVector)}</Text>
+
+            <Text style={{ color: "#555", marginTop: 8 }}>four_word_descriptor:</Text>
+            <Text style={{ color: "#555" }}>{JSON.stringify(descriptor)}</Text>
+          </View>
+        ) : null}
+
         {missingItems.length > 0 ? (
           <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
             <Text style={{ fontWeight: "900", marginBottom: 6 }}>Missing</Text>
@@ -408,9 +690,7 @@ export default function TabTwoScreen() {
               opacity: currentRating === "dislike" ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontWeight: "800" }}>
-              {currentRating === "like" ? "Liked" : "Like"}
-            </Text>
+            <Text style={{ fontWeight: "800" }}>{currentRating === "like" ? "Liked" : "Like"}</Text>
           </Pressable>
 
           <Pressable
@@ -492,9 +772,7 @@ export default function TabTwoScreen() {
           </Pressable>
         </View>
 
-        <Text style={{ color: "#666" }}>
-          You can switch back to Scan anytime to view another recipe.
-        </Text>
+        <Text style={{ color: "#666" }}>You can switch back to Scan anytime to view another recipe.</Text>
       </ScrollView>
     </View>
   );
