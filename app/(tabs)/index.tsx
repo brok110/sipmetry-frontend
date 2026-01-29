@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import {
   Alert,
   Button,
@@ -17,6 +17,7 @@ import {
 
 import * as Clipboard from "expo-clipboard";
 
+import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
 import {
   aggregateIngredientVectors,
@@ -24,6 +25,7 @@ import {
   normalizeIngredientKey,
 } from "@/context/ontology";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 
@@ -58,6 +60,31 @@ type CanonicalizeResponse = {
   alias?: { loaded_at: string | null; count: number };
 };
 
+type DbRecipe = {
+  iba_code: string;
+  name: string;
+  iba_category?: string | null;
+  method?: string | null;
+  glass?: string | null;
+  instructions?: string | null;
+  is_published?: boolean;
+  ingredients: Array<{
+    sort_order: number;
+    item: string;
+    amount_ml: string | null;
+    amount_text: string | null;
+    unit: string | null;
+    is_optional: boolean;
+  }>;
+};
+
+type UserPrefs = {
+  alcoholStrength?: number | null;
+  sweetness?: number | null;
+  bitterness?: number | null;
+  stylePreset?: string | null;
+};
+
 function dedupeCaseInsensitive(list: string[]) {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -70,7 +97,108 @@ function dedupeCaseInsensitive(list: string[]) {
   return out;
 }
 
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+function toNumberOrNull(v: any): number | null {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+function computeMatchScore(
+  userVec: Record<string, any> | null,
+  recipeVec: Record<string, any> | null
+): number | null {
+  if (!userVec || !recipeVec) return null;
+
+  const keys = Object.keys(userVec).filter((k) => userVec[k] !== null && userVec[k] !== undefined);
+  if (keys.length === 0) return null;
+
+  const perDim: number[] = [];
+
+  for (const k of keys) {
+    const u = toNumberOrNull(userVec[k]);
+    const r = toNumberOrNull(recipeVec[k]);
+    if (u === null || r === null) continue;
+
+    const diff = Math.abs(u - r);
+    const dimScore = 1 - clamp(diff / 3, 0, 1);
+    perDim.push(dimScore);
+  }
+
+  if (perDim.length === 0) return null;
+
+  const avg = perDim.reduce((a, b) => a + b, 0) / perDim.length;
+  return Math.round(clamp(avg, 0, 1) * 100);
+}
+
+async function readPrefsFromStorage(): Promise<UserPrefs | null> {
+  const keysToTry = [
+    "sipmetry.preferences",
+    "sipmetry_preferences",
+    "preferences",
+    "user_preferences",
+    "prefs",
+  ];
+
+  for (const k of keysToTry) {
+    try {
+      const raw = await AsyncStorage.getItem(k);
+      if (!raw) continue;
+      const j = JSON.parse(raw);
+
+      if (!j || typeof j !== "object") continue;
+
+      const prefs: UserPrefs = {
+        alcoholStrength: j.alcoholStrength ?? j.alcohol_strength ?? j.boozy ?? j.alcohol ?? null,
+        sweetness: j.sweetness ?? j.sweet ?? null,
+        bitterness: j.bitterness ?? j.bitter ?? null,
+        stylePreset: j.stylePreset ?? j.style_preset ?? j.style ?? null,
+      };
+
+      const anyValue =
+        prefs.alcoholStrength !== null ||
+        prefs.sweetness !== null ||
+        prefs.bitterness !== null ||
+        (prefs.stylePreset !== null && prefs.stylePreset !== undefined);
+
+      if (anyValue) return prefs;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function inferIbaCodeFromAny(obj: any): string {
+  const fromField = typeof obj?.iba_code === "string" ? String(obj.iba_code).trim() : "";
+  if (fromField) return fromField;
+
+  const fromRecipe = typeof obj?.recipe?.iba_code === "string" ? String(obj.recipe.iba_code).trim() : "";
+  if (fromRecipe) return fromRecipe;
+
+  return "";
+}
+
+function maybeParseCodeFromRecipeKey(recipeKey: string): string {
+  const k = String(recipeKey || "").trim();
+  if (!k) return "";
+  const prefix = k.split("-")[0]?.trim() ?? "";
+  if (!prefix) return "";
+  if (/^[A-Za-z0-9_]+$/.test(prefix) && prefix.length <= 24) return prefix;
+  return "";
+}
+
 export default function TabOneScreen() {
+  const MATCH_THRESHOLD = 60;
+
+  const FAV_BONUS = 8;
+  const LIKE_BONUS = 5;
+  const DISLIKE_PENALTY = -10;
+
   const [imageUri, setImageUri] = useState<string | null>(null);
 
   const [ingredients, setIngredients] = useState<string[]>([]);
@@ -81,9 +209,7 @@ export default function TabOneScreen() {
   }, [ingredientsCanonical, ingredients]);
 
   const normalizedOntologyIngredients = useMemo(() => {
-    const normalized = ontologyIngredients
-      .map((x) => normalizeIngredientKey(x))
-      .filter(Boolean);
+    const normalized = ontologyIngredients.map((x) => normalizeIngredientKey(x)).filter(Boolean);
     return dedupeCaseInsensitive(normalized);
   }, [ontologyIngredients]);
 
@@ -113,10 +239,112 @@ export default function TabOneScreen() {
   const feedback = useFeedback() as any;
   const ratingsByKey: Record<string, "like" | "dislike"> =
     feedback?.ratingsByKey ?? feedback?.ratings ?? {};
+  const ratingMetaByKey: Record<string, any> = feedback?.ratingMetaByKey ?? {};
+
+  const { favoritesByKey } = useFavorites();
 
   const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
 
   const [hasRecommended, setHasRecommended] = useState(false);
+
+  const [prefs, setPrefs] = useState<UserPrefs | null>(null);
+  const [prefsLoadedAt, setPrefsLoadedAt] = useState<number | null>(null);
+
+  const [recipeVectorByCode, setRecipeVectorByCode] = useState<Record<string, any>>({});
+  const [matchByCode, setMatchByCode] = useState<Record<string, number>>({});
+
+  const refreshPrefs = async () => {
+    try {
+      const p = await readPrefsFromStorage();
+      setPrefs(p);
+      setPrefsLoadedAt(Date.now());
+    } catch {
+      setPrefs(null);
+      setPrefsLoadedAt(Date.now());
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshPrefs();
+      return () => {};
+    }, [])
+  );
+
+  const hasExplicitPrefs = useMemo(() => {
+    const a = prefs?.alcoholStrength ?? null;
+    const s = prefs?.sweetness ?? null;
+    const b = prefs?.bitterness ?? null;
+    return a !== null || s !== null || b !== null;
+  }, [prefs]);
+
+  const basePreferenceVector = useMemo(() => {
+    const p = prefs;
+
+    const userVecFromPrefs: Record<string, any> = {
+      alcoholStrength: p?.alcoholStrength ?? null,
+      sweetness: p?.sweetness ?? null,
+      bitterness: p?.bitterness ?? null,
+    };
+
+    const anyPrefs =
+      userVecFromPrefs.alcoholStrength !== null ||
+      userVecFromPrefs.sweetness !== null ||
+      userVecFromPrefs.bitterness !== null;
+
+    if (anyPrefs) return userVecFromPrefs;
+
+    if (flavorVector && typeof flavorVector === "object") return flavorVector as any;
+
+    return null;
+  }, [prefs, flavorVector]);
+
+  const interactionSets = useMemo(() => {
+    const favoriteCodes = new Set<string>();
+    const likedCodes = new Set<string>();
+    const dislikedCodes = new Set<string>();
+
+    for (const fav of Object.values(favoritesByKey ?? {})) {
+      const code = inferIbaCodeFromAny(fav);
+      if (code) favoriteCodes.add(code);
+      const fallback = maybeParseCodeFromRecipeKey(String((fav as any)?.recipe_key ?? ""));
+      if (fallback) favoriteCodes.add(fallback);
+    }
+
+    for (const [k, meta] of Object.entries(ratingMetaByKey ?? {})) {
+      const m: any = meta;
+      const recipeKey = String(m?.recipe_key ?? k ?? "").trim();
+      const rating = ratingsByKey?.[recipeKey] ?? ratingsByKey?.[k];
+
+      if (rating !== "like" && rating !== "dislike") continue;
+
+      const code = inferIbaCodeFromAny(m) || maybeParseCodeFromRecipeKey(recipeKey);
+      if (!code) continue;
+
+      if (rating === "like") likedCodes.add(code);
+      else dislikedCodes.add(code);
+    }
+
+    const interactionCount = favoriteCodes.size + likedCodes.size + dislikedCodes.size;
+
+    return { favoriteCodes, likedCodes, dislikedCodes, interactionCount };
+  }, [favoritesByKey, ratingsByKey, ratingMetaByKey]);
+
+  const hasPersonalSignal = useMemo(() => {
+    return hasExplicitPrefs || interactionSets.interactionCount > 0;
+  }, [hasExplicitPrefs, interactionSets]);
+
+  const interactionDeltaForCode = (code: string) => {
+    const c = String(code || "").trim();
+    if (!c) return 0;
+
+    let delta = 0;
+    if (interactionSets.favoriteCodes.has(c)) delta += FAV_BONUS;
+    if (interactionSets.likedCodes.has(c)) delta += LIKE_BONUS;
+    if (interactionSets.dislikedCodes.has(c)) delta += DISLIKE_PENALTY;
+
+    return delta;
+  };
 
   const pingApi = async () => {
     try {
@@ -135,15 +363,46 @@ export default function TabOneScreen() {
     }
   };
 
-  const copyUnknownTemplate = async () => {
-    if (!unknownIngredients || unknownIngredients.length === 0) return;
-
-    const lines = unknownIngredients.map((k) => `  "${k}": {  },`).join("\n");
-    const payload = "{" + "\n" + lines + "\n" + "}";
-
+  const copyDebug = async () => {
     try {
-      await Clipboard.setStringAsync(payload);
-      Alert.alert("Copied", "Unknown ingredient template copied to clipboard.");
+      const payload: any = {
+        build: "RECIPES_V1",
+        API_URL: API_URL ?? "(missing)",
+        stage,
+        loading,
+        results_count: recipes.length,
+        safety: safety
+          ? { risk_level: safety.risk_level, non_count: safety.non_consumable_items.length }
+          : null,
+        hasRecommended,
+        canonical_count: ingredientsCanonical.length,
+        prefs: prefs
+          ? {
+              alcoholStrength: prefs.alcoholStrength ?? null,
+              sweetness: prefs.sweetness ?? null,
+              bitterness: prefs.bitterness ?? null,
+            }
+          : null,
+        match_threshold: MATCH_THRESHOLD,
+        hasExplicitPrefs,
+        hasPersonalSignal,
+        ontologyIngredients,
+        normalizedIngredients: normalizedOntologyIngredients,
+        unknown_ingredients: unknownIngredients,
+        flavor_vector: flavorVector ?? null,
+        interaction: {
+          fav_bonus: FAV_BONUS,
+          like_bonus: LIKE_BONUS,
+          dislike_penalty: DISLIKE_PENALTY,
+          favorite_codes: Array.from(interactionSets.favoriteCodes),
+          liked_codes: Array.from(interactionSets.likedCodes),
+          disliked_codes: Array.from(interactionSets.dislikedCodes),
+          interaction_count: interactionSets.interactionCount,
+        },
+      };
+
+      await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
+      Alert.alert("Copied", "Debug JSON copied to clipboard.");
     } catch (e: any) {
       Alert.alert("Copy failed", String(e?.message || e));
     }
@@ -195,18 +454,33 @@ export default function TabOneScreen() {
     setExpandedIndex(null);
     setRecipesStale(true);
     setHasRecommended(false);
+    setRecipeVectorByCode({});
+    setMatchByCode({});
   };
 
   const openRecipeInTab2 = (r: any, idx: number) => {
+    const code = String(r?.iba_code ?? "").trim();
+    const name = String(r?.name ?? "Recipe").trim() || "Recipe";
+
+    const recipe_key = code ? `${code}-${name}` : `${idx + 1}-${name}`;
+
     const recipe_json = encodeURIComponent(JSON.stringify(r));
     const ingredients_json = encodeURIComponent(JSON.stringify(normalizedOntologyIngredients));
+
+    const miss = Array.isArray(r?.missing_items)
+      ? r.missing_items.map((x: any) => String(x ?? "").trim()).filter(Boolean)
+      : [];
+    const missing_items_json = encodeURIComponent(JSON.stringify(miss));
 
     router.push({
       pathname: "/(tabs)/two",
       params: {
         idx: String(idx),
+        recipe_key,
+        iba_code: code,
         recipe_json,
         ingredients_json,
+        missing_items_json,
       },
     });
   };
@@ -221,7 +495,7 @@ export default function TabOneScreen() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 0.9,
     });
 
@@ -237,6 +511,8 @@ export default function TabOneScreen() {
     setRecipesStale(false);
     setHasRecommended(false);
     setStage("idle");
+    setRecipeVectorByCode({});
+    setMatchByCode({});
   };
 
   const takePhoto = async () => {
@@ -261,6 +537,8 @@ export default function TabOneScreen() {
     setRecipesStale(false);
     setHasRecommended(false);
     setStage("idle");
+    setRecipeVectorByCode({});
+    setMatchByCode({});
   };
 
   const analyze = async () => {
@@ -282,6 +560,8 @@ export default function TabOneScreen() {
     setRecipesStale(false);
     setSafety(null);
     setHasRecommended(false);
+    setRecipeVectorByCode({});
+    setMatchByCode({});
 
     try {
       const base64 = await FileSystem.readAsStringAsync(imageUri, { encoding: "base64" } as any);
@@ -411,6 +691,8 @@ export default function TabOneScreen() {
     setError(null);
     setRecipes([]);
     setHasRecommended(true);
+    setRecipeVectorByCode({});
+    setMatchByCode({});
 
     try {
       const canonicalListRaw = await canonicalizeList(ingredients);
@@ -463,6 +745,119 @@ export default function TabOneScreen() {
     }
   };
 
+  useEffect(() => {
+    const run = async () => {
+      if (!API_URL) return;
+      if (!recipes || recipes.length === 0) return;
+
+      const uniqueCodes = Array.from(
+        new Set(recipes.map((x) => String(x.iba_code || "").trim()).filter(Boolean))
+      );
+
+      const missing = uniqueCodes.filter((c) => !recipeVectorByCode[c]);
+      if (missing.length === 0) return;
+
+      const nextVectors: Record<string, any> = {};
+
+      for (const code of missing) {
+        try {
+          const r = await fetch(`${API_URL}/recipes/${encodeURIComponent(code)}`);
+          if (!r.ok) continue;
+
+          const j = (await r.json()) as { recipe?: DbRecipe };
+          const recipe = j?.recipe;
+          if (!recipe || !Array.isArray(recipe.ingredients)) continue;
+
+          const items = recipe.ingredients
+            .map((x) => String(x?.item ?? "").trim())
+            .filter(Boolean)
+            .map((x) => normalizeIngredientKey(x))
+            .filter(Boolean);
+
+          const normalized = dedupeCaseInsensitive(items);
+          const vec = aggregateIngredientVectors(normalized);
+
+          nextVectors[code] = vec;
+        } catch {
+          continue;
+        }
+      }
+
+      if (Object.keys(nextVectors).length > 0) {
+        setRecipeVectorByCode((prev) => ({ ...prev, ...nextVectors }));
+      }
+    };
+
+    run();
+  }, [API_URL, recipes, recipeVectorByCode, prefsLoadedAt]);
+
+  useEffect(() => {
+    const next: Record<string, number> = {};
+    const userVec = basePreferenceVector as any;
+
+    for (const code of Object.keys(recipeVectorByCode)) {
+      const vec = recipeVectorByCode[code];
+      const base = computeMatchScore(userVec, vec as any);
+      if (typeof base !== "number") continue;
+
+      const delta = interactionDeltaForCode(code);
+      const finalScore = Math.round(clamp(base + delta, 0, 100));
+
+      next[code] = finalScore;
+    }
+
+    setMatchByCode(next);
+  }, [recipeVectorByCode, basePreferenceVector, interactionSets]);
+
+  const getRecipeMatchScore = (r: ClassicItem) => {
+    const code = String(r?.iba_code || "").trim();
+    if (!code) return -1;
+    const m = matchByCode[code];
+    return typeof m === "number" ? m : -1;
+  };
+
+  const shouldShowRecipe = (r: ClassicItem) => {
+    const m = getRecipeMatchScore(r);
+    return m >= MATCH_THRESHOLD;
+  };
+
+  const sortByMatchDesc = (a: ClassicItem, b: ClassicItem) => {
+    const ma = getRecipeMatchScore(a);
+    const mb = getRecipeMatchScore(b);
+
+    const aHas = ma >= 0;
+    const bHas = mb >= 0;
+    if (aHas !== bHas) return aHas ? -1 : 1;
+
+    if (ma !== mb) return mb - ma;
+
+    const an = String(a?.name ?? "");
+    const bn = String(b?.name ?? "");
+    const byName = an.localeCompare(bn);
+    if (byName !== 0) return byName;
+
+    const ac = String(a?.iba_code ?? "");
+    const bc = String(b?.iba_code ?? "");
+    return ac.localeCompare(bc);
+  };
+
+  const ready = useMemo(() => {
+    const items = recipes.filter((x) => x.bucket === "ready").filter(shouldShowRecipe);
+    return [...items].sort(sortByMatchDesc);
+  }, [recipes, matchByCode]);
+
+  const oneMissing = useMemo(() => {
+    const items = recipes.filter((x) => x.bucket === "one_missing").filter(shouldShowRecipe);
+    return [...items].sort(sortByMatchDesc);
+  }, [recipes, matchByCode]);
+
+  const twoMissing = useMemo(() => {
+    const items = recipes.filter((x) => x.bucket === "two_missing").filter(shouldShowRecipe);
+    return [...items].sort(sortByMatchDesc);
+  }, [recipes, matchByCode]);
+
+  const visibleRecipeCount = ready.length + oneMissing.length + twoMissing.length;
+
   const startEditIngredient = (idx: number) => {
     setEditingIndex(idx);
     setEditingValue(ingredients[idx] ?? "");
@@ -487,9 +882,7 @@ export default function TabOneScreen() {
     let changed = false;
 
     setIngredients((prev) => {
-      const exists = prev.some(
-        (x, i) => i !== editingIndex && x.toLowerCase() === v.toLowerCase()
-      );
+      const exists = prev.some((x, i) => i !== editingIndex && x.toLowerCase() === v.toLowerCase());
       if (exists) return prev;
 
       const next = [...prev];
@@ -505,10 +898,6 @@ export default function TabOneScreen() {
     setEditingValue("");
     setHasRecommended(false);
   };
-
-  const ready = recipes.filter((x) => x.bucket === "ready");
-  const oneMissing = recipes.filter((x) => x.bucket === "one_missing");
-  const twoMissing = recipes.filter((x) => x.bucket === "two_missing");
 
   const toneStyles = (tone: SectionTone) => {
     if (tone === "ready") {
@@ -577,12 +966,19 @@ export default function TabOneScreen() {
 
         {items.map((r, idx) => {
           const name = String(r?.name ?? "").trim() || "Recipe";
-          const ratedKey = `${idx + 1}-${name}`;
-          const rated = Boolean(ratingsByKey?.[ratedKey]);
+
+          const code = String(r?.iba_code || "").trim();
+          const ratedKeyStable = code ? `${code}-${name}` : name;
+          const ratedKeyLegacy = `${idx + 1}-${name}`;
+          const rated = Boolean(ratingsByKey?.[ratedKeyStable] || ratingsByKey?.[ratedKeyLegacy]);
 
           const miss = Array.isArray(r.missing_items)
             ? r.missing_items.map((s) => String(s).trim()).filter(Boolean)
             : [];
+
+          const match = code ? matchByCode[code] : undefined;
+          const showTasteHint =
+            hasPersonalSignal && typeof match === "number" && match >= MATCH_THRESHOLD;
 
           return (
             <View
@@ -598,6 +994,21 @@ export default function TabOneScreen() {
                 <Text style={{ fontWeight: "800", flex: 1 }} numberOfLines={1}>
                   {name}
                 </Text>
+
+                {showTasteHint ? (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderRadius: 999,
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderColor: "#DDD",
+                      backgroundColor: "#F7F7F7",
+                    }}
+                  >
+                    <Text style={{ fontWeight: "700", color: "#444" }}>You might like this</Text>
+                  </View>
+                ) : null}
 
                 {rated ? (
                   <View
@@ -650,6 +1061,19 @@ export default function TabOneScreen() {
         <Text style={{ fontSize: 20, fontWeight: "800", flex: 1 }}>Scan Ingredients</Text>
 
         <Pressable
+          onPress={() => router.push("/(tabs)/zero")}
+          style={{
+            borderWidth: 1,
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            marginRight: 8,
+          }}
+        >
+          <Text style={{ fontWeight: "800", color: "#666" }}>Tune</Text>
+        </Pressable>
+
+        <Pressable
           onPress={() => router.push("/(tabs)/three")}
           style={{
             borderWidth: 1,
@@ -662,48 +1086,14 @@ export default function TabOneScreen() {
         </Pressable>
       </View>
 
-      <Button title="Ping API (/health)" onPress={pingApi} />
-
-      {__DEV__ ? (
-        <View style={{ gap: 4 }}>
-          <Text style={{ color: "#555" }}>BUILD: RECIPES_V1</Text>
-          <Text style={{ color: "#555" }}>API_URL: {API_URL ?? "(missing)"}</Text>
-          <Text style={{ color: "#555" }}>
-            stage: {stage} | loading: {String(loading)} | results: {recipes.length}
-          </Text>
-          <Text style={{ color: "#555" }}>
-            safety:{" "}
-            {safety ? `${safety.risk_level} | non=${safety.non_consumable_items.length}` : "null"}
-          </Text>
-          <Text style={{ color: "#555" }}>hasRecommended: {String(hasRecommended)}</Text>
-          <Text style={{ color: "#555" }}>canonical_count: {ingredientsCanonical.length}</Text>
-
-          <Text style={{ color: "#555" }}>
-            ontologyIngredients: {ontologyIngredients.length ? ontologyIngredients.join(", ") : "(none)"}
-          </Text>
-          <Text style={{ color: "#555" }}>
-            normalizedIngredients:{" "}
-            {normalizedOntologyIngredients.length ? normalizedOntologyIngredients.join(", ") : "(none)"}
-          </Text>
-
-          <Pressable
-            onPress={copyUnknownTemplate}
-            disabled={!unknownIngredients || unknownIngredients.length === 0}
-            style={{
-              opacity: !unknownIngredients || unknownIngredients.length === 0 ? 0.5 : 1,
-            }}
-          >
-            <Text style={{ color: "#555" }}>
-              unknown_ingredients:{" "}
-              {unknownIngredients.length ? unknownIngredients.join(", ") : "(none)"}{" "}
-              {unknownIngredients.length ? "(tap to copy template)" : ""}
-            </Text>
-          </Pressable>
-
-          <Text style={{ color: "#555" }}>flavor_vector:</Text>
-          <Text style={{ color: "#555" }}>{JSON.stringify(flavorVector)}</Text>
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Button title="Ping API (/health)" onPress={pingApi} />
         </View>
-      ) : null}
+        <View style={{ flex: 1 }}>
+          <Button title="Copy Debug" onPress={copyDebug} />
+        </View>
+      </View>
 
       <View style={{ flexDirection: "row", gap: 12 }}>
         <View style={{ flex: 1 }}>
@@ -912,9 +1302,7 @@ export default function TabOneScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Button
-                title={
-                  loading ? "Loading..." : hasRecommended ? "Refresh Classics" : "Recommend Classics"
-                }
+                title={loading ? "Loading..." : hasRecommended ? "Refresh Classics" : "Recommend Classics"}
                 onPress={regenerateRecipes}
                 disabled={loading || ingredients.length === 0}
               />
@@ -928,10 +1316,13 @@ export default function TabOneScreen() {
           <Section title="Ready" items={ready} tone="ready" />
           <Section title="1 missing" items={oneMissing} tone="one_missing" />
           <Section title="2 missing" items={twoMissing} tone="two_missing" />
-          {recipes.length === 0 ? (
+
+          {visibleRecipeCount === 0 ? (
             <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
               <Text style={{ fontWeight: "800" }}>No matches</Text>
-              <Text style={{ color: "#666" }}>Try adding more ingredients, or check spelling.</Text>
+              <Text style={{ color: "#666" }}>
+                Try adjusting your ingredients or preferences, then refresh recommendations.
+              </Text>
             </View>
           ) : null}
         </View>

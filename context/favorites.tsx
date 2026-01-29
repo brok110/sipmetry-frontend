@@ -1,15 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Alert } from "react-native";
+
+import { useEconomy } from "@/context/economy";
 
 export type FavoriteItem = {
   recipe_key: string;
+  iba_code?: string;
   title: string;
   tags: string[];
   recipe: any;
@@ -21,7 +18,14 @@ export type FavoritesByKey = Record<string, FavoriteItem>;
 
 type FavoritesContextValue = {
   favoritesByKey: FavoritesByKey;
+
+  favoriteCount: number;
+  favoriteLimit: number;
+  remainingSlots: number;
+  isAtLimit: boolean;
+
   isFavorite: (recipeKey: string) => boolean;
+
   toggleFavorite: (item: FavoriteItem) => void;
   removeFavorite: (recipeKey: string) => void;
   clearFavorites: () => void;
@@ -29,10 +33,8 @@ type FavoritesContextValue = {
 
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 
-// ✅ storage key (versioned)
-const STORAGE_KEY = "sipmetry:favorites:v1";
+const STORAGE_KEY = "sipmetry:favorites:v2";
 
-// ✅ [ADDED] runtime guard to validate loaded object
 function isFavoriteItem(x: any): x is FavoriteItem {
   return (
     x &&
@@ -45,23 +47,38 @@ function isFavoriteItem(x: any): x is FavoriteItem {
   );
 }
 
-// ✅ [ADDED] sanitize map loaded from storage
+function inferIbaCodeFromFavorite(item: any): string | undefined {
+  const fromField = typeof item?.iba_code === "string" ? item.iba_code.trim() : "";
+  if (fromField) return fromField;
+
+  const fromRecipe = typeof item?.recipe?.iba_code === "string" ? item.recipe.iba_code.trim() : "";
+  if (fromRecipe) return fromRecipe;
+
+  return undefined;
+}
+
 function sanitizeFavoritesMap(raw: any): FavoritesByKey {
   if (!raw || typeof raw !== "object") return {};
   const out: FavoritesByKey = {};
 
-  for (const [k, v] of Object.entries(raw)) {
-    if (typeof k !== "string") continue;
+  for (const [, v] of Object.entries(raw)) {
     if (!isFavoriteItem(v)) continue;
 
-    // minimal normalize
-    out[k] = {
-      recipe_key: v.recipe_key,
-      title: v.title || "Recipe",
-      tags: Array.isArray(v.tags) ? v.tags.filter(Boolean).slice(0, 4) : [],
-      recipe: v.recipe ?? null,
-      ingredients: Array.isArray(v.ingredients) ? v.ingredients.filter(Boolean) : [],
-      saved_at: Number.isFinite(v.saved_at) ? v.saved_at : Date.now(),
+    const recipe_key = String((v as any).recipe_key || "").trim();
+    if (!recipe_key) continue;
+
+    out[recipe_key] = {
+      recipe_key,
+      iba_code: inferIbaCodeFromFavorite(v),
+      title: String((v as any).title || "Recipe").trim() || "Recipe",
+      tags: Array.isArray((v as any).tags)
+        ? (v as any).tags.map((x: any) => String(x ?? "").trim()).filter(Boolean).slice(0, 4)
+        : [],
+      recipe: (v as any).recipe ?? null,
+      ingredients: Array.isArray((v as any).ingredients)
+        ? (v as any).ingredients.map((x: any) => String(x ?? "").trim()).filter(Boolean)
+        : [],
+      saved_at: Number.isFinite((v as any).saved_at) ? Number((v as any).saved_at) : Date.now(),
     };
   }
 
@@ -70,12 +87,12 @@ function sanitizeFavoritesMap(raw: any): FavoritesByKey {
 
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favoritesByKey, setFavoritesByKey] = useState<FavoritesByKey>({});
-  const [hydrated, setHydrated] = useState(false);
-
-  // ✅ avoid writing before initial load completes
   const didHydrateRef = useRef(false);
 
-  // ✅ load favorites once on app start
+  // Economy: favorites capacity is controlled by economy.favoriteLimit (default 5)
+  const economy = useEconomy();
+  const favoriteLimit = Number.isFinite(economy?.favoriteLimit) ? Number(economy.favoriteLimit) : 5;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -86,7 +103,6 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         if (!raw) {
           if (!cancelled) {
             setFavoritesByKey({});
-            setHydrated(true);
             didHydrateRef.current = true;
           }
           return;
@@ -97,13 +113,11 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
         if (!cancelled) {
           setFavoritesByKey(map);
-          setHydrated(true);
           didHydrateRef.current = true;
         }
       } catch {
         if (!cancelled) {
           setFavoritesByKey({});
-          setHydrated(true);
           didHydrateRef.current = true;
         }
       }
@@ -114,7 +128,6 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // ✅ persist whenever favorites change (after hydration)
   useEffect(() => {
     if (!didHydrateRef.current) return;
 
@@ -129,6 +142,13 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [favoritesByKey]);
 
+  const favoriteCount = useMemo(() => Object.keys(favoritesByKey ?? {}).length, [favoritesByKey]);
+  const remainingSlots = useMemo(
+    () => Math.max(0, Math.floor(favoriteLimit) - favoriteCount),
+    [favoriteLimit, favoriteCount]
+  );
+  const isAtLimit = useMemo(() => favoriteCount >= Math.floor(favoriteLimit), [favoriteCount, favoriteLimit]);
+
   const isFavorite = (recipeKey: string) => {
     return !!favoritesByKey?.[recipeKey];
   };
@@ -136,25 +156,47 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const toggleFavorite = (item: FavoriteItem) => {
     if (!item?.recipe_key) return;
 
-    // ✅ [ADDED] normalize incoming item so Tab 3 never renders blank
     const normalized: FavoriteItem = {
       recipe_key: String(item.recipe_key).trim(),
+      iba_code:
+        (typeof item.iba_code === "string" && item.iba_code.trim()) ||
+        (typeof item?.recipe?.iba_code === "string" && item.recipe.iba_code.trim()) ||
+        undefined,
       title: String(item.title || "Recipe").trim() || "Recipe",
-      tags: Array.isArray(item.tags) ? item.tags.filter(Boolean).slice(0, 4) : [],
+      tags: Array.isArray(item.tags)
+        ? item.tags.map((x) => String(x ?? "").trim()).filter(Boolean).slice(0, 4)
+        : [],
       recipe: item.recipe ?? null,
       ingredients: Array.isArray(item.ingredients)
-        ? item.ingredients.filter(Boolean)
+        ? item.ingredients.map((x) => String(x ?? "").trim()).filter(Boolean)
         : [],
       saved_at: Number.isFinite(item.saved_at) ? item.saved_at : Date.now(),
     };
 
+    if (!normalized.recipe_key) return;
+
     setFavoritesByKey((prev) => {
       const exists = !!prev[normalized.recipe_key];
+
+      // Removing is always allowed
       if (exists) {
         const next = { ...prev };
         delete next[normalized.recipe_key];
         return next;
       }
+
+      // Adding: enforce capacity limit
+      const count = Object.keys(prev ?? {}).length;
+      const limit = Math.floor(Number.isFinite(favoriteLimit) ? favoriteLimit : 5);
+
+      if (count >= limit) {
+        Alert.alert(
+          "Favorites full",
+          `You’ve reached your favorites limit (${limit}).\nGo to “My Favorites” to spend 3 tokens to unlock +1 slot.`
+        );
+        return prev;
+      }
+
       return { ...prev, [normalized.recipe_key]: normalized };
     });
   };
@@ -170,7 +212,6 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   const clearFavorites = async () => {
     setFavoritesByKey({});
-    // ✅ [ADDED] optional: eagerly clear storage too
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
     } catch {
@@ -181,22 +222,21 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       favoritesByKey,
+
+      favoriteCount,
+      favoriteLimit,
+      remainingSlots,
+      isAtLimit,
+
       isFavorite,
       toggleFavorite,
       removeFavorite,
       clearFavorites,
     }),
-    [favoritesByKey]
+    [favoritesByKey, favoriteCount, favoriteLimit, remainingSlots, isAtLimit]
   );
 
-  // keep hydrated available for later, but not required now
-  void hydrated;
-
-  return (
-    <FavoritesContext.Provider value={value}>
-      {children}
-    </FavoritesContext.Provider>
-  );
+  return <FavoritesContext.Provider value={value}>{children}</FavoritesContext.Provider>;
 }
 
 export function useFavorites() {

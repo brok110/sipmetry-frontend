@@ -6,6 +6,7 @@ import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import * as Clipboard from "expo-clipboard";
 
+import { useEconomy } from "@/context/economy";
 import { FeedbackRating, useFeedback } from "@/context/feedback";
 import {
   aggregateIngredientVectors,
@@ -102,6 +103,11 @@ export default function TabTwoScreen() {
 
   const { ratingsByKey, setRating, clearRating } = useFeedback();
   const { favoritesByKey, toggleFavorite } = useFavorites();
+  const { tokens, favoriteLimit, canSpend, purchaseFavoriteSlot, earnOncePerRecipe } = useEconomy();
+
+  const favoritesCount = useMemo(() => {
+    return Object.keys(favoritesByKey ?? {}).length;
+  }, [favoritesByKey]);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -179,13 +185,20 @@ export default function TabTwoScreen() {
     return String((recipe as any)?.short_name ?? (recipe as any)?.name ?? "Recipe").trim();
   }, [dbRecipe, recipe]);
 
-  const recipeKey =
-    typeof params.recipe_key === "string" && params.recipe_key.trim()
-      ? params.recipe_key.trim()
-      : `${idxNum + 1}-${recipeTitle}`;
+  const stableRecipeKey = useMemo(() => {
+    const fromParam =
+      typeof params.recipe_key === "string" && params.recipe_key.trim() ? params.recipe_key.trim() : "";
+    if (fromParam) return fromParam;
 
-  const currentRating: FeedbackRating | null =
-    (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
+    const code = String(ibaCode || "").trim();
+    if (code) return `${code}-${recipeTitle}`;
+
+    return `${idxNum + 1}-${recipeTitle}`;
+  }, [params.recipe_key, ibaCode, recipeTitle, idxNum]);
+
+  const recipeKey = stableRecipeKey;
+
+  const currentRating: FeedbackRating | null = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
 
   const isFav = !!favoritesByKey?.[recipeKey];
 
@@ -193,30 +206,8 @@ export default function TabTwoScreen() {
     setError(null);
   }, [recipeKey]);
 
-  const onToggleFavorite = () => {
-    const safeTitle = String(recipeTitle || "").trim() || "Recipe";
-
-    const tags: string[] = [];
-    if (dbRecipe?.iba_category) tags.push(String(dbRecipe.iba_category));
-    if (dbRecipe?.method) tags.push(String(dbRecipe.method));
-    if (dbRecipe?.glass) tags.push(String(dbRecipe.glass));
-
-    toggleFavorite({
-      recipe_key: recipeKey,
-      title: safeTitle,
-      tags,
-      recipe: recipe,
-      ingredients: ingredientsFromScan,
-      saved_at: Date.now(),
-    });
-  };
-
   const recipeIngredientsForOntology = useMemo<string[]>(() => {
-    if (
-      dbRecipe?.ingredients &&
-      Array.isArray(dbRecipe.ingredients) &&
-      dbRecipe.ingredients.length > 0
-    ) {
+    if (dbRecipe?.ingredients && Array.isArray(dbRecipe.ingredients) && dbRecipe.ingredients.length > 0) {
       return dbRecipe.ingredients.map((it) => String(it?.item ?? "").trim()).filter(Boolean);
     }
 
@@ -252,19 +243,35 @@ export default function TabTwoScreen() {
     return buildFourWordDescriptor(recipeFlavorVector);
   }, [recipeFlavorVector]);
 
-  const copyUnknownTemplate = async () => {
-    if (!unknownIngredients || unknownIngredients.length === 0) return;
+  const stylePartRaw = useMemo(() => {
+    const fromDb = dbRecipe?.iba_category ? String(dbRecipe.iba_category).trim() : "";
+    const fromLegacy =
+      legacyRecipe && typeof legacyRecipe === "object" && (legacyRecipe as any).iba_category
+        ? String((legacyRecipe as any).iba_category).trim()
+        : "";
+    return fromDb || fromLegacy || "";
+  }, [dbRecipe, legacyRecipe]);
 
-    const lines = unknownIngredients.map((k) => `  "${k}": {  },`).join("\n");
-    const payload = "{\n" + lines + "\n}";
+  const tasteWords = Array.isArray((descriptor as any)?.words) ? (descriptor as any).words : [];
+  const tastePart = tasteWords.length ? tasteWords.slice(0, 3).join(" • ") : "";
 
-    try {
-      await Clipboard.setStringAsync(payload);
-      Alert.alert("Copied", "Unknown ingredient template copied to clipboard.");
-    } catch (e: any) {
-      Alert.alert("Copy failed", String(e?.message || e));
-    }
-  };
+  const headerLine = [stylePartRaw, tastePart].filter(Boolean).join(" • ");
+
+  const subtitleTokensForFavorite = useMemo(() => {
+    const tokens: string[] = [];
+    if (stylePartRaw) tokens.push(stylePartRaw);
+    if (tasteWords.length) tokens.push(...tasteWords.slice(0, 3));
+    return tokens.filter((x) => String(x || "").trim());
+  }, [stylePartRaw, tasteWords]);
+
+  const prefPreset: PreferencePreset = "Balanced";
+  const userPreferenceVector = useMemo(() => {
+    return PRESET_VECTORS[prefPreset];
+  }, [prefPreset]);
+
+  const vectorComparison = useMemo(() => {
+    return compareFlavorVectors(recipeFlavorVector, userPreferenceVector, DEFAULT_FLAVOR_WEIGHTS);
+  }, [recipeFlavorVector, userPreferenceVector]);
 
   const copyDebug = async () => {
     try {
@@ -273,11 +280,22 @@ export default function TabTwoScreen() {
         recipeTitle,
         recipeKey,
         API_URL: API_URL || "(missing)",
+        subtitle: headerLine || "(none)",
+        subtitle_tokens: subtitleTokensForFavorite,
         recipe_ingredients_for_ontology: recipeIngredientsForOntology,
         unknown_ingredients: unknownIngredients,
         recipe_flavor_vector: recipeFlavorVector,
         four_word_descriptor: descriptor,
+        prefPreset,
+        user_preference_vector: userPreferenceVector,
+        comparison_rows: vectorComparison.rows,
+        overall_score_100: vectorComparison.score100,
         db_loaded: Boolean(dbRecipe),
+        economy: {
+          tokens,
+          favoriteLimit,
+          favoritesCount,
+        },
       };
 
       await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
@@ -287,15 +305,90 @@ export default function TabTwoScreen() {
     }
   };
 
+  const doAddFavorite = () => {
+    const safeTitle = String(recipeTitle || "").trim() || "Recipe";
+    const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
+
+    toggleFavorite({
+      recipe_key: recipeKey,
+      iba_code: code || undefined,
+      title: safeTitle,
+      tags: subtitleTokensForFavorite,
+      recipe: recipe,
+      ingredients: ingredientsFromScan,
+      saved_at: Date.now(),
+    });
+  };
+
+  const onToggleFavorite = () => {
+    if (isFav) {
+      doAddFavorite();
+      return;
+    }
+
+    if (favoritesCount < favoriteLimit) {
+      doAddFavorite();
+      return;
+    }
+
+    const cost = 3;
+    const can = canSpend(cost);
+
+    Alert.alert(
+      "Favorites full",
+      `You’ve reached your favorites limit (${favoritesCount}/${favoriteLimit}).\n\nSpend ${cost} tokens to add +1 slot?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Go to My Favorites",
+          onPress: () => router.push("/(tabs)/three"),
+        },
+        {
+          text: `Spend ${cost}`,
+          onPress: () => {
+            if (!can) {
+              Alert.alert(
+                "Not enough tokens",
+                `You have ${tokens} tokens.\nNeed ${cost} tokens to add +1 slot.`
+              );
+              return;
+            }
+
+            const ok = purchaseFavoriteSlot();
+            if (!ok) {
+              Alert.alert("Purchase failed", "Could not add a favorites slot. Please try again.");
+              return;
+            }
+
+            doAddFavorite();
+          },
+        },
+      ]
+    );
+  };
+
   const sendFeedback = async (next: FeedbackRating) => {
     setError(null);
 
     const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
-    setRating(recipeKey, next);
+
+    const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
+
+    setRating(recipeKey, next, {
+      recipe_key: recipeKey,
+      iba_code: code || undefined,
+      title: String(recipeTitle || "").trim() || undefined,
+      tags: subtitleTokensForFavorite,
+      recipe,
+      ingredients: ingredientsFromScan,
+    });
 
     if (!API_URL) {
-      if (prev) setRating(recipeKey, prev);
-      else clearRating(recipeKey);
+      if (prev) {
+        setRating(recipeKey, prev);
+      } else {
+        clearRating(recipeKey);
+      }
       setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
@@ -317,9 +410,16 @@ export default function TabTwoScreen() {
         const t = await resp.text();
         throw new Error(`Feedback API failed: ${resp.status} ${t}`);
       }
+
+      if (!prev) {
+        earnOncePerRecipe(recipeKey, "rate", 1);
+      }
     } catch (e: any) {
-      if (prev) setRating(recipeKey, prev);
-      else clearRating(recipeKey);
+      if (prev) {
+        setRating(recipeKey, prev);
+      } else {
+        clearRating(recipeKey);
+      }
       setError(e?.message ?? "Failed to send feedback.");
     }
   };
@@ -345,6 +445,8 @@ export default function TabTwoScreen() {
       }
 
       const data = (await resp.json()) as { share_id: string; share_url: string };
+
+      earnOncePerRecipe(recipeKey, "share", 1);
 
       const recipe_json = encodeURIComponent(JSON.stringify(recipe));
       const ingredients_json = encodeURIComponent(JSON.stringify(ingredientsFromScan));
@@ -406,41 +508,6 @@ export default function TabTwoScreen() {
     );
   };
 
-  const [prefPreset, setPrefPreset] = useState<PreferencePreset>("Balanced");
-
-  const userPreferenceVector = useMemo(() => {
-    return PRESET_VECTORS[prefPreset];
-  }, [prefPreset]);
-
-  const vectorComparison = useMemo(() => {
-    return compareFlavorVectors(recipeFlavorVector, userPreferenceVector, DEFAULT_FLAVOR_WEIGHTS);
-  }, [recipeFlavorVector, userPreferenceVector]);
-
-  const copyComparison = async () => {
-    try {
-      const payload = {
-        ibaCode,
-        recipeTitle,
-        recipeKey,
-        API_URL: API_URL || "(missing)",
-        prefPreset,
-        user_preference_vector: userPreferenceVector,
-        recipe_ingredients_for_ontology: recipeIngredientsForOntology,
-        unknown_ingredients: unknownIngredients,
-        recipe_flavor_vector: recipeFlavorVector,
-        four_word_descriptor: descriptor,
-        comparison_rows: vectorComparison.rows,
-        overall_score_100: vectorComparison.score100,
-        db_loaded: Boolean(dbRecipe),
-      };
-
-      await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
-      Alert.alert("Copied", "Comparison JSON copied to clipboard.");
-    } catch (e: any) {
-      Alert.alert("Copy failed", String(e?.message || e));
-    }
-  };
-
   if (!recipe) {
     return (
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
@@ -464,29 +531,6 @@ export default function TabTwoScreen() {
     );
   }
 
-  const headerTags: string[] = [];
-  if (dbRecipe?.iba_category) headerTags.push(String(dbRecipe.iba_category));
-  if (dbRecipe?.method) headerTags.push(String(dbRecipe.method));
-  if (dbRecipe?.glass) headerTags.push(String(dbRecipe.glass));
-
-  const presetButtons: PreferencePreset[] = ["Balanced", "Boozy", "Citrus", "Herbal", "Sweet"];
-  const canCopyUnknown = unknownIngredients && unknownIngredients.length > 0;
-
-  const Chip = ({ label }: { label: string }) => {
-    return (
-      <View
-        style={{
-          borderWidth: 1,
-          borderRadius: 999,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-        }}
-      >
-        <Text style={{ fontWeight: "800" }}>{label}</Text>
-      </View>
-    );
-  };
-
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -501,165 +545,15 @@ export default function TabTwoScreen() {
             {recipeTitle ? recipeTitle : "Recipe"}
           </Text>
 
-          <Pressable
-            onPress={onToggleFavorite}
-            hitSlop={10}
-            style={{ paddingHorizontal: 6, paddingVertical: 4 }}
-          >
-            <FontAwesome
-              name={isFav ? "heart" : "heart-o"}
-              color={isFav ? "#E11D48" : "#888"}
-              size={20}
-            />
+          <Pressable onPress={onToggleFavorite} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+            <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? "#E11D48" : "#888"} size={20} />
           </Pressable>
         </View>
 
-        {headerTags.length > 0 ? (
-          <Text style={{ color: "#555" }}>{headerTags.join(" • ")}</Text>
-        ) : (
-          <Text style={{ color: "#666" }}>(No tags)</Text>
-        )}
-
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10 }}>
-          <Text style={{ fontWeight: "900" }}>Taste</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {descriptor.words.map((w, i) => (
-              <Chip key={`${w}-${i}`} label={w} />
-            ))}
-          </View>
-        </View>
-
-        {__DEV__ ? (
-          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10 }}>
-            <Text style={{ fontWeight: "900" }}>DEBUG: RecipeVector vs UserPreferenceVector</Text>
-
-            <Text style={{ color: "#555" }}>iba_code: {ibaCode || "(missing)"}</Text>
-            <Text style={{ color: "#555" }}>API_URL: {API_URL || "(missing)"}</Text>
-            <Text style={{ color: "#555" }}>overall_score: {vectorComparison.score100}/100</Text>
-
-            <View style={{ gap: 8 }}>
-              <Text style={{ fontWeight: "800", color: "#555" }}>Preference preset</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-                {presetButtons.map((p) => {
-                  const active = p === prefPreset;
-                  return (
-                    <Pressable
-                      key={p}
-                      onPress={() => setPrefPreset(p)}
-                      style={{
-                        borderWidth: 1,
-                        borderRadius: 999,
-                        paddingHorizontal: 12,
-                        paddingVertical: 8,
-                        opacity: active ? 1 : 0.75,
-                      }}
-                    >
-                      <Text style={{ fontWeight: "800" }}>{active ? `• ${p}` : p}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <Text style={{ color: "#555", marginTop: 2 }}>
-              recipe_ingredients_for_ontology ({recipeIngredientsForOntology.length}):
-            </Text>
-            <Text style={{ color: "#555" }}>
-              {recipeIngredientsForOntology.length ? recipeIngredientsForOntology.join(", ") : "(none)"}
-            </Text>
-
-            <Text style={{ color: "#555" }}>
-              unknown_ingredients: {unknownIngredients.length ? unknownIngredients.join(", ") : "(none)"}
-            </Text>
-
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 4 }}>
-              <Pressable
-                onPress={copyDebug}
-                style={{
-                  borderWidth: 1,
-                  borderRadius: 999,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                }}
-              >
-                <Text style={{ fontWeight: "800" }}>Copy Debug</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={copyComparison}
-                style={{
-                  borderWidth: 1,
-                  borderRadius: 999,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                }}
-              >
-                <Text style={{ fontWeight: "800" }}>Copy Comparison</Text>
-              </Pressable>
-
-              <Pressable
-                onPress={copyUnknownTemplate}
-                disabled={!canCopyUnknown}
-                style={{
-                  borderWidth: 1,
-                  borderRadius: 999,
-                  paddingHorizontal: 14,
-                  paddingVertical: 8,
-                  opacity: canCopyUnknown ? 1 : 0.5,
-                }}
-              >
-                <Text style={{ fontWeight: "800" }}>Copy Unknown Template</Text>
-              </Pressable>
-            </View>
-
-            <View style={{ gap: 6, marginTop: 8 }}>
-              <Text style={{ fontWeight: "800", color: "#555" }}>Top gaps</Text>
-              {vectorComparison.topGaps.length ? (
-                vectorComparison.topGaps.map((x) => (
-                  <Text key={x.key} style={{ color: "#555" }}>
-                    • {x.key}: recipe={String(x.recipe)} user={String(x.user)} delta={String(x.delta)}
-                  </Text>
-                ))
-              ) : (
-                <Text style={{ color: "#555" }}>(none)</Text>
-              )}
-            </View>
-
-            <View style={{ gap: 6, marginTop: 6 }}>
-              <Text style={{ fontWeight: "800", color: "#555" }}>Top contributions</Text>
-              {vectorComparison.topContrib.length ? (
-                vectorComparison.topContrib.map((x) => (
-                  <Text key={x.key} style={{ color: "#555" }}>
-                    • {x.key}: contribution={x.contribution.toFixed(2)} / {x.maxContribution.toFixed(2)}
-                  </Text>
-                ))
-              ) : (
-                <Text style={{ color: "#555" }}>(none)</Text>
-              )}
-            </View>
-
-            <View style={{ gap: 6, marginTop: 8 }}>
-              <Text style={{ fontWeight: "800", color: "#555" }}>Per-dimension</Text>
-              {vectorComparison.rows.map((x) => (
-                <Text key={x.key} style={{ color: "#555" }}>
-                  • {x.key}: r={String(x.recipe)} u={String(x.user)}{" "}
-                  {x.delta === null ? "" : `delta=${x.delta} abs=${x.absDelta}`}{" "}
-                  {x.maxContribution > 0
-                    ? `contrib=${x.contribution.toFixed(2)}/${x.maxContribution.toFixed(2)}`
-                    : `note=${x.note}`}
-                </Text>
-              ))}
-            </View>
-
-            <Text style={{ color: "#555", marginTop: 8 }}>recipe_flavor_vector:</Text>
-            <Text style={{ color: "#555" }}>{JSON.stringify(recipeFlavorVector)}</Text>
-
-            <Text style={{ color: "#555", marginTop: 8 }}>user_preference_vector:</Text>
-            <Text style={{ color: "#555" }}>{JSON.stringify(userPreferenceVector)}</Text>
-
-            <Text style={{ color: "#555", marginTop: 8 }}>four_word_descriptor:</Text>
-            <Text style={{ color: "#555" }}>{JSON.stringify(descriptor)}</Text>
-          </View>
+        {headerLine ? (
+          <Pressable onLongPress={copyDebug} delayLongPress={450}>
+            <Text style={{ color: "#555" }}>{headerLine}</Text>
+          </Pressable>
         ) : null}
 
         {missingItems.length > 0 ? (
@@ -704,9 +598,7 @@ export default function TabTwoScreen() {
               opacity: currentRating === "like" ? 0.6 : 1,
             }}
           >
-            <Text style={{ fontWeight: "800" }}>
-              {currentRating === "dislike" ? "Disliked" : "Dislike"}
-            </Text>
+            <Text style={{ fontWeight: "800" }}>{currentRating === "dislike" ? "Disliked" : "Dislike"}</Text>
           </Pressable>
         </View>
 
@@ -720,13 +612,7 @@ export default function TabTwoScreen() {
         <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 12 }}>
           <View>
             <Text style={{ fontWeight: "900", marginBottom: 6 }}>Ingredients</Text>
-            {dbRecipe ? (
-              renderDbIngredients()
-            ) : ibaCode ? (
-              <Text style={{ color: "#666" }}>(Waiting for full recipe…)</Text>
-            ) : (
-              <Text style={{ color: "#666" }}>(Missing iba_code)</Text>
-            )}
+            {dbRecipe ? renderDbIngredients() : ibaCode ? <Text style={{ color: "#666" }}>(Waiting for full recipe…)</Text> : <Text style={{ color: "#666" }}>(Missing iba_code)</Text>}
           </View>
 
           {dbRecipe?.instructions ? (
@@ -737,15 +623,7 @@ export default function TabTwoScreen() {
           ) : null}
         </View>
 
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 12,
-            marginTop: 4,
-          }}
-        >
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
           <Pressable
             onPress={() => router.back()}
             style={{
