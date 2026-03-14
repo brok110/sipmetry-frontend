@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
+import { useAuth } from "@/context/auth";
 import { useEconomy } from "@/context/economy";
 
 export type FavoriteItem = {
@@ -85,14 +86,41 @@ function sanitizeFavoritesMap(raw: any): FavoritesByKey {
   return out;
 }
 
+// Convert DB row (from GET /favorites) to FavoriteItem
+function dbRowToFavoriteItem(row: any): FavoriteItem | null {
+  const recipe_key = String(row?.recipe_key ?? "").trim();
+  if (!recipe_key) return null;
+
+  const data = row?.recipe_data ?? {};
+
+  return {
+    recipe_key,
+    iba_code: inferIbaCodeFromFavorite(data),
+    title: String(data?.title ?? "Recipe").trim() || "Recipe",
+    tags: Array.isArray(data?.tags)
+      ? data.tags.map((x: any) => String(x ?? "").trim()).filter(Boolean).slice(0, 4)
+      : [],
+    recipe: data?.recipe ?? null,
+    ingredients: Array.isArray(data?.ingredients)
+      ? data.ingredients.map((x: any) => String(x ?? "").trim()).filter(Boolean)
+      : [],
+    saved_at: row?.created_at ? new Date(row.created_at).getTime() : Date.now(),
+  };
+}
+
 export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const [favoritesByKey, setFavoritesByKey] = useState<FavoritesByKey>({});
   const didHydrateRef = useRef(false);
+
+  const { session } = useAuth();
+  const accessToken = session?.access_token ?? null;
+  const apiUrl = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
 
   // Economy: favorites capacity is controlled by economy.favoriteLimit (default 5)
   const economy = useEconomy();
   const favoriteLimit = Number.isFinite(economy?.favoriteLimit) ? Number(economy.favoriteLimit) : 5;
 
+  // ── Hydration from AsyncStorage (runs once on mount) ────────────────────────
   useEffect(() => {
     let cancelled = false;
 
@@ -128,6 +156,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // ── Persist to AsyncStorage whenever state changes ───────────────────────────
   useEffect(() => {
     if (!didHydrateRef.current) return;
 
@@ -142,6 +171,80 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t);
   }, [favoritesByKey]);
 
+  // ── Sync from DB when user logs in ──────────────────────────────────────────
+  // When accessToken changes (login/logout), load favorites from DB.
+  // DB is source of truth when logged in.
+  useEffect(() => {
+    if (!accessToken || !apiUrl) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const resp = await fetch(`${apiUrl}/favorites`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!resp.ok || cancelled) return;
+
+        const json = await resp.json();
+        const rows: any[] = json?.favorites ?? [];
+
+        const map: FavoritesByKey = {};
+        for (const row of rows) {
+          const item = dbRowToFavoriteItem(row);
+          if (item) map[item.recipe_key] = item;
+        }
+
+        if (!cancelled) {
+          setFavoritesByKey(map);
+        }
+      } catch {
+        // Network error — keep local state
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, apiUrl]);
+
+  // ── DB helpers (fire-and-forget, local state already updated optimistically) ──
+  const dbAdd = (item: FavoriteItem) => {
+    if (!accessToken || !apiUrl) return;
+
+    const recipe_data = {
+      iba_code: item.iba_code,
+      title: item.title,
+      tags: item.tags,
+      recipe: item.recipe,
+      ingredients: item.ingredients,
+    };
+
+    fetch(`${apiUrl}/favorites`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ recipe_key: item.recipe_key, recipe_data }),
+    }).catch(() => {
+      // ignore — local state already reflects the change
+    });
+  };
+
+  const dbRemove = (recipeKey: string) => {
+    if (!accessToken || !apiUrl) return;
+
+    fetch(`${apiUrl}/favorites/${encodeURIComponent(recipeKey)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).catch(() => {
+      // ignore — local state already reflects the change
+    });
+  };
+
+  // ── Public API ───────────────────────────────────────────────────────────────
   const favoriteCount = useMemo(() => Object.keys(favoritesByKey ?? {}).length, [favoritesByKey]);
   const remainingSlots = useMemo(
     () => Math.max(0, Math.floor(favoriteLimit) - favoriteCount),
@@ -180,28 +283,31 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
       // Removing is always allowed
       if (exists) {
+        dbRemove(normalized.recipe_key);
         const next = { ...prev };
         delete next[normalized.recipe_key];
         return next;
       }
 
-      // Adding: enforce capacity limit
+      // Adding: enforce capacity limit (only when not logged in — DB has no limit)
       const count = Object.keys(prev ?? {}).length;
       const limit = Math.floor(Number.isFinite(favoriteLimit) ? favoriteLimit : 5);
 
-      if (count >= limit) {
+      if (!accessToken && count >= limit) {
         Alert.alert(
           "Favorites full",
-          `You’ve reached your favorites limit (${limit}).\nGo to “My Favorites” to spend 3 tokens to unlock +1 slot.`
+          `You've reached your favorites limit (${limit}).\nGo to "My Favorites" to spend 3 tokens to unlock +1 slot.`
         );
         return prev;
       }
 
+      dbAdd(normalized);
       return { ...prev, [normalized.recipe_key]: normalized };
     });
   };
 
   const removeFavorite = (recipeKey: string) => {
+    dbRemove(recipeKey);
     setFavoritesByKey((prev) => {
       if (!prev[recipeKey]) return prev;
       const next = { ...prev };

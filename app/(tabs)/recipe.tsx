@@ -1,8 +1,10 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useNavigation } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+
+import { useAuth } from "@/context/auth";
 
 import * as Clipboard from "expo-clipboard";
 
@@ -37,6 +39,7 @@ type DbRecipe = {
   instructions: string | null;
   is_published: boolean | null;
   ingredients: DbRecipeIngredient[];
+  recipe_vec?: Record<string, any> | null;
 };
 
 export default function TabTwoScreen() {
@@ -59,14 +62,42 @@ export default function TabTwoScreen() {
     recipe_key?: string;
     iba_code?: string;
     missing_items_json?: string;
+    scan_items_json?: string;
   }>();
 
-  const idxNum = Number(params.idx ?? "0");
+  const paramToString = (v: any): string => {
+    if (typeof v === "string") return v;
+    if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+    return "";
+  };
+
+  const idxNum = Number(paramToString((params as any).idx) || "0");
 
   const legacyRecipe = useMemo(() => {
     try {
-      const raw = params.recipe_json ? decodeURIComponent(params.recipe_json) : "";
-      return raw ? JSON.parse(raw) : null;
+      const raw0 = paramToString((params as any).recipe_json);
+      if (!raw0) return null;
+
+      const tryParse = (s: string) => {
+        const t = String(s || "").trim();
+        if (!t) return null;
+        try {
+          return JSON.parse(t);
+        } catch {
+          return null;
+        }
+      };
+
+      const direct = tryParse(raw0);
+      if (direct) return direct;
+
+      const once = tryParse(decodeURIComponent(raw0));
+      if (once) return once;
+
+      const twice = tryParse(decodeURIComponent(decodeURIComponent(raw0)));
+      if (twice) return twice;
+
+      return null;
     } catch {
       return null;
     }
@@ -74,26 +105,141 @@ export default function TabTwoScreen() {
 
   const ingredientsFromScan = useMemo<string[]>(() => {
     try {
-      const raw = params.ingredients_json ? decodeURIComponent(params.ingredients_json) : "";
-      const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr : [];
+      const raw0 = paramToString((params as any).ingredients_json);
+      if (!raw0) return [];
+
+      const tryParseArr = (s: string) => {
+        const t = String(s || "").trim();
+        if (!t) return null;
+        try {
+          const v = JSON.parse(t);
+          return Array.isArray(v) ? v : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const direct = tryParseArr(raw0);
+      if (direct) return direct;
+
+      const once = tryParseArr(decodeURIComponent(raw0));
+      if (once) return once;
+
+      const twice = tryParseArr(decodeURIComponent(decodeURIComponent(raw0)));
+      if (twice) return twice;
+
+      return [];
     } catch {
       return [];
     }
   }, [params.ingredients_json]);
 
-  const missingItems = useMemo<string[]>(() => {
+  const scanItems = useMemo<Array<{ canonical?: string; display?: string }>>(() => {
     try {
-      const raw = params.missing_items_json ? decodeURIComponent(params.missing_items_json) : "";
-      const arr = raw ? JSON.parse(raw) : [];
-      return Array.isArray(arr) ? arr.map((x) => String(x || "").trim()).filter(Boolean) : [];
+      const raw0 = paramToString((params as any).scan_items_json);
+      if (!raw0) return [];
+
+      const tryParse = (s: string) => {
+        const t = String(s || "").trim();
+        if (!t) return null;
+        try {
+          const v = JSON.parse(t);
+          return Array.isArray(v) ? v : null;
+        } catch {
+          return null;
+        }
+      };
+
+      const direct = tryParse(raw0);
+      if (direct) return direct;
+
+      const once = tryParse(decodeURIComponent(raw0));
+      if (once) return once;
+
+      const twice = tryParse(decodeURIComponent(decodeURIComponent(raw0)));
+      if (twice) return twice;
+
+      return [];
     } catch {
       return [];
     }
-  }, [params.missing_items_json]);
+  }, [params.scan_items_json]);
+
+  const scanDisplayByCanonical = useMemo(() => {
+    const m: Record<string, string> = {};
+
+    for (const it of scanItems) {
+      const c = String((it as any)?.canonical ?? "").trim().toLowerCase();
+      const d = String((it as any)?.display ?? "").trim();
+      if (!c || !d) continue;
+      if (!m[c]) m[c] = d;
+    }
+
+    return m;
+  }, [scanItems]);
+
+  const humanizeKey = (k: string) => {
+    const s = String(k || "").trim();
+    if (!s) return "";
+    return s
+      .split("_")
+      .filter(Boolean)
+      .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : ""))
+      .join(" ");
+  };
+
+
+  const resolveDisplayForIngredientKey = (ingredientKey: string) => {
+    const k = String(ingredientKey || "").trim().toLowerCase();
+    if (!k) return "";
+
+    // 1) direct match
+    const direct = scanDisplayByCanonical[k];
+    if (direct) return direct;
+
+    // 2) identity fallbacks: scan label uses a different key than the DB ingredient_key
+    //    (e.g. scan sees "tequila_blanco" but user scanned "tequila" and vice versa)
+    //    Note: server-side recommendation already handles family/type matching via
+    //    identityMap; this is UI-only display name resolution for the recipe screen.
+    const identityFallbacks: Record<string, string[]> = {
+      tequila_blanco: ["tequila"],
+      tequila: ["tequila_blanco"],
+      triple_sec: ["orange_curacao"],
+      orange_curacao: ["triple_sec"],
+
+      // extra: sometimes we store these variants in DB
+      tequila_reposado: ["tequila"],
+      tequila_anejo: ["tequila"],
+      orange_liqueur: ["orange_curacao", "triple_sec"],
+    };
+
+    const alts = identityFallbacks[k] ?? [];
+    for (const alt of alts) {
+      const hit = scanDisplayByCanonical[String(alt || "").trim().toLowerCase()];
+      if (hit) return hit;
+    }
+
+    // 3) fallback: prefix/contains matching (useful when DB key is more specific)
+    // e.g. tequila_blanco -> tequila, or orange_curacao -> curacao-like matches
+    for (const [scanKey, scanDisplay] of Object.entries(scanDisplayByCanonical)) {
+      const sk = String(scanKey || "").trim().toLowerCase();
+      if (!sk || !scanDisplay) continue;
+
+      if (k === sk) return scanDisplay;
+      if (k.startsWith(sk + "_") || sk.startsWith(k + "_")) return scanDisplay;
+
+      // very small heuristic: if both contain a shared root token, accept
+      // (kept conservative to avoid weird matches)
+      if ((k.includes("tequila") && sk.includes("tequila")) || (k.includes("curacao") && sk.includes("curacao"))) {
+        return scanDisplay;
+      }
+    }
+
+    return "";
+  };
 
   const ibaCode = useMemo(() => {
-    const fromParam = typeof params.iba_code === "string" ? params.iba_code.trim() : "";
+    const fromParam = paramToString((params as any).iba_code).trim();
     const fromLegacy =
       legacyRecipe && typeof legacyRecipe === "object" && (legacyRecipe as any).iba_code
         ? String((legacyRecipe as any).iba_code).trim()
@@ -109,9 +255,33 @@ export default function TabTwoScreen() {
     return Object.keys(favoritesByKey ?? {}).length;
   }, [favoritesByKey]);
 
+  const { session } = useAuth();
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dbRecipe, setDbRecipe] = useState<DbRecipe | null>(null);
+
+  // Stage 9: 「我做了這杯！」確認流程
+  // idle   → 顯示黑色「I made this! 🍹」
+  // done   → 顯示綠色「Logged! 🍹」（3 秒）
+  // hidden → 按鈕完全隱藏（3 秒後，直到離開再回來）
+  type MadeDrinkState = 'idle' | 'done' | 'hidden'
+  const [madeDrinkState, setMadeDrinkState] = useState<MadeDrinkState>('idle');
+  const [madeDrinkLoading, setMadeDrinkLoading] = useState(false);
+  const madeDrinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 離開畫面時重置（回來會重新看到「I made this!」，且 inventory 也會重新 fetch）
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setMadeDrinkState('idle');
+        if (madeDrinkTimerRef.current) {
+          clearTimeout(madeDrinkTimerRef.current);
+          madeDrinkTimerRef.current = null;
+        }
+      };
+    }, [])
+  );
 
   useEffect(() => {
     let alive = true;
@@ -139,25 +309,60 @@ export default function TabTwoScreen() {
         }
 
         const data = (await resp.json()) as { recipe?: DbRecipe };
-        const r = data?.recipe ?? null;
+        const r = (data as any)?.recipe ?? null;
 
         if (!alive) return;
 
-        if (!r || !r.iba_code) {
+        if (!r || !(r as any).iba_code) {
           setDbRecipe(null);
           setError("Recipe not found.");
           return;
         }
 
         const normalized: DbRecipe = {
-          iba_code: String(r.iba_code || "").trim(),
-          name: String(r.name || "").trim(),
-          iba_category: r.iba_category ?? null,
-          method: r.method ?? null,
-          glass: r.glass ?? null,
-          instructions: r.instructions ?? null,
-          is_published: r.is_published ?? null,
-          ingredients: Array.isArray(r.ingredients) ? r.ingredients : [],
+          iba_code: String((r as any).iba_code || "").trim(),
+          name: String((r as any).name || "").trim(),
+          iba_category: (r as any).iba_category ?? null,
+          method: (r as any).method ?? null,
+          glass: (r as any).glass ?? null,
+          instructions: (r as any).instructions ?? null,
+          is_published: (r as any).is_published ?? null,
+          ingredients: Array.isArray((r as any).ingredients)
+            ? (r as any).ingredients.map((it: any) => {
+                const amountMlRaw =
+                  it?.amount_ml ??
+                  it?.amountMl ??
+                  it?.amountML ??
+                  it?.ml ??
+                  it?.amount;
+
+                const amountTextRaw =
+                  it?.amount_text ??
+                  it?.amountText ??
+                  (typeof it?.amount === "string" ? it.amount : null);
+
+                return {
+                  sort_order: Number(it?.sort_order ?? it?.sortOrder ?? 0) || 0,
+                  item: String(it?.item ?? it?.name ?? "").trim(),
+                  amount_ml:
+                    amountMlRaw === null || amountMlRaw === undefined || amountMlRaw === ""
+                      ? null
+                      : amountMlRaw,
+                  amount_text:
+                    amountTextRaw === null ||
+                    amountTextRaw === undefined ||
+                    String(amountTextRaw).trim() === ""
+                      ? null
+                      : String(amountTextRaw).trim(),
+                  unit:
+                    it?.unit === null || it?.unit === undefined || String(it.unit).trim() === ""
+                      ? null
+                      : String(it.unit).trim(),
+                  is_optional: Boolean(it?.is_optional ?? it?.isOptional ?? false),
+                } as DbRecipeIngredient;
+              })
+            : [],
+          recipe_vec: (r as any)?.recipe_vec ?? (r as any)?.recipeVec ?? null,
         };
 
         setDbRecipe(normalized);
@@ -186,8 +391,7 @@ export default function TabTwoScreen() {
   }, [dbRecipe, recipe]);
 
   const stableRecipeKey = useMemo(() => {
-    const fromParam =
-      typeof params.recipe_key === "string" && params.recipe_key.trim() ? params.recipe_key.trim() : "";
+    const fromParam = paramToString((params as any).recipe_key).trim();
     if (fromParam) return fromParam;
 
     const code = String(ibaCode || "").trim();
@@ -232,8 +436,10 @@ export default function TabTwoScreen() {
   }, [dbRecipe, legacyRecipe, ingredientsFromScan]);
 
   const recipeFlavorVector = useMemo(() => {
+    const v = (dbRecipe as any)?.recipe_vec ?? null;
+    if (v && typeof v === "object") return v as any;
     return aggregateIngredientVectors(recipeIngredientsForOntology);
-  }, [recipeIngredientsForOntology]);
+  }, [dbRecipe, recipeIngredientsForOntology]);
 
   const unknownIngredients = useMemo(() => {
     return getUnknownIngredients(recipeIngredientsForOntology);
@@ -255,7 +461,7 @@ export default function TabTwoScreen() {
   const tasteWords = Array.isArray((descriptor as any)?.words) ? (descriptor as any).words : [];
   const tastePart = tasteWords.length ? tasteWords.slice(0, 3).join(" • ") : "";
 
-  const headerLine = [stylePartRaw, tastePart].filter(Boolean).join(" • ");
+  const headerLine = [stylePartRaw].filter(Boolean).join(" • ");
 
   const subtitleTokensForFavorite = useMemo(() => {
     const tokens: string[] = [];
@@ -273,6 +479,7 @@ export default function TabTwoScreen() {
     return compareFlavorVectors(recipeFlavorVector, userPreferenceVector, DEFAULT_FLAVOR_WEIGHTS);
   }, [recipeFlavorVector, userPreferenceVector]);
 
+
   const copyDebug = async () => {
     try {
       const payload = {
@@ -285,12 +492,26 @@ export default function TabTwoScreen() {
         recipe_ingredients_for_ontology: recipeIngredientsForOntology,
         unknown_ingredients: unknownIngredients,
         recipe_flavor_vector: recipeFlavorVector,
+        recipe_vec_source: (dbRecipe as any)?.recipe_vec ? "backend" : "local_ontology",
+        backend_recipe_vec: (dbRecipe as any)?.recipe_vec ?? null,
         four_word_descriptor: descriptor,
         prefPreset,
         user_preference_vector: userPreferenceVector,
         comparison_rows: vectorComparison.rows,
         overall_score_100: vectorComparison.score100,
         db_loaded: Boolean(dbRecipe),
+        scan_items: scanItems,
+        scan_display_by_canonical: scanDisplayByCanonical,
+        db_ingredient_display_preview: Array.isArray(dbRecipe?.ingredients)
+          ? dbRecipe!.ingredients
+              .slice()
+              .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+              .map((it) => {
+                const key = String(it?.item ?? "").trim();
+                const fromScan = resolveDisplayForIngredientKey(key);
+                return { key, resolved: fromScan || null };
+              })
+          : null,
         economy: {
           tokens,
           favoriteLimit,
@@ -341,16 +562,13 @@ export default function TabTwoScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Go to My Favorites",
-          onPress: () => router.push("/(tabs)/three"),
+          onPress: () => router.push("/(tabs)/favorites"),
         },
         {
           text: `Spend ${cost}`,
           onPress: () => {
             if (!can) {
-              Alert.alert(
-                "Not enough tokens",
-                `You have ${tokens} tokens.\nNeed ${cost} tokens to add +1 slot.`
-              );
+              Alert.alert("Not enough tokens", `You have ${tokens} tokens.\nNeed ${cost} tokens to add +1 slot.`);
               return;
             }
 
@@ -371,7 +589,6 @@ export default function TabTwoScreen() {
     setError(null);
 
     const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
-
     const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
 
     setRating(recipeKey, next, {
@@ -384,11 +601,8 @@ export default function TabTwoScreen() {
     });
 
     if (!API_URL) {
-      if (prev) {
-        setRating(recipeKey, prev);
-      } else {
-        clearRating(recipeKey);
-      }
+      if (prev) setRating(recipeKey, prev);
+      else clearRating(recipeKey);
       setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
@@ -415,11 +629,8 @@ export default function TabTwoScreen() {
         earnOncePerRecipe(recipeKey, "rate", 1);
       }
     } catch (e: any) {
-      if (prev) {
-        setRating(recipeKey, prev);
-      } else {
-        clearRating(recipeKey);
-      }
+      if (prev) setRating(recipeKey, prev);
+      else clearRating(recipeKey);
       setError(e?.message ?? "Failed to send feedback.");
     }
   };
@@ -452,7 +663,7 @@ export default function TabTwoScreen() {
       const ingredients_json = encodeURIComponent(JSON.stringify(ingredientsFromScan));
 
       router.push({
-        pathname: "/(tabs)/four",
+        pathname: "/(tabs)/qr",
         params: {
           share_id: encodeURIComponent(data.share_id),
           share_url: encodeURIComponent(data.share_url),
@@ -467,6 +678,126 @@ export default function TabTwoScreen() {
     }
   };
 
+  // Stage 9: 確認製作，扣除 My Bar 庫存
+  const handleMadeDrink = async () => {
+    if (!session?.access_token) {
+      Alert.alert('Sign in required', 'Please sign in to track your usage.')
+      return
+    }
+
+    if (!dbRecipe || dbRecipe.ingredients.length === 0) {
+      Alert.alert('Not ready', 'Recipe not loaded yet. Please wait.')
+      return
+    }
+
+    if (!API_URL) {
+      Alert.alert('Error', 'Missing API URL.')
+      return
+    }
+
+    try {
+      // 1. 取得目前庫存
+      const invRes = await fetch(`${API_URL}/inventory`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (!invRes.ok) throw new Error('Failed to fetch inventory')
+
+      const invData = (await invRes.json()) as {
+        inventory?: Array<{ id: string; ingredient_key: string; display_name: string; remaining_volume: number }>
+      }
+      const inventory = Array.isArray(invData.inventory) ? invData.inventory : []
+
+      // 建立 ingredient_key → inventory item 的 map
+      const invByKey: Record<string, { id: string; display_name: string; remaining_volume: number }> = {}
+      for (const it of inventory) {
+        invByKey[String(it.ingredient_key ?? '').trim()] = {
+          id: it.id,
+          display_name: it.display_name,
+          remaining_volume: Number(it.remaining_volume ?? 0),
+        }
+      }
+
+      // 2. 比對食譜食材 vs 庫存
+      type DeductItem = { ingredient_id: string; amount_ml: number; display_name: string }
+      const toDeduct: DeductItem[] = []
+
+      for (const ing of dbRecipe.ingredients) {
+        const key = String(ing.item ?? '').trim()
+        const ml = ing.amount_ml !== null && ing.amount_ml !== undefined ? Number(ing.amount_ml) : null
+        if (!key || ml === null || !Number.isFinite(ml) || ml <= 0) continue
+
+        const invItem = invByKey[key]
+        if (!invItem) continue
+
+        toDeduct.push({
+          ingredient_id: invItem.id,
+          amount_ml: Math.round(ml),
+          display_name: invItem.display_name,
+        })
+      }
+
+      if (toDeduct.length === 0) {
+        Alert.alert(
+          'Nothing to update',
+          "None of this recipe's ingredients (with amounts) match your My Bar."
+        )
+        return
+      }
+
+      // 3. 確認 dialog
+      const lines = toDeduct.map((x) => `• ${x.display_name}: −${x.amount_ml}ml`)
+      Alert.alert(
+        'I made this! 🍹',
+        `Deduct from My Bar:\n\n${lines.join('\n')}`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Confirm',
+            onPress: async () => {
+              setMadeDrinkLoading(true)
+              try {
+                const res = await fetch(`${API_URL}/inventory/use`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({
+                    recipe_id: ibaCode || recipeKey,
+                    made_at: new Date().toISOString(),
+                    ingredients_used: toDeduct.map((x) => ({
+                      ingredient_id: x.ingredient_id,
+                      amount_ml: x.amount_ml,
+                    })),
+                  }),
+                })
+
+                if (!res.ok) {
+                  const err = await res.json().catch(() => ({})) as { error?: string }
+                  throw new Error(err?.error ?? 'Failed to update inventory')
+                }
+
+                setMadeDrinkState('done');
+                // 3 秒後完全隱藏按鈕
+                if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);
+                madeDrinkTimerRef.current = setTimeout(() => {
+                  setMadeDrinkState('hidden');
+                  madeDrinkTimerRef.current = null;
+                }, 3000);
+              } catch (e: any) {
+                Alert.alert('Error', e?.message ?? 'Failed to update inventory')
+              } finally {
+                setMadeDrinkLoading(false)
+              }
+            },
+          },
+        ]
+      )
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Something went wrong')
+    }
+  }
+
   const renderDbIngredients = () => {
     const list = Array.isArray(dbRecipe?.ingredients) ? dbRecipe!.ingredients : [];
     if (list.length === 0) return <Text style={{ color: "#666" }}>(No ingredients)</Text>;
@@ -476,7 +807,9 @@ export default function TabTwoScreen() {
     return (
       <View style={{ gap: 6 }}>
         {sorted.map((it, i) => {
-          const name = String(it?.item ?? "").trim() || "unknown";
+          const key = String(it?.item ?? "").trim();
+          const fromScan = resolveDisplayForIngredientKey(key);
+          const name = (fromScan || humanizeKey(key) || "unknown").trim();
           const isOptional = Boolean(it?.is_optional);
 
           const ml =
@@ -490,11 +823,9 @@ export default function TabTwoScreen() {
           if (Number.isFinite(ml)) {
             amountLabel = `${ml} ml`;
           } else if (it?.amount_text && String(it.amount_text).trim()) {
-            amountLabel = unit
-              ? `${String(it.amount_text).trim()} ${unit}`
-              : String(it.amount_text).trim();
+            amountLabel = unit ? `${String(it.amount_text).trim()} ${unit}` : String(it.amount_text).trim();
           } else {
-            amountLabel = unit ? unit : "n/a";
+            amountLabel = "n/a";
           }
 
           return (
@@ -508,14 +839,25 @@ export default function TabTwoScreen() {
     );
   };
 
-  if (!recipe) {
+  const hasSelection = Boolean(ibaCode) || Boolean(legacyRecipe);
+
+  if (!hasSelection) {
     return (
       <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
         <Text style={{ fontSize: 20, fontWeight: "800" }}>Recipe</Text>
         <Text style={{ color: "#666" }}>No recipe selected. Go back to Scan and tap “View”.</Text>
 
+        {__DEV__ ? (
+          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
+            <Text style={{ fontWeight: "800" }}>Debug</Text>
+            <Text style={{ color: "#666" }}>ibaCode: {ibaCode || "(empty)"}</Text>
+            <Text style={{ color: "#666" }}>recipe_key: {String((params as any)?.recipe_key ?? "") || "(empty)"}</Text>
+            <Text style={{ color: "#666" }}>idx: {String((params as any)?.idx ?? "") || "(empty)"}</Text>
+          </View>
+        ) : null}
+
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => router.replace("/(tabs)")}
           style={{
             alignSelf: "flex-start",
             borderWidth: 1,
@@ -542,12 +884,28 @@ export default function TabTwoScreen() {
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <Text style={{ fontSize: 22, fontWeight: "900", flex: 1 }}>
-            {recipeTitle ? recipeTitle : "Recipe"}
+            {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
           </Text>
 
           <Pressable onPress={onToggleFavorite} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
             <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? "#E11D48" : "#888"} size={20} />
           </Pressable>
+
+          {__DEV__ ? (
+            <Pressable
+              onPress={copyDebug}
+              hitSlop={10}
+              style={{
+                borderWidth: 1,
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                marginLeft: 8,
+              }}
+            >
+              <Text style={{ fontWeight: "800", color: "#666" }}>Copy Debug</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {headerLine ? (
@@ -556,12 +914,6 @@ export default function TabTwoScreen() {
           </Pressable>
         ) : null}
 
-        {missingItems.length > 0 ? (
-          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-            <Text style={{ fontWeight: "900", marginBottom: 6 }}>Missing</Text>
-            <Text style={{ color: "#555" }}>{missingItems.join(" • ")}</Text>
-          </View>
-        ) : null}
 
         {loading ? (
           <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
@@ -602,6 +954,31 @@ export default function TabTwoScreen() {
           </Pressable>
         </View>
 
+        {/* Stage 9: 「I made this!」按鈕（hidden 時完全不顯示） */}
+        {session && dbRecipe && madeDrinkState !== 'hidden' ? (
+          <Pressable
+            onPress={handleMadeDrink}
+            disabled={madeDrinkLoading || madeDrinkState === 'done'}
+            style={{
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: madeDrinkState === 'done' ? '#6F8F7C' : '#111',
+              flexDirection: 'row',
+              gap: 8,
+              opacity: madeDrinkLoading ? 0.7 : 1,
+            }}
+          >
+            {madeDrinkLoading
+              ? <ActivityIndicator size="small" color="#FFF" />
+              : null}
+            <Text style={{ fontWeight: '900', color: '#FFF', fontSize: 15 }}>
+              {madeDrinkState === 'done' ? 'Logged! 🍹' : 'I made this! 🍹'}
+            </Text>
+          </Pressable>
+        ) : null}
+
         {error ? (
           <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
             <Text style={{ fontWeight: "800" }}>Error</Text>
@@ -612,7 +989,17 @@ export default function TabTwoScreen() {
         <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 12 }}>
           <View>
             <Text style={{ fontWeight: "900", marginBottom: 6 }}>Ingredients</Text>
-            {dbRecipe ? renderDbIngredients() : ibaCode ? <Text style={{ color: "#666" }}>(Waiting for full recipe…)</Text> : <Text style={{ color: "#666" }}>(Missing iba_code)</Text>}
+            {dbRecipe ? (
+              renderDbIngredients()
+            ) : loading ? (
+              <Text style={{ color: "#666" }}>(Loading full recipe…)</Text>
+            ) : error ? (
+              <Text style={{ color: "#B00020" }}>Failed to load recipe: {error}</Text>
+            ) : ibaCode ? (
+              <Text style={{ color: "#666" }}>(Waiting for full recipe…)</Text>
+            ) : (
+              <Text style={{ color: "#666" }}>(Missing iba_code)</Text>
+            )}
           </View>
 
           {dbRecipe?.instructions ? (
@@ -625,7 +1012,7 @@ export default function TabTwoScreen() {
 
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => router.replace("/(tabs)")}
             style={{
               borderWidth: 1,
               borderRadius: 999,

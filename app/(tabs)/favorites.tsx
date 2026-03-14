@@ -82,7 +82,7 @@ export default function TabThreeScreen() {
     if (!fav) return;
 
     router.push({
-      pathname: "/(tabs)/two",
+      pathname: "/(tabs)/recipe",
       params: {
         idx: "0",
         recipe_key: fav.recipe_key,

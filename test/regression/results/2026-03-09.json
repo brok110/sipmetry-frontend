@@ -1,0 +1,17 @@
+{
+  "run_date": "2026-03-09",
+  "api_url": "http://localhost:8787",
+  "L2": {
+    "total": 20,
+    "pass": 20,
+    "exact": 20,
+    "partial": 0,
+    "wrong": 0,
+    "unmapped": 0
+  },
+  "L3": {
+    "total": 10,
+    "pass": 10
+  },
+  "failures": []
+}

@@ -1,0 +1,154 @@
+{
+  "fixture_version": "v1.0",
+  "created_at": "2026-03-09",
+  "description": "L3 Recommendation validation fixtures. Call /recommend-classics with each inventory and verify top 5 results.",
+  "pass_criteria": {
+    "min_overlap_in_top5": "expected_top 中至少命中 fixture 指定數量",
+    "should_not_appear": "這些酒不得出現在 top 5",
+    "missing_accuracy": "缺少食材的標示必須正確"
+  },
+  "fixtures": [
+    {
+      "test_id": "fix-001",
+      "label": "Classic Negroni Set",
+      "inventory": ["gin", "campari", "sweet_vermouth"],
+      "expected_top": ["Negroni", "Americano"],
+      "expected_missing_in": {
+        "Boulevardier": ["bourbon"]
+      },
+      "should_not_appear": ["Cosmopolitan", "Margarita", "Moscow Mule"],
+      "min_overlap_in_top5": 2,
+      "edge_case": "Boulevardier 應出現但標示缺 bourbon",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-002",
+      "label": "Moscow Mule Set",
+      "inventory": ["vodka", "lime_juice", "ginger_beer"],
+      "expected_top": ["Moscow Mule"],
+      "expected_missing_in": {},
+      "should_not_appear": ["Negroni", "Manhattan", "Old Fashioned"],
+      "min_overlap_in_top5": 1,
+      "edge_case": "缺 copper mug 不影響推薦（非食材）",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-003",
+      "label": "Margarita Set",
+      "inventory": ["tequila_blanco", "triple_sec", "lime_juice"],
+      "expected_top": ["Margarita", "Tommy's Margarita"],
+      "expected_missing_in": {
+        "Tommy's Margarita": ["agave_syrup"]
+      },
+      "should_not_appear": ["Mojito", "Daiquiri", "Cosmopolitan"],
+      "min_overlap_in_top5": 2,
+      "edge_case": "tequila_blanco vs tequila alias 測試",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-004",
+      "label": "Mojito / Daiquiri Set",
+      "inventory": ["white_rum", "lime_juice", "sugar_syrup", "mint"],
+      "expected_top": ["Mojito", "Daiquiri"],
+      "expected_missing_in": {
+        "Mojito": ["soda_water"]
+      },
+      "should_not_appear": ["Negroni", "Manhattan", "Margarita"],
+      "min_overlap_in_top5": 2,
+      "edge_case": "Mojito 缺 soda_water 但仍應在 top 3",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-005",
+      "label": "Manhattan Set",
+      "inventory": ["bourbon", "sweet_vermouth", "bitters"],
+      "expected_top": ["Manhattan"],
+      "expected_missing_in": {
+        "Rob Roy": ["scotch_whisky"]
+      },
+      "should_not_appear": ["Mojito", "Margarita", "Cosmopolitan"],
+      "min_overlap_in_top5": 1,
+      "edge_case": "Manhattan 應在 can_make（bourbon↔rye bridge）；Rob Roy 需 scotch，不保證進 top 5",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-006",
+      "label": "Martini Set",
+      "inventory": ["gin", "dry_vermouth"],
+      "expected_top": ["Martini"],
+      "expected_missing_in": {},
+      "should_not_appear": ["Negroni", "Mojito", "Margarita"],
+      "min_overlap_in_top5": 1,
+      "edge_case": "缺 olive/lemon twist 不影響推薦（garnish 非食材）",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-007",
+      "label": "Boulevardier Set",
+      "inventory": ["bourbon", "campari", "sweet_vermouth"],
+      "expected_top": ["Boulevardier"],
+      "expected_missing_in": {},
+      "should_not_appear": ["Mojito", "Margarita", "Moscow Mule"],
+      "min_overlap_in_top5": 1,
+      "edge_case": "Boulevardier 應排第一，Negroni 缺 gin 應有 missing 標示",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-008",
+      "label": "White Russian Set",
+      "inventory": ["vodka", "kahlua"],
+      "expected_top": ["White Russian", "Black Russian"],
+      "expected_missing_in": {
+        "White Russian": ["cream"]
+      },
+      "should_not_appear": ["Negroni", "Manhattan", "Margarita"],
+      "min_overlap_in_top5": 2,
+      "edge_case": "White Russian 缺 cream，Black Russian 完全符合",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-009",
+      "label": "Unusual Combo (Elderflower)",
+      "inventory": ["gin", "elderflower_liqueur", "cucumber"],
+      "expected_top": [],
+      "expected_missing_in": {},
+      "should_not_appear": ["Negroni", "Manhattan", "Margarita"],
+      "min_overlap_in_top5": 0,
+      "edge_case": "冷門組合，應推薦含這些食材的酒，不應推完全不相關的酒",
+      "note": "expected_top 為空因為沒有 IBA standard 完全符合，驗重點是 should_not_appear",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    },
+    {
+      "test_id": "fix-010",
+      "label": "Incomplete Inventory (Gin Only)",
+      "inventory": ["gin"],
+      "expected_top": [],
+      "expected_missing_in": {},
+      "should_not_appear": [],
+      "min_overlap_in_top5": 0,
+      "edge_case": "只有 gin，每個推薦都應有大量 missing，不應推 missing=0 的酒",
+      "pass_rule": "所有 top 5 結果的 missing_count 應 ≥ 1，且平均 missing ≥ 2",
+      "actual_top5": null,
+      "L3_pass": null,
+      "fail_reason": null
+    }
+  ]
+}

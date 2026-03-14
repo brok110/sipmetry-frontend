@@ -1,17 +1,45 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import Slider from "@react-native-community/slider";
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
+import { useAuth } from "@/context/auth";
+import { useLearnedPreferences } from "@/context/learnedPreferences";
 import {
-    FlavorLevel,
-    levelWordAlcohol,
-    levelWordBitterness,
-    levelWordSweetness,
-    StylePreset,
-    usePreferences,
+  FlavorLevel,
+  levelWordAlcohol,
+  levelWordBitterness,
+  levelWordSweetness,
+  StylePreset,
+  usePreferences,
 } from "@/context/preferences";
+
+// Dims to display in the Learned section (most intuitive for users)
+const LEARNED_DISPLAY_DIMS: { key: string; label: string }[] = [
+  { key: "sweetness",      label: "Sweetness" },
+  { key: "sourness",       label: "Sourness" },
+  { key: "bitterness",     label: "Bitterness" },
+  { key: "alcoholStrength", label: "Alcohol" },
+  { key: "fruity",         label: "Fruity" },
+  { key: "smoky",          label: "Smoky" },
+];
+
+function LearnedDimRow({ label, value }: { label: string; value: number }) {
+  const pct = Math.round((value / 5) * 100);
+  return (
+    <View style={{ gap: 4 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: "#333" }}>{label}</Text>
+        <Text style={{ fontSize: 12, color: "#888" }}>{value.toFixed(1)}</Text>
+      </View>
+      <View style={{ height: 6, borderRadius: 3, backgroundColor: "#eee", overflow: "hidden" }}>
+        <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: "#111" }} />
+      </View>
+    </View>
+  );
+}
 
 const STYLE_PRESETS: { key: StylePreset; label: string }[] = [
   { key: "Clean", label: "Clean" },
@@ -27,6 +55,14 @@ const STYLE_PRESETS: { key: StylePreset; label: string }[] = [
 function cycleLevel(v: FlavorLevel): FlavorLevel {
   const next = (Number(v) + 1) % 4;
   return next as FlavorLevel;
+}
+
+function toLevel3(v: number): FlavorLevel {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0 as FlavorLevel;
+  const r = Math.round(n);
+  const clamped = Math.max(0, Math.min(3, r));
+  return clamped as FlavorLevel;
 }
 
 function StyleChip({
@@ -102,6 +138,9 @@ export default function TabZeroPreferencesScreen() {
   }, [navigation]);
 
   const { preferences, setPreferences, resetPreferences, hydrated } = usePreferences();
+  const { session } = useAuth();
+  const { learnedVector, eventCount, isLoading: learnedLoading, refresh: refreshLearned } = useLearnedPreferences();
+  const isLoggedIn = !!session?.access_token;
 
   const [draftStyle, setDraftStyle] = useState<StylePreset>(preferences.stylePreset);
   const [draftAlcohol, setDraftAlcohol] = useState<FlavorLevel>(preferences.dims.alcoholStrength);
@@ -208,29 +247,59 @@ export default function TabZeroPreferencesScreen() {
           }}
         >
           <Text style={{ fontWeight: "900" }}>Taste</Text>
-          <Text style={{ color: "#555" }}>
-            Tap a chip to adjust intensity (cycles through 4 levels).
-          </Text>
+          <Text style={{ color: "#555" }}>Slide to adjust intensity (0–3).</Text>
 
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <TasteChip
-              icon="glass"
-              label={alcoholWord}
-              onPress={() => setDraftAlcohol((v) => cycleLevel(v))}
-              disabled={disabled}
-            />
-            <TasteChip
-              icon="cube"
-              label={sweetnessWord}
-              onPress={() => setDraftSweetness((v) => cycleLevel(v))}
-              disabled={disabled}
-            />
-            <TasteChip
-              icon="leaf"
-              label={bitternessWord}
-              onPress={() => setDraftBitterness((v) => cycleLevel(v))}
-              disabled={disabled}
-            />
+          <View style={{ gap: 14 }}>
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <FontAwesome name="glass" size={16} color="#555" />
+                <Text style={{ fontWeight: "800", flex: 1 }}>{alcoholWord}</Text>
+                <Text style={{ color: "#777", fontWeight: "800" }}>{Number(draftAlcohol)}</Text>
+              </View>
+
+              <Slider
+                value={Number(draftAlcohol)}
+                minimumValue={0}
+                maximumValue={3}
+                step={1}
+                disabled={disabled}
+                onValueChange={(v) => setDraftAlcohol(toLevel3(v))}
+              />
+            </View>
+
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <FontAwesome name="cube" size={16} color="#555" />
+                <Text style={{ fontWeight: "800", flex: 1 }}>{sweetnessWord}</Text>
+                <Text style={{ color: "#777", fontWeight: "800" }}>{Number(draftSweetness)}</Text>
+              </View>
+
+              <Slider
+                value={Number(draftSweetness)}
+                minimumValue={0}
+                maximumValue={3}
+                step={1}
+                disabled={disabled}
+                onValueChange={(v) => setDraftSweetness(toLevel3(v))}
+              />
+            </View>
+
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <FontAwesome name="leaf" size={16} color="#555" />
+                <Text style={{ fontWeight: "800", flex: 1 }}>{bitternessWord}</Text>
+                <Text style={{ color: "#777", fontWeight: "800" }}>{Number(draftBitterness)}</Text>
+              </View>
+
+              <Slider
+                value={Number(draftBitterness)}
+                minimumValue={0}
+                maximumValue={3}
+                step={1}
+                disabled={disabled}
+                onValueChange={(v) => setDraftBitterness(toLevel3(v))}
+              />
+            </View>
           </View>
         </View>
 
@@ -273,6 +342,47 @@ export default function TabZeroPreferencesScreen() {
           <Text style={{ color: "#666" }}>
             These settings will shape your recommendations and matching.
           </Text>
+        )}
+
+        {/* Learned preferences — only shown when logged in */}
+        {isLoggedIn && (
+          <View
+            style={{
+              padding: 12,
+              borderWidth: 1,
+              borderRadius: 12,
+              gap: 12,
+            }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <FontAwesome name="bar-chart" size={14} color="#555" />
+              <Text style={{ fontWeight: "900", flex: 1 }}>Learned from your history</Text>
+              <Pressable onPress={refreshLearned} hitSlop={8}>
+                <FontAwesome name="refresh" size={14} color={learnedLoading ? "#ccc" : "#555"} />
+              </Pressable>
+            </View>
+
+            {learnedLoading ? (
+              <ActivityIndicator size="small" color="#555" />
+            ) : learnedVector && eventCount > 0 ? (
+              <>
+                <Text style={{ fontSize: 12, color: "#888" }}>
+                  Based on {eventCount} rating{eventCount === 1 ? "" : "s"} • updates automatically
+                </Text>
+                <View style={{ gap: 10 }}>
+                  {LEARNED_DISPLAY_DIMS.map(({ key, label }) => {
+                    const val = learnedVector[key];
+                    if (val === undefined || val === null) return null;
+                    return <LearnedDimRow key={key} label={label} value={Number(val)} />;
+                  })}
+                </View>
+              </>
+            ) : (
+              <Text style={{ fontSize: 13, color: "#888" }}>
+                Rate a few cocktails and your taste profile will appear here.
+              </Text>
+            )}
+          </View>
         )}
       </ScrollView>
     </View>
