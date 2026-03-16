@@ -60,6 +60,7 @@ type ClassicItem = {
   alcohol_safety_warning?: boolean;
   alcohol_safety_message?: string;
   alcohol_strength_score?: number | null;
+  alcohol_warning?: boolean;
   allergen_warning?: boolean;
   allergen_types?: string[];
   caffeine_warning?: boolean;
@@ -1664,6 +1665,12 @@ export default function TabOneScreen() {
             ? r.missing_items.map((s) => String(s).trim()).filter(Boolean)
             : [];
 
+          const safetyBadges = [
+            r.alcohol_warning ? "High Proof" : null,
+            r.allergen_warning ? "Allergen" : null,
+            r.caffeine_warning ? "Caffeine + Alcohol" : null,
+          ].filter(Boolean) as string[];
+
           return (
             <View
               key={`${r.iba_code}-${idx}`}
@@ -1705,6 +1712,28 @@ export default function TabOneScreen() {
                   <Text style={{ fontWeight: "800" }}>View</Text>
                 </Pressable>
               </View>
+
+              {safetyBadges.length > 0 ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {safetyBadges.map((badge) => (
+                    <View
+                      key={badge}
+                      style={{
+                        borderWidth: 1,
+                        borderRadius: 999,
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        backgroundColor: "#faf5ff",
+                        borderColor: "#d8b4fe",
+                      }}
+                    >
+                      <Text style={{ fontSize: 11, fontWeight: "800", color: "#7c3aed" }}>
+                        {badge}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
 
               {Array.isArray((r as any)?.reasons) && (r as any).reasons.length > 0 ? (
                 (() => {
