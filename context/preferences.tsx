@@ -37,6 +37,12 @@ export type FlavorVector = Record<FlavorDimKey, FlavorLevel>;
 
 export type ExplicitDims = Record<FlavorDimKey, boolean>;
 
+export type SafetyMode = {
+  avoidHighProof: boolean;
+  avoidAllergens: boolean;
+  avoidCaffeineAlcohol: boolean;
+};
+
 export type UserPreferencesV2 = {
   schema_version: 2;
   has_user_set: boolean;
@@ -47,6 +53,7 @@ export type UserPreferencesV2 = {
   dislikes: string[];
   stylePreset: StylePreset;
   dims: Preference3;
+  safetyMode: SafetyMode;
 };
 
 export type PreferencesState = UserPreferencesV2;
@@ -105,6 +112,12 @@ const DEFAULT_EXPLICIT: ExplicitDims = {
   aromaIntensity: false,
 };
 
+const DEFAULT_SAFETY_MODE: SafetyMode = {
+  avoidHighProof: false,
+  avoidAllergens: false,
+  avoidCaffeineAlcohol: false,
+};
+
 function coerceExplicitDims(input: any): ExplicitDims {
   const src = input && typeof input === "object" ? input : {};
   const out: ExplicitDims = { ...DEFAULT_EXPLICIT };
@@ -113,6 +126,15 @@ function coerceExplicitDims(input: any): ExplicitDims {
     out[k] = v === true;
   });
   return out;
+}
+
+function coerceSafetyMode(input: any): SafetyMode {
+  const src = input && typeof input === "object" ? input : {};
+  return {
+    avoidHighProof: src.avoidHighProof === true,
+    avoidAllergens: src.avoidAllergens === true,
+    avoidCaffeineAlcohol: src.avoidCaffeineAlcohol === true,
+  };
 }
 
 const DEFAULT_V2: PreferencesState = {
@@ -125,6 +147,7 @@ const DEFAULT_V2: PreferencesState = {
   explicit: { ...DEFAULT_EXPLICIT },
   stylePreset: "Clean",
   dims: { ...DEFAULT_V1_DIMS },
+  safetyMode: { ...DEFAULT_SAFETY_MODE },
 };
 
 const STORAGE_KEY_V1 = "sipmetry.preferences.v1";
@@ -244,6 +267,11 @@ export function isUserEdited(prefs: PreferencesState | null | undefined): boolea
   const dims = prefs.dims ?? DEFAULT_V1_DIMS;
   if (!arePreference3Equal(dims, DEFAULT_V1_DIMS)) return true;
 
+  const safetyMode = prefs.safetyMode ?? DEFAULT_SAFETY_MODE;
+  if (safetyMode.avoidHighProof || safetyMode.avoidAllergens || safetyMode.avoidCaffeineAlcohol) {
+    return true;
+  }
+
   return false;
 }
 
@@ -342,6 +370,7 @@ function normalizeV1(input: any): PreferencesState {
     explicit,
     stylePreset,
     dims,
+    safetyMode: { ...DEFAULT_SAFETY_MODE },
     has_user_set: false,
   };
 
@@ -395,6 +424,7 @@ function normalizeV2(input: any): PreferencesState {
   const stylePreset = coerceStylePreset(input?.stylePreset);
 
   const dims: Preference3 = { ...dimsFromInput };
+  const safetyMode = coerceSafetyMode(input?.safetyMode);
 
   const base: PreferencesState = {
     ...DEFAULT_V2,
@@ -406,6 +436,7 @@ function normalizeV2(input: any): PreferencesState {
     explicit,
     stylePreset,
     dims,
+    safetyMode,
     has_user_set: false,
   };
 
@@ -446,6 +477,7 @@ function normalizePreferences(input: any): PreferencesState {
     updated_at: null,
     intensities,
     explicit: { ...DEFAULT_EXPLICIT },
+    safetyMode: coerceSafetyMode(maybeFlat.safetyMode),
     has_user_set: false,
   };
 
@@ -495,6 +527,7 @@ async function persistAll(next: PreferencesState) {
         spicy: next.intensities.spicy,
         aromaIntensity: next.intensities.aromaIntensity,
         stylePreset: next.stylePreset,
+        safetyMode: next.safetyMode,
         has_user_set: next.has_user_set,
         updated_at: next.updated_at,
       })
@@ -649,6 +682,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
           ...DEFAULT_V2,
           intensities: { ...BALANCED_VECTOR },
           explicit: { ...DEFAULT_EXPLICIT },
+          safetyMode: { ...DEFAULT_SAFETY_MODE },
           has_user_set: false,
           updated_at: null,
         };
