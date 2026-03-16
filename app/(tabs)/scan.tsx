@@ -1,9 +1,8 @@
 import AddToInventoryModal from "@/components/AddToInventoryModal";
 import { useAuth } from "@/context/auth";
-import { useLowStockAlert } from "@/context/lowStockAlert";
-import { checkAndNotify } from "@/lib/lowStockNotifier";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
+import { useInventory } from "@/context/inventory";
 import { useLearnedPreferences } from "@/context/learnedPreferences";
 import {
   aggregateIngredientVectors,
@@ -11,6 +10,7 @@ import {
   normalizeIngredientKey,
 } from "@/context/ontology";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
+import { useTokens, Feature } from "@/context/tokens";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -335,8 +335,34 @@ export default function TabOneScreen() {
 
   const [recipes, setRecipes] = useState<ClassicItem[]>([]);
   const [recipesStale, setRecipesStale] = useState(false);
-  const [recipesStaleReason, setRecipesStaleReason] = useState<"ingredients" | "preferences" | null>(null);
+  const [recipesStaleReason, setRecipesStaleReason] = useState<"ingredients" | "preferences" | "mood" | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
+
+  // Stage 7: Mood selector
+  type MoodOption = "chill" | "party" | "date_night" | "solo";
+  const [selectedMood, setSelectedMood] = useState<MoodOption | null>(null);
+  const lastRecommendMoodRef = React.useRef<MoodOption | null>(null);
+
+  // Stage 10: Flavor Explorer
+  type ExploreItem = {
+    iba_code: string;
+    name: string;
+    iba_category?: string;
+    missing_count: number;
+    total_ings: number;
+    overlap_count?: number;
+    overlap_hits?: string[];
+    ingredient_keys?: string[];
+    missing_items?: string[];
+    explore_score: number;
+    explore_dims?: { dim: string; user_avg: number; recipe: number; diff: number; contribution: number }[];
+    reasons?: string[];
+    bucket?: "ready" | "one_missing";
+  };
+  const [exploreResults, setExploreResults] = useState<ExploreItem[]>([]);
+  const [exploreMeta, setExploreMeta] = useState<any>(null);
+  const [exploreLoading, setExploreLoading] = useState(false);
+  const [showExplore, setShowExplore] = useState(false);
 
   const appLocale = useMemo(() => {
     try {
@@ -360,7 +386,7 @@ export default function TabOneScreen() {
   // Inventory Modal state
   const [inventoryModalTarget, setInventoryModalTarget] = useState<ActiveIngredient | null>(null);
   const { session } = useAuth();
-  const { showAlert } = useLowStockAlert();
+  const { availableIngredientKeys, addInventoryItem } = useInventory();
   const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -371,6 +397,7 @@ export default function TabOneScreen() {
   const ratingMetaByKey: Record<string, any> = feedback?.ratingMetaByKey ?? {};
 
   const { favoritesByKey } = useFavorites();
+  const { isUnlocked, spend: spendToken, earn: earnToken, costs: unlockCosts, balance: tokenBalance } = useTokens();
 
   const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
 
@@ -620,25 +647,6 @@ export default function TabOneScreen() {
     }
   };
 
-  // Stage 6: 從 My Bar 讀取 ingredient_key，合併進推薦計算
-  const fetchInventoryIngredients = async (): Promise<string[]> => {
-    if (!session?.access_token || !API_URL) return [];
-    try {
-      const res = await fetch(`${API_URL}/inventory`, {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!res.ok) return [];
-      const data = (await res.json()) as { inventory?: Array<{ ingredient_key: string; remaining_pct: number | string }> };
-      const items = Array.isArray(data.inventory) ? data.inventory : [];
-      return items
-        .filter((it) => Number(it.remaining_pct) > 0)
-        .map((it) => String(it.ingredient_key ?? "").trim())
-        .filter(Boolean);
-    } catch {
-      return [];
-    }
-  };
-
   const regenerateRecipes = async (overrideIngredients?: ActiveIngredient[]) => {
     if (!API_URL) {
       setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
@@ -700,29 +708,35 @@ export default function TabOneScreen() {
       }
 
       // Stage 6: 已登入時，合併 My Bar 的 ingredient_key 到推薦計算中
-      const inventoryKeys = await fetchInventoryIngredients();
       const mergedIngredients = dedupeCaseInsensitive([
         ...canonicalDeduped,
-        ...inventoryKeys
+        ...availableIngredientKeys
           .map((k) => String(normalizeIngredientKey(k) || "").trim())
           .filter(Boolean),
       ]);
 
       const localeForApi = isZh ? "zh" : "en";
 
+      // Stage 7: build request body with optional mood filter
+      const recommendBody: Record<string, any> = {
+        detected_ingredients: mergedIngredients,
+        locale: localeForApi,
+        user_preference_vector: resolvedVector05,
+        user_interactions: {
+          favorite_codes: Array.from(interactionSets.favoriteCodes),
+          liked_codes: Array.from(interactionSets.likedCodes),
+          disliked_codes: Array.from(interactionSets.dislikedCodes),
+        },
+      };
+      if (selectedMood) {
+        recommendBody.mood = selectedMood;
+      }
+      lastRecommendMoodRef.current = selectedMood;
+
       const resp = await fetch(`${API_URL}/recommend-classics`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          detected_ingredients: mergedIngredients,
-          locale: localeForApi,
-          user_preference_vector: resolvedVector05,
-          user_interactions: {
-            favorite_codes: Array.from(interactionSets.favoriteCodes),
-            liked_codes: Array.from(interactionSets.likedCodes),
-            disliked_codes: Array.from(interactionSets.dislikedCodes),
-          },
-        }),
+        body: JSON.stringify(recommendBody),
       });
 
       setLastRecommendHttpStatus(resp.status);
@@ -785,6 +799,56 @@ export default function TabOneScreen() {
       setStage("idle");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Stage 10: Flavor Explorer ─────────────────────────────────────────
+  const fetchExplore = async () => {
+    if (!API_URL || activeIngredients.length === 0) return;
+
+    setExploreLoading(true);
+    setError(null);
+    try {
+      const detectedList = activeIngredients.map((a) => String(a.canonical ?? a.display ?? "").trim()).filter(Boolean);
+
+      const favoriteCodes = Object.values(favoritesByKey ?? {}).map((f: any) => String(f?.iba_code || f?.recipe_key || "").trim()).filter(Boolean);
+      const likedCodes: string[] = [];
+      const dislikedCodes: string[] = [];
+      for (const [key, rating] of Object.entries(ratingsByKey)) {
+        const meta = ratingMetaByKey[key];
+        const code = String(meta?.iba_code || key || "").trim();
+        if (!code) continue;
+        if (rating === "like") likedCodes.push(code);
+        else if (rating === "dislike") dislikedCodes.push(code);
+      }
+
+      const resp = await fetch(`${API_URL}/recommend-explore`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          detected_ingredients: detectedList,
+          locale: isZh ? "zh" : "en",
+          user_interactions: {
+            favorite_codes: favoriteCodes,
+            liked_codes: likedCodes,
+            disliked_codes: dislikedCodes,
+          },
+        }),
+      });
+
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`Explore API failed: ${resp.status} ${t}`);
+      }
+
+      const data = await resp.json();
+      setExploreResults(Array.isArray(data.explore) ? data.explore : []);
+      setExploreMeta(data.meta || null);
+      setShowExplore(true);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to fetch explore recommendations.");
+    } finally {
+      setExploreLoading(false);
     }
   };
 
@@ -1122,6 +1186,9 @@ export default function TabOneScreen() {
       setPickedBase64(null);
 
       setError(null);
+
+      // Server-backed token earn for successful scan (deduped by timestamp key)
+      earnToken("scan", `scan_${Date.now()}`);
     } catch (e: any) {
       setError(e?.message ?? "Failed to analyze image.");
       setStage("idle");
@@ -1183,35 +1250,13 @@ export default function TabOneScreen() {
   };
 
   const handleAddToInventory = async (payload: {
-    ingredient_key: string
-    display_name: string
-    total_ml: number
-    remaining_pct: number
+    ingredient_key: string;
+    display_name: string;
+    total_ml: number;
+    remaining_pct: number;
   }) => {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL
-    const token = session?.access_token
-    if (!token) throw new Error('Please sign in first')
-
-    const res = await fetch(`${apiUrl}/inventory`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err?.error ?? 'Failed to add')
-    }
-
-    // Check low stock after successful add
-    const data = await res.json().catch(() => ({}))
-    if (data?.item) {
-      const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? ''
-      await checkAndNotify(data.item, { showAlert, session: session ?? null, apiUrl })
-    }
-  }
+    await addInventoryItem(payload);
+  };
 
   const saveEditIngredient = async () => {
     if (!editingId) return;
@@ -1568,6 +1613,8 @@ export default function TabOneScreen() {
             <Text style={{ color: "#555" }}>
               {recipesStaleReason === "preferences"
                 ? "Preferences changed. Please refresh recommendations."
+                : recipesStaleReason === "mood"
+                ? "Mood changed. Please refresh recommendations."
                 : "Ingredients changed. Please refresh recommendations."}
             </Text>
           </View>
@@ -1718,13 +1765,172 @@ export default function TabOneScreen() {
             <View style={{ flex: 1 }}>
               <Button title="Add" onPress={addIngredient} disabled={loading} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Button
-                title={loading ? "Loading..." : hasRecommended ? "Refresh Classics" : "Recommend Classics"}
-                onPress={() => regenerateRecipes()}
-                disabled={loading || activeIngredients.length === 0}
-              />
+          </View>
+
+          {/* Stage 7 + 9b: Mood selector with unlock */}
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ fontWeight: "700", fontSize: 13, marginBottom: 6 }}>Mood (optional)</Text>
+            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+              {(
+                [
+                  { key: "chill", label: "Chill", emoji: "😌", color: "#4ade80", feature: "mood_chill" as Feature },
+                  { key: "party", label: "Party", emoji: "🎉", color: "#f59e0b", feature: "mood_party" as Feature },
+                  { key: "date_night", label: "Date Night", emoji: "💕", color: "#f472b6", feature: "mood_date_night" as Feature },
+                  { key: "solo", label: "Solo", emoji: "🧘", color: "#60a5fa", feature: "mood_solo" as Feature },
+                ] as const
+              ).map((m) => {
+                const isActive = selectedMood === m.key;
+                const unlocked = isUnlocked(m.feature);
+                const cost = unlockCosts[m.feature] ?? 0;
+                return (
+                  <Pressable
+                    key={m.key}
+                    onPress={async () => {
+                      if (!unlocked) {
+                        // Show unlock dialog
+                        if (!session) {
+                          Alert.alert("Sign in required", "Please sign in to unlock mood filters.");
+                          return;
+                        }
+                        Alert.alert(
+                          `Unlock ${m.label}?`,
+                          `Spend ${cost} tokens to unlock the ${m.label} mood filter?\n\nYour balance: ${tokenBalance} tokens`,
+                          [
+                            { text: "Cancel", style: "cancel" },
+                            {
+                              text: `Unlock (${cost} tokens)`,
+                              onPress: async () => {
+                                const result = await spendToken(m.feature);
+                                if (result.ok) {
+                                  Alert.alert("Unlocked!", `${m.label} mood is now available.`);
+                                } else if (result.reason === "insufficient_balance") {
+                                  Alert.alert("Not enough tokens", `You need ${cost} tokens but only have ${tokenBalance}. Keep scanning and rating to earn more!`);
+                                }
+                              },
+                            },
+                          ]
+                        );
+                        return;
+                      }
+                      const next = isActive ? null : m.key;
+                      setSelectedMood(next);
+                      if (hasRecommended && recipes.length > 0 && next !== lastRecommendMoodRef.current) {
+                        setRecipesStale(true);
+                        setRecipesStaleReason("mood");
+                      } else if (hasRecommended && next === lastRecommendMoodRef.current) {
+                        if (recipesStaleReason === "mood") {
+                          setRecipesStale(false);
+                          setRecipesStaleReason(null);
+                        }
+                      }
+                    }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      borderRadius: 20,
+                      borderWidth: 1.5,
+                      borderColor: unlocked ? (isActive ? m.color : "#ccc") : "#e5e5e5",
+                      backgroundColor: unlocked ? (isActive ? m.color + "18" : "transparent") : "#f5f5f5",
+                      opacity: unlocked ? 1 : 0.7,
+                    }}
+                  >
+                    {!unlocked ? (
+                      <Text style={{ fontSize: 12 }}>🔒</Text>
+                    ) : (
+                      <Text style={{ fontSize: 14 }}>{m.emoji}</Text>
+                    )}
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: isActive && unlocked ? "700" : "500",
+                        color: unlocked ? (isActive ? m.color : "#888") : "#bbb",
+                      }}
+                    >
+                      {m.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
+          </View>
+
+          {/* Stage 10: Flavor Explorer button — hidden during development */}
+          {false && <View style={{ marginTop: 8 }}>
+            {(() => {
+              const exploreUnlocked = isUnlocked("flavor_explorer");
+              const exploreCost = unlockCosts["flavor_explorer" as Feature] ?? 15;
+              return (
+                <Pressable
+                  onPress={async () => {
+                    if (!exploreUnlocked) {
+                      if (!session) {
+                        Alert.alert("Sign in required", "Please sign in to unlock Flavor Explorer.");
+                        return;
+                      }
+                      Alert.alert(
+                        "Unlock Flavor Explorer?",
+                        `Spend ${exploreCost} tokens to unlock recommendations outside your comfort zone?\n\nYour balance: ${tokenBalance} tokens`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          {
+                            text: `Unlock (${exploreCost} tokens)`,
+                            onPress: async () => {
+                              const result = await spendToken("flavor_explorer" as Feature);
+                              if (result.ok) {
+                                Alert.alert("Unlocked!", "Flavor Explorer is now available.");
+                              } else if (result.reason === "insufficient_balance") {
+                                Alert.alert("Not enough tokens", `You need ${exploreCost} tokens but only have ${tokenBalance}. Keep scanning and rating!`);
+                              }
+                            },
+                          },
+                        ]
+                      );
+                      return;
+                    }
+                    if (showExplore) {
+                      setShowExplore(false);
+                      return;
+                    }
+                    fetchExplore();
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingHorizontal: 14,
+                    paddingVertical: 9,
+                    borderRadius: 20,
+                    borderWidth: 1.5,
+                    borderColor: exploreUnlocked ? (showExplore ? "#8b5cf6" : "#ccc") : "#e5e5e5",
+                    backgroundColor: exploreUnlocked ? (showExplore ? "#8b5cf618" : "transparent") : "#f5f5f5",
+                    opacity: exploreUnlocked ? 1 : 0.7,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>{exploreUnlocked ? "🧭" : "🔒"}</Text>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      fontWeight: showExplore && exploreUnlocked ? "700" : "500",
+                      color: exploreUnlocked ? (showExplore ? "#8b5cf6" : "#888") : "#bbb",
+                    }}
+                  >
+                    {exploreLoading ? "Exploring..." : "Flavor Explorer"}
+                  </Text>
+                </Pressable>
+              );
+            })()}
+          </View>}
+
+          <View style={{ marginTop: 8 }}>
+            <Button
+              title={loading ? "Loading..." : hasRecommended ? "Refresh Classics" : "Recommend Classics"}
+              onPress={() => regenerateRecipes()}
+              disabled={loading || activeIngredients.length === 0}
+            />
           </View>
         </View>
       </View>
@@ -1743,6 +1949,88 @@ export default function TabOneScreen() {
               </Text>
             </View>
           ) : null}
+        </View>
+      ) : null}
+
+      {/* Stage 10: Flavor Explorer results — hidden during development */}
+      {false && showExplore && exploreResults.length > 0 ? (
+        <View style={{ gap: 10 }}>
+          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10, borderColor: "#8b5cf6" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: "#8b5cf6" }} />
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderRadius: 999,
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  backgroundColor: "#8b5cf618",
+                  borderColor: "#8b5cf6",
+                }}
+              >
+                <Text style={{ fontWeight: "900", color: "#8b5cf6" }}>
+                  🧭 Explore ({exploreResults.length})
+                </Text>
+              </View>
+            </View>
+
+            {exploreMeta?.explore_dims ? (
+              <Text style={{ color: "#666", fontSize: 12 }}>
+                {isZh ? "探索方向：" : "Exploring: "}
+                {(exploreMeta.explore_dims as any[]).map((d: any) => d.label || d.dim).join(", ")}
+              </Text>
+            ) : null}
+
+            {exploreResults.map((r, idx) => {
+              const name = String(r?.name ?? "").trim() || "Recipe";
+              return (
+                <View
+                  key={`explore-${r.iba_code}-${idx}`}
+                  style={{
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    padding: 12,
+                    gap: 8,
+                    borderColor: "#e5e7eb",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    <Text style={{ fontWeight: "800", flex: 1 }} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    <Pressable
+                      onPress={() => openRecipeInTab2(r as any, idx)}
+                      style={{
+                        borderWidth: 1,
+                        borderRadius: 999,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                      }}
+                    >
+                      <Text style={{ fontWeight: "800" }}>View</Text>
+                    </Pressable>
+                  </View>
+
+                  {Array.isArray(r.reasons) && r.reasons.length > 0 ? (
+                    <View style={{ gap: 2 }}>
+                      {r.reasons.map((reason, ri) => (
+                        <Text key={ri} style={{ color: "#555", fontSize: 13 }}>
+                          {reason}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : false && showExplore && exploreMeta?.reason === "insufficient_data" ? (
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: "#8b5cf6" }}>
+          <Text style={{ fontWeight: "700", color: "#8b5cf6" }}>🧭 Flavor Explorer</Text>
+          <Text style={{ color: "#666", marginTop: 4 }}>
+            {exploreMeta?.message || (isZh ? "需要更多互動資料才能生成探險推薦" : "Need more interactions to generate explore recommendations")}
+          </Text>
         </View>
       ) : null}
     </ScrollView>

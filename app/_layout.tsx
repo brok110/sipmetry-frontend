@@ -8,6 +8,14 @@ import 'react-native-reanimated';
 
 import { useColorScheme } from '@/components/useColorScheme';
 import { AuthProvider, useAuth } from '@/context/auth';
+import { EconomyProvider } from '@/context/economy';
+import { FavoritesProvider } from '@/context/favorites';
+import { FeedbackProvider } from '@/context/feedback';
+import { InventoryProvider } from '@/context/inventory';
+import { LearnedPreferencesProvider } from '@/context/learnedPreferences';
+import { LowStockAlertProvider } from '@/context/lowStockAlert';
+import { PreferencesProvider } from '@/context/preferences';
+import { TokenProvider } from '@/context/tokens';
 
 export {
   ErrorBoundary
@@ -41,7 +49,23 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <RootLayoutNav />
+      <EconomyProvider>
+      <TokenProvider>
+      <PreferencesProvider>
+      <LearnedPreferencesProvider>
+      <FavoritesProvider>
+      <FeedbackProvider>
+      <LowStockAlertProvider>
+      <InventoryProvider>
+        <RootLayoutNav />
+      </InventoryProvider>
+      </LowStockAlertProvider>
+      </FeedbackProvider>
+      </FavoritesProvider>
+      </LearnedPreferencesProvider>
+      </PreferencesProvider>
+      </TokenProvider>
+      </EconomyProvider>
     </AuthProvider>
   );
 }
@@ -54,11 +78,12 @@ function RootLayoutNav() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const inTabs = segments[0] === '(tabs)';
-    if (!user && inTabs) {
+    const firstSegment = segments[0];
+    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'recipe' || firstSegment === 'qr' || firstSegment === 'profile';
+    if (!user && inAuthArea) {
       router.replace('/login');
-    } else if (user && !inTabs) {
-      router.replace('/(tabs)');
+    } else if (user && firstSegment === 'login') {
+      router.replace('/(tabs)/scan');
     }
   }, [user, hydrated, segments]);
 
@@ -66,6 +91,11 @@ function RootLayoutNav() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="recipe" options={{ title: 'Recipe', headerShown: false }} />
+        <Stack.Screen name="qr" options={{ title: 'Share Recipe' }} />
+        <Stack.Screen name="profile/preferences" options={{ title: 'Preferences' }} />
+        <Stack.Screen name="profile/favorites" options={{ title: 'Favorites' }} />
+        <Stack.Screen name="profile/taste-dna" options={{ title: 'Taste DNA' }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>

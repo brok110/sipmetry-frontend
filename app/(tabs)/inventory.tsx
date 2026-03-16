@@ -1,11 +1,9 @@
 import AddToInventoryModal from '@/components/AddToInventoryModal'
 import { useAuth } from '@/context/auth'
-import { useLowStockAlert } from '@/context/lowStockAlert'
-import { checkAndNotify } from '@/lib/lowStockNotifier'
+import { InventoryItem, useInventory } from '@/context/inventory'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
-import { useFocusEffect } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -19,21 +17,6 @@ import {
   TextInput,
   View,
 } from 'react-native'
-
-type InventoryItem = {
-  id: string
-  ingredient_key: string
-  display_name: string
-  total_ml: number
-  remaining_pct: number
-  remaining_ml: number
-  remaining_volume: number
-  last_used_at: string | null
-  flavor_profile: string[]
-  low_stock_notified_at: string | null
-  created_at: string
-  updated_at: string
-}
 
 type SortBy =
   | 'date_added'
@@ -429,11 +412,17 @@ function InventoryCard({
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function MyBarScreen() {
   const { session } = useAuth()
-  const { showAlert } = useLowStockAlert()
-  const [inventory, setInventory] = useState<InventoryItem[]>([])
-  const [loading, setLoading] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    inventory,
+    loading,
+    refreshing,
+    error,
+    initialized,
+    refreshInventory,
+    addInventoryItem,
+    updateInventoryItem,
+    deleteInventoryItem,
+  } = useInventory()
 
   // ── Sort state (預設：加入時間 降冪) ──────────────────────
   const [sortBy, setSortBy] = useState<SortBy>('date_added')
@@ -473,37 +462,8 @@ export default function MyBarScreen() {
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? ''
 
-  const fetchInventory = useCallback(
-    async (silent = false) => {
-      if (!session?.access_token) return
-      if (!silent) setLoading(true)
-      setError(null)
-      try {
-        const res = await fetch(`${apiUrl}/inventory`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        setInventory(Array.isArray(data.inventory) ? data.inventory : [])
-      } catch (e: any) {
-        setError(e?.message ?? 'Failed to load inventory')
-      } finally {
-        setLoading(false)
-        setRefreshing(false)
-      }
-    },
-    [session?.access_token, apiUrl]
-  )
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchInventory()
-    }, [fetchInventory])
-  )
-
   const handleRefresh = () => {
-    setRefreshing(true)
-    fetchInventory(true)
+    refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {})
   }
 
   // ── Bottle scan ────────────────────────────────────────────────────────────
@@ -591,25 +551,7 @@ export default function MyBarScreen() {
     total_ml: number
     remaining_pct: number
   }) => {
-    if (!session?.access_token) throw new Error('Please sign in first')
-    const res = await fetch(`${apiUrl}/inventory`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err?.error ?? 'Failed to add')
-    }
-    const data = await res.json()
-    // Refresh inventory list after successful add
-    await fetchInventory(true)
-    if (data?.item) {
-      await checkAndNotify(data.item, { showAlert, session, apiUrl })
-    }
+    await addInventoryItem(payload)
   }
 
   const handleEdit = (item: InventoryItem) => {
@@ -620,26 +562,8 @@ export default function MyBarScreen() {
     id: string,
     updates: { display_name: string; total_ml: number; remaining_pct: number }
   ) => {
-    if (!session?.access_token) return
-    const res = await fetch(`${apiUrl}/inventory/${id}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify(updates),
-    })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err?.error ?? 'Update failed')
-    }
-    const data = await res.json()
-    const updated: InventoryItem = data.item
-    setInventory((prev) => prev.map((x) => (x.id === id ? updated : x)))
+    await updateInventoryItem(id, updates)
     setEditItem(null)
-
-    // Check low stock after update
-    await checkAndNotify(updated, { showAlert, session, apiUrl })
   }
 
   const handleDelete = (id: string, name: string) => {
@@ -652,14 +576,8 @@ export default function MyBarScreen() {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            if (!session?.access_token) return
             try {
-              const res = await fetch(`${apiUrl}/inventory/${id}`, {
-                method: 'DELETE',
-                headers: { Authorization: `Bearer ${session.access_token}` },
-              })
-              if (!res.ok) throw new Error('Delete failed')
-              setInventory((prev) => prev.filter((x) => x.id !== id))
+              await deleteInventoryItem(id)
             } catch (e: any) {
               Alert.alert('Error', e?.message ?? 'Could not delete item')
             }
@@ -680,7 +598,7 @@ export default function MyBarScreen() {
     )
   }
 
-  if (loading && inventory.length === 0) {
+  if ((loading || !initialized) && inventory.length === 0) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#111" />
