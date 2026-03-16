@@ -50,12 +50,16 @@ type ClassicItem = {
   reasons?: string[];
   recipe_key?: string;
   recipe_hash?: string;
+  recipe_vec?: Record<string, any> | null;
   score_breakdown?: {
     overlap_score?: number;
     missing_penalty?: number;
     preference_delta?: number;
     total_score?: number;
   };
+  alcohol_safety_warning?: boolean;
+  alcohol_safety_message?: string;
+  alcohol_strength_score?: number | null;
 };
 
 type SectionTone = "ready" | "one_missing" | "two_missing";
@@ -190,6 +194,50 @@ function clamp(n: number, lo: number, hi: number) {
 
 function canonicalizeForRecommendation(value: string): string {
   return String(normalizeIngredientKey(String(value ?? "").trim()) || "").trim();
+}
+
+function getAlcoholSafetyForRecipe(result: any): {
+  alcohol_safety_warning: boolean;
+  alcohol_safety_message?: string;
+  alcohol_strength_score: number | null;
+} {
+  const recipeVec =
+    result?.recipe_vec && typeof result.recipe_vec === "object"
+      ? result.recipe_vec
+      : result?.recipeVec && typeof result.recipeVec === "object"
+      ? result.recipeVec
+      : null;
+
+  const alcoholFromVec = recipeVec ? Number((recipeVec as any).alcoholStrength) : NaN;
+  if (Number.isFinite(alcoholFromVec)) {
+    const score = alcoholFromVec;
+    return {
+      alcohol_safety_warning: score >= 4.5,
+      alcohol_safety_message: score >= 4.5 ? "Very high alcohol strength." : undefined,
+      alcohol_strength_score: score,
+    };
+  }
+
+  const ingredientKeys = Array.isArray(result?.ingredient_keys)
+    ? result.ingredient_keys.map((x: any) => canonicalizeForRecommendation(String(x ?? ""))).filter(Boolean)
+    : [];
+
+  if (ingredientKeys.length === 0) {
+    return {
+      alcohol_safety_warning: false,
+      alcohol_strength_score: null,
+    };
+  }
+
+  const fallbackVec = aggregateIngredientVectors(ingredientKeys);
+  const fallbackAlcohol = Number((fallbackVec as any)?.alcoholStrength);
+  const score = Number.isFinite(fallbackAlcohol) ? fallbackAlcohol : null;
+
+  return {
+    alcohol_safety_warning: score !== null && score >= 4.5,
+    alcohol_safety_message: score !== null && score >= 4.5 ? "Very high alcohol strength." : undefined,
+    alcohol_strength_score: score,
+  };
 }
 
 function normalizeVector05(vec: any): Record<string, number | null> | null {
@@ -809,14 +857,17 @@ export default function TabOneScreen() {
         ...canMake.map((x) => ({
           ...x,
           bucket: "ready" as const,
+          ...getAlcoholSafetyForRecipe(x),
         })),
         ...oneAway.map((x) => ({
           ...x,
           bucket: "one_missing" as const,
+          ...getAlcoholSafetyForRecipe(x),
         })),
         ...twoAway.map((x) => ({
           ...x,
           bucket: "two_missing" as const,
+          ...getAlcoholSafetyForRecipe(x),
         })),
       ];
 
