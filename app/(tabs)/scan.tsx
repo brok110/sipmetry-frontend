@@ -386,7 +386,7 @@ export default function TabOneScreen() {
   // Inventory Modal state
   const [inventoryModalTarget, setInventoryModalTarget] = useState<ActiveIngredient | null>(null);
   const { session } = useAuth();
-  const { availableIngredientKeys, addInventoryItem } = useInventory();
+  const { availableIngredientKeys, initialized: inventoryInitialized, refreshInventory, addInventoryItem } = useInventory();
   const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -708,9 +708,20 @@ export default function TabOneScreen() {
       }
 
       // Stage 6: 已登入時，合併 My Bar 的 ingredient_key 到推薦計算中
+      const inventoryKeys =
+        session?.access_token && !inventoryInitialized
+          ? await refreshInventory({ silent: true })
+              .then((items) =>
+                items
+                  .filter((it) => Number(it.remaining_pct) > 0)
+                  .map((it) => String(it.ingredient_key ?? "").trim())
+                  .filter(Boolean)
+              )
+          : availableIngredientKeys;
+
       const mergedIngredients = dedupeCaseInsensitive([
         ...canonicalDeduped,
-        ...availableIngredientKeys
+        ...inventoryKeys
           .map((k) => String(normalizeIngredientKey(k) || "").trim())
           .filter(Boolean),
       ]);
