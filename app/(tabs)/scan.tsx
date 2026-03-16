@@ -341,6 +341,28 @@ function getCaffeineSafetyForRecipe(result: any): {
   };
 }
 
+function evaluateRecipeSafety(result: any): {
+  alcohol_warning: boolean;
+  alcohol_strength_score: number | null;
+  allergen_warning: boolean;
+  allergen_types: string[];
+  caffeine_warning: boolean;
+  caffeine_sources: string[];
+} {
+  const alcoholSafety = getAlcoholSafetyForRecipe(result);
+  const allergenSafety = getAllergenSafetyForRecipe(result);
+  const caffeineSafety = getCaffeineSafetyForRecipe(result);
+
+  return {
+    alcohol_warning: alcoholSafety.alcohol_safety_warning,
+    alcohol_strength_score: alcoholSafety.alcohol_strength_score,
+    allergen_warning: allergenSafety.allergen_warning,
+    allergen_types: allergenSafety.allergen_types,
+    caffeine_warning: caffeineSafety.caffeine_warning,
+    caffeine_sources: caffeineSafety.caffeine_sources,
+  };
+}
+
 function normalizeVector05(vec: any): Record<string, number | null> | null {
   if (!vec || typeof vec !== "object") return null;
   const out: Record<string, number | null> = {};
@@ -961,6 +983,7 @@ export default function TabOneScreen() {
           ...getAlcoholSafetyForRecipe(x),
           ...getAllergenSafetyForRecipe(x),
           ...getCaffeineSafetyForRecipe(x),
+          ...evaluateRecipeSafety(x),
         })),
         ...oneAway.map((x) => ({
           ...x,
@@ -968,6 +991,7 @@ export default function TabOneScreen() {
           ...getAlcoholSafetyForRecipe(x),
           ...getAllergenSafetyForRecipe(x),
           ...getCaffeineSafetyForRecipe(x),
+          ...evaluateRecipeSafety(x),
         })),
         ...twoAway.map((x) => ({
           ...x,
@@ -975,6 +999,7 @@ export default function TabOneScreen() {
           ...getAlcoholSafetyForRecipe(x),
           ...getAllergenSafetyForRecipe(x),
           ...getCaffeineSafetyForRecipe(x),
+          ...evaluateRecipeSafety(x),
         })),
       ];
 
