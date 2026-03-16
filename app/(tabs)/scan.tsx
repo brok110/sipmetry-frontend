@@ -60,6 +60,8 @@ type ClassicItem = {
   alcohol_safety_warning?: boolean;
   alcohol_safety_message?: string;
   alcohol_strength_score?: number | null;
+  allergen_warning?: boolean;
+  allergen_types?: string[];
 };
 
 type SectionTone = "ready" | "one_missing" | "two_missing";
@@ -237,6 +239,70 @@ function getAlcoholSafetyForRecipe(result: any): {
     alcohol_safety_warning: score !== null && score >= 4.5,
     alcohol_safety_message: score !== null && score >= 4.5 ? "Very high alcohol strength." : undefined,
     alcohol_strength_score: score,
+  };
+}
+
+function getCanonicalIngredientKeysForResult(result: any): string[] {
+  return Array.isArray(result?.ingredient_keys)
+    ? dedupeCaseInsensitive(
+        result.ingredient_keys
+          .map((x: any) => canonicalizeForRecommendation(String(x ?? "")))
+          .filter(Boolean)
+      )
+    : [];
+}
+
+function getAllergenSafetyForRecipe(result: any): {
+  allergen_warning: boolean;
+  allergen_types: string[];
+} {
+  const ingredientKeys = getCanonicalIngredientKeysForResult(result);
+  const allergens = new Set<string>();
+
+  for (const key of ingredientKeys) {
+    const normalized = String(key ?? "").trim().toLowerCase();
+    if (!normalized) continue;
+
+    if (normalized === "egg_white" || normalized === "egg" || normalized.includes("egg_")) {
+      allergens.add("egg");
+    }
+
+    if (
+      normalized === "milk" ||
+      normalized === "cream" ||
+      normalized.includes("cream") ||
+      normalized.includes("milk")
+    ) {
+      allergens.add("milk");
+    }
+
+    if (
+      normalized === "orgeat" ||
+      normalized === "almond" ||
+      normalized.includes("almond") ||
+      normalized.includes("orgeat")
+    ) {
+      allergens.add("almond");
+    }
+
+    if (
+      normalized === "beer" ||
+      normalized.includes("beer") ||
+      normalized.includes("ale") ||
+      normalized.includes("lager") ||
+      normalized.includes("stout") ||
+      normalized.includes("porter") ||
+      normalized.includes("wheat_beer") ||
+      normalized.includes("malt")
+    ) {
+      allergens.add("gluten");
+    }
+  }
+
+  const allergen_types = [...allergens].sort((a, b) => a.localeCompare(b));
+  return {
+    allergen_warning: allergen_types.length > 0,
+    allergen_types,
   };
 }
 
@@ -858,16 +924,19 @@ export default function TabOneScreen() {
           ...x,
           bucket: "ready" as const,
           ...getAlcoholSafetyForRecipe(x),
+          ...getAllergenSafetyForRecipe(x),
         })),
         ...oneAway.map((x) => ({
           ...x,
           bucket: "one_missing" as const,
           ...getAlcoholSafetyForRecipe(x),
+          ...getAllergenSafetyForRecipe(x),
         })),
         ...twoAway.map((x) => ({
           ...x,
           bucket: "two_missing" as const,
           ...getAlcoholSafetyForRecipe(x),
+          ...getAllergenSafetyForRecipe(x),
         })),
       ];
 
