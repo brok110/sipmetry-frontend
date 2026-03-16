@@ -660,11 +660,14 @@ export default function TabOneScreen() {
 
   const prefsKey = useMemo(() => {
     try {
-      return JSON.stringify(resolvedVector ?? {});
+      return JSON.stringify({
+        resolvedVector: resolvedVector ?? {},
+        safetyMode: preferences?.safetyMode ?? {},
+      });
     } catch {
       return "{}";
     }
-  }, [resolvedVector]);
+  }, [resolvedVector, preferences?.safetyMode]);
 
   const interactionSets = useMemo(() => {
     const favoriteCodes = new Set<string>();
@@ -1594,6 +1597,11 @@ export default function TabOneScreen() {
   }, [recipes]);
 
   const visibleRecipeCount = ready.length + oneMissing.length + twoMissing.length;
+  const activeSafetyFilters = [
+    preferences.safetyMode.avoidHighProof ? "High Proof" : null,
+    preferences.safetyMode.avoidAllergens ? "Allergens" : null,
+    preferences.safetyMode.avoidCaffeineAlcohol ? "Caffeine + Alcohol" : null,
+  ].filter(Boolean) as string[];
 
   const toneStyles = (tone: SectionTone) => {
     if (tone === "ready") {
@@ -1678,6 +1686,38 @@ export default function TabOneScreen() {
             r.caffeine_warning ? "Caffeine + Alcohol" : null,
           ].filter(Boolean) as string[];
 
+          const showSafetyBadgeInfo = (badge: string) => {
+            if (badge === "High Proof") {
+              Alert.alert("High Proof", "This cocktail has very high alcohol strength.");
+              return;
+            }
+
+            if (badge === "Allergen") {
+              const allergens = Array.isArray(r.allergen_types)
+                ? r.allergen_types.map((x) => String(x ?? "").trim()).filter(Boolean)
+                : [];
+              Alert.alert(
+                "Allergen",
+                allergens.length > 0
+                  ? `This cocktail may contain these allergens: ${allergens.join(", ")}.`
+                  : "This cocktail may contain allergen ingredients."
+              );
+              return;
+            }
+
+            if (badge === "Caffeine + Alcohol") {
+              const sources = Array.isArray(r.caffeine_sources)
+                ? r.caffeine_sources.map((x) => String(x ?? "").trim()).filter(Boolean)
+                : [];
+              Alert.alert(
+                "Caffeine + Alcohol",
+                sources.length > 0
+                  ? `This cocktail combines alcohol with these caffeine sources: ${sources.join(", ")}.`
+                  : "This cocktail combines caffeine with alcohol."
+              );
+            }
+          };
+
           return (
             <View
               key={`${r.iba_code}-${idx}`}
@@ -1723,8 +1763,9 @@ export default function TabOneScreen() {
               {safetyBadges.length > 0 ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                   {safetyBadges.map((badge) => (
-                    <View
+                    <Pressable
                       key={badge}
+                      onPress={() => showSafetyBadgeInfo(badge)}
                       style={{
                         borderWidth: 1,
                         borderRadius: 999,
@@ -1737,7 +1778,7 @@ export default function TabOneScreen() {
                       <Text style={{ fontSize: 11, fontWeight: "800", color: "#7c3aed" }}>
                         {badge}
                       </Text>
-                    </View>
+                    </Pressable>
                   ))}
                 </View>
               ) : null}
@@ -2195,20 +2236,49 @@ export default function TabOneScreen() {
         </View>
       </View>
 
+      {activeSafetyFilters.length > 0 ? (
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
+          <Text style={{ fontWeight: "800" }}>🛡 Safety Mode Active</Text>
+          <Text style={{ color: "#666" }}>Filtered:</Text>
+          <View style={{ gap: 2 }}>
+            {activeSafetyFilters.map((item) => (
+              <Text key={item} style={{ color: "#666" }}>
+                • {item}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {hasRecommended ? (
         <View style={{ gap: 12 }}>
-          <Section title="Ready" items={ready} tone="ready" />
-          <Section title="1 missing" items={oneMissing} tone="one_missing" />
-          <Section title="2 missing" items={twoMissing} tone="two_missing" />
-
-          {visibleRecipeCount === 0 ? (
-            <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-              <Text style={{ fontWeight: "800" }}>No matches</Text>
+          {recipesStale ? (
+            <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
+              <Text style={{ fontWeight: "800" }}>Results out of date</Text>
               <Text style={{ color: "#666" }}>
-                No suitable classic cocktails match your current ingredients. Please add more ingredients and try again.
+                {recipesStaleReason === "preferences"
+                  ? "Preferences changed. Refresh Classics to see updated recommendations."
+                  : recipesStaleReason === "mood"
+                  ? "Mood changed. Refresh Classics to see updated recommendations."
+                  : "Ingredients changed. Refresh Classics to see updated recommendations."}
               </Text>
             </View>
-          ) : null}
+          ) : (
+            <>
+              <Section title="Ready" items={ready} tone="ready" />
+              <Section title="1 missing" items={oneMissing} tone="one_missing" />
+              <Section title="2 missing" items={twoMissing} tone="two_missing" />
+
+              {visibleRecipeCount === 0 ? (
+                <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
+                  <Text style={{ fontWeight: "800" }}>No matches</Text>
+                  <Text style={{ color: "#666" }}>
+                    No suitable classic cocktails match your current ingredients. Please add more ingredients and try again.
+                  </Text>
+                </View>
+              ) : null}
+            </>
+          )}
         </View>
       ) : null}
 
