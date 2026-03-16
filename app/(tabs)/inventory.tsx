@@ -3,6 +3,7 @@ import { useAuth } from '@/context/auth'
 import { InventoryItem, useInventory } from '@/context/inventory'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
+import { useFocusEffect } from 'expo-router'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -461,6 +462,12 @@ export default function MyBarScreen() {
   const activeSortLabel = DROPDOWN_SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? 'Sort'
 
   const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? ''
+
+  useFocusEffect(
+    React.useCallback(() => {
+      refreshInventory({ silent: true }).catch(() => {})
+    }, [refreshInventory])
+  )
 
   const handleRefresh = () => {
     refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {})
