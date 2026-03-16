@@ -754,7 +754,7 @@ export default function TabOneScreen() {
             if (key) return true;
             return false;
           })
-      );
+      ).sort((a, b) => a.localeCompare(b));
 
       const localeForApi = isZh ? "zh" : "en";
 
