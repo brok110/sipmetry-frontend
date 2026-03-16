@@ -293,7 +293,7 @@ export default function TabTwoScreen() {
   const { favoritesByKey, toggleFavorite } = useFavorites();
   const { tokens, favoriteLimit, canSpend, purchaseFavoriteSlot, earnOncePerRecipe } = useEconomy();
   const { earn: earnToken } = useTokens();
-  const { inventory, initialized: inventoryInitialized, refreshInventory } = useInventory();
+  const { inventory, initialized: inventoryInitialized, refreshInventory, recordInventoryUse } = useInventory();
 
   const favoritesCount = useMemo(() => {
     return Object.keys(favoritesByKey ?? {}).length;
@@ -797,28 +797,14 @@ export default function TabTwoScreen() {
             onPress: async () => {
               setMadeDrinkLoading(true)
               try {
-                const res = await fetch(`${API_URL}/inventory/use`, {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${session.access_token}`,
-                  },
-                  body: JSON.stringify({
-                    recipe_id: ibaCode || recipeKey,
-                    made_at: new Date().toISOString(),
-                    ingredients_used: toDeduct.map((x) => ({
-                      ingredient_id: x.ingredient_id,
-                      amount_ml: x.amount_ml,
-                    })),
-                  }),
+                await recordInventoryUse({
+                  recipe_id: ibaCode || recipeKey,
+                  made_at: new Date().toISOString(),
+                  ingredients_used: toDeduct.map((x) => ({
+                    ingredient_id: x.ingredient_id,
+                    amount_ml: x.amount_ml,
+                  })),
                 })
-
-                if (!res.ok) {
-                  const err = await res.json().catch(() => ({})) as { error?: string }
-                  throw new Error(err?.error ?? 'Failed to update inventory')
-                }
-
-                await refreshInventory({ silent: true, notifyLowStock: true })
                 setMadeDrinkState('done');
                 // 3 秒後完全隱藏按鈕
                 if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);

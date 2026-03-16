@@ -32,6 +32,15 @@ type InventoryUpdatePayload = {
   remaining_pct: number;
 };
 
+type InventoryUsePayload = {
+  recipe_id: string;
+  made_at?: string;
+  ingredients_used: Array<{
+    ingredient_id: string;
+    amount_ml: number;
+  }>;
+};
+
 type RefreshOptions = {
   silent?: boolean;
   notifyLowStock?: boolean;
@@ -50,6 +59,7 @@ type InventoryContextValue = {
   addInventoryItem: (payload: InventoryPayload) => Promise<InventoryItem>;
   updateInventoryItem: (id: string, updates: InventoryUpdatePayload) => Promise<InventoryItem>;
   deleteInventoryItem: (id: string) => Promise<void>;
+  recordInventoryUse: (payload: InventoryUsePayload) => Promise<void>;
   replaceInventoryItem: (item: InventoryItem) => void;
 };
 
@@ -277,6 +287,34 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
     [accessToken, apiUrl]
   );
 
+  const recordInventoryUse = useCallback(
+    async (payload: InventoryUsePayload): Promise<void> => {
+      if (!accessToken || !apiUrl) throw new Error("Please sign in first");
+      const version = authVersionRef.current;
+
+      const res = await fetch(`${apiUrl}/inventory/use`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? "Failed to update inventory");
+      }
+
+      if (version !== authVersionRef.current) {
+        throw new Error("Inventory auth changed during use");
+      }
+
+      await refreshInventory({ silent: true, notifyLowStock: true });
+    },
+    [accessToken, apiUrl, refreshInventory]
+  );
+
   const replaceInventoryItem = useCallback((item: InventoryItem) => {
     setInventory((prev) => {
       const exists = prev.some((x) => x.id === item.id);
@@ -317,6 +355,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,
+      recordInventoryUse,
       replaceInventoryItem,
     }),
     [
@@ -332,6 +371,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,
+      recordInventoryUse,
       replaceInventoryItem,
     ]
   );
