@@ -62,6 +62,8 @@ type ClassicItem = {
   alcohol_strength_score?: number | null;
   allergen_warning?: boolean;
   allergen_types?: string[];
+  caffeine_warning?: boolean;
+  caffeine_sources?: string[];
 };
 
 type SectionTone = "ready" | "one_missing" | "two_missing";
@@ -198,11 +200,7 @@ function canonicalizeForRecommendation(value: string): string {
   return String(normalizeIngredientKey(String(value ?? "").trim()) || "").trim();
 }
 
-function getAlcoholSafetyForRecipe(result: any): {
-  alcohol_safety_warning: boolean;
-  alcohol_safety_message?: string;
-  alcohol_strength_score: number | null;
-} {
+function getAlcoholStrengthScoreForRecipe(result: any): number | null {
   const recipeVec =
     result?.recipe_vec && typeof result.recipe_vec === "object"
       ? result.recipe_vec
@@ -212,28 +210,26 @@ function getAlcoholSafetyForRecipe(result: any): {
 
   const alcoholFromVec = recipeVec ? Number((recipeVec as any).alcoholStrength) : NaN;
   if (Number.isFinite(alcoholFromVec)) {
-    const score = alcoholFromVec;
-    return {
-      alcohol_safety_warning: score >= 4.5,
-      alcohol_safety_message: score >= 4.5 ? "Very high alcohol strength." : undefined,
-      alcohol_strength_score: score,
-    };
+    return alcoholFromVec;
   }
 
-  const ingredientKeys = Array.isArray(result?.ingredient_keys)
-    ? result.ingredient_keys.map((x: any) => canonicalizeForRecommendation(String(x ?? ""))).filter(Boolean)
-    : [];
+  const ingredientKeys = getCanonicalIngredientKeysForResult(result);
 
   if (ingredientKeys.length === 0) {
-    return {
-      alcohol_safety_warning: false,
-      alcohol_strength_score: null,
-    };
+    return null;
   }
 
   const fallbackVec = aggregateIngredientVectors(ingredientKeys);
   const fallbackAlcohol = Number((fallbackVec as any)?.alcoholStrength);
-  const score = Number.isFinite(fallbackAlcohol) ? fallbackAlcohol : null;
+  return Number.isFinite(fallbackAlcohol) ? fallbackAlcohol : null;
+}
+
+function getAlcoholSafetyForRecipe(result: any): {
+  alcohol_safety_warning: boolean;
+  alcohol_safety_message?: string;
+  alcohol_strength_score: number | null;
+} {
+  const score = getAlcoholStrengthScoreForRecipe(result);
 
   return {
     alcohol_safety_warning: score !== null && score >= 4.5,
@@ -303,6 +299,45 @@ function getAllergenSafetyForRecipe(result: any): {
   return {
     allergen_warning: allergen_types.length > 0,
     allergen_types,
+  };
+}
+
+function getCaffeineSafetyForRecipe(result: any): {
+  caffeine_warning: boolean;
+  caffeine_sources: string[];
+} {
+  const ingredientKeys = getCanonicalIngredientKeysForResult(result);
+  const alcoholStrengthScore = getAlcoholStrengthScoreForRecipe(result);
+  const caffeineSources = new Set<string>();
+
+  for (const key of ingredientKeys) {
+    const normalized = String(key ?? "").trim().toLowerCase();
+    if (!normalized) continue;
+
+    if (normalized === "coffee" || normalized.includes("coffee")) {
+      caffeineSources.add("coffee");
+    }
+    if (normalized === "espresso" || normalized.includes("espresso")) {
+      caffeineSources.add("espresso");
+    }
+    if (normalized === "cold_brew" || normalized.includes("cold_brew")) {
+      caffeineSources.add("cold_brew");
+    }
+    if (normalized === "caffeine" || normalized.includes("caffeine")) {
+      caffeineSources.add("caffeine");
+    }
+    if (normalized === "energy_drink" || normalized.includes("energy_drink")) {
+      caffeineSources.add("energy_drink");
+    }
+    if (normalized === "cola" || normalized.includes("cola")) {
+      caffeineSources.add("cola");
+    }
+  }
+
+  const caffeine_sources = [...caffeineSources].sort((a, b) => a.localeCompare(b));
+  return {
+    caffeine_warning: caffeine_sources.length > 0 && alcoholStrengthScore !== null && alcoholStrengthScore > 0,
+    caffeine_sources,
   };
 }
 
@@ -925,18 +960,21 @@ export default function TabOneScreen() {
           bucket: "ready" as const,
           ...getAlcoholSafetyForRecipe(x),
           ...getAllergenSafetyForRecipe(x),
+          ...getCaffeineSafetyForRecipe(x),
         })),
         ...oneAway.map((x) => ({
           ...x,
           bucket: "one_missing" as const,
           ...getAlcoholSafetyForRecipe(x),
           ...getAllergenSafetyForRecipe(x),
+          ...getCaffeineSafetyForRecipe(x),
         })),
         ...twoAway.map((x) => ({
           ...x,
           bucket: "two_missing" as const,
           ...getAlcoholSafetyForRecipe(x),
           ...getAllergenSafetyForRecipe(x),
+          ...getCaffeineSafetyForRecipe(x),
         })),
       ];
 
