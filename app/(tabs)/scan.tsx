@@ -580,7 +580,7 @@ export default function TabOneScreen() {
   const [hasRecommended, setHasRecommended] = useState(false);
   const [hasRecommendedLocal, setHasRecommendedLocal] = useState(false);
 
-  const { resolvedVector, resolvedMeta } = usePreferencesContext();
+  const { preferences, resolvedVector, resolvedMeta } = usePreferencesContext();
   const { learnedVector } = useLearnedPreferences();
 
   // Use the learned vector when the user has not explicitly set preferences.
@@ -977,7 +977,7 @@ export default function TabOneScreen() {
       const oneAway = Array.isArray(data.one_away) ? data.one_away : [];
       const twoAway = Array.isArray(data.two_away) ? data.two_away : [];
 
-      const flattened: ClassicItem[] = [
+      const flattenedWithSafety: ClassicItem[] = [
         ...canMake.map((x) => ({
           ...x,
           bucket: "ready" as const,
@@ -1003,6 +1003,13 @@ export default function TabOneScreen() {
           ...evaluateRecipeSafety(x),
         })),
       ];
+
+      const flattened = flattenedWithSafety.filter((recipe) => {
+        if (preferences.safetyMode.avoidHighProof && recipe.alcohol_warning) return false;
+        if (preferences.safetyMode.avoidAllergens && recipe.allergen_warning) return false;
+        if (preferences.safetyMode.avoidCaffeineAlcohol && recipe.caffeine_warning) return false;
+        return true;
+      });
 
       if (flattened.length === 0) {
         setRecipes([]);
