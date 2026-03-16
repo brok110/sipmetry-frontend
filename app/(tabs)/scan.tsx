@@ -188,6 +188,10 @@ function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
 
+function canonicalizeForRecommendation(value: string): string {
+  return String(normalizeIngredientKey(String(value ?? "").trim()) || "").trim();
+}
+
 function normalizeVector05(vec: any): Record<string, number | null> | null {
   if (!vec || typeof vec !== "object") return null;
   const out: Record<string, number | null> = {};
@@ -682,13 +686,21 @@ export default function TabOneScreen() {
         if (!display) continue;
 
         let canon = String(it?.canonical ?? "").trim();
-        canon = String(normalizeIngredientKey(canon) || "").trim();
+        canon = canonicalizeForRecommendation(canon);
 
         if (!canon) {
           canon = await resolveCanonicalForDisplay(display);
+          canon = canonicalizeForRecommendation(canon);
         }
 
-        if (canon) canonicalList.push(canon);
+        if (canon) {
+          canonicalList.push(canon);
+        } else {
+          console.warn("[recommend] failed to canonicalize scanned ingredient", {
+            display,
+            canonical: String(it?.canonical ?? "").trim(),
+          });
+        }
 
         updated.push({
           ...it,
@@ -698,7 +710,7 @@ export default function TabOneScreen() {
       }
 
       const canonicalDeduped = dedupeCaseInsensitive(
-        canonicalList.map((x) => String(normalizeIngredientKey(x) || "").trim()).filter(Boolean)
+        canonicalList.map(canonicalizeForRecommendation).filter(Boolean)
       );
 
       setActiveIngredients(updated);
@@ -713,17 +725,36 @@ export default function TabOneScreen() {
         inventoryKeys = await refreshInventory({ silent: true }).then((items) =>
           items
             .filter((it) => Number(it.remaining_pct) > 0)
-            .map((it) => String(it.ingredient_key ?? "").trim())
+            .map((it) => {
+              const rawKey = String(it.ingredient_key ?? "").trim();
+              const normalizedKey = canonicalizeForRecommendation(rawKey);
+              if (!normalizedKey) {
+                console.warn("[recommend] failed to canonicalize inventory ingredient", {
+                  ingredient_key: rawKey,
+                });
+              }
+              return normalizedKey;
+            })
             .filter(Boolean)
         );
       }
 
-      const mergedIngredients = dedupeCaseInsensitive([
-        ...canonicalDeduped,
-        ...inventoryKeys
-          .map((k) => String(normalizeIngredientKey(k) || "").trim())
-          .filter(Boolean),
-      ]);
+      for (const key of availableIngredientKeys) {
+        if (!canonicalizeForRecommendation(key)) {
+          console.warn("[recommend] failed to canonicalize inventory ingredient", {
+            ingredient_key: String(key ?? "").trim(),
+          });
+        }
+      }
+
+      const mergedIngredients = dedupeCaseInsensitive(
+        [...canonicalDeduped, ...inventoryKeys]
+          .map(canonicalizeForRecommendation)
+          .filter((key) => {
+            if (key) return true;
+            return false;
+          })
+      );
 
       const localeForApi = isZh ? "zh" : "en";
 
