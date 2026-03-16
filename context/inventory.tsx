@@ -114,6 +114,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const authVersionRef = useRef(0);
+  const lastAuthActivationKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     authVersionRef.current += 1;
@@ -185,6 +186,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!accessToken || !apiUrl) {
+      lastAuthActivationKeyRef.current = null;
       setInventory([]);
       setError(null);
       setLoading(false);
@@ -193,7 +195,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    refreshInventory({ notifyLowStock: true }).catch(() => {});
+    const activationKey = `${apiUrl}::${accessToken}`;
+    if (lastAuthActivationKeyRef.current === activationKey) return;
+
+    lastAuthActivationKeyRef.current = activationKey;
+    refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {});
   }, [accessToken, apiUrl, refreshInventory]);
 
   const addInventoryItem = useCallback(
