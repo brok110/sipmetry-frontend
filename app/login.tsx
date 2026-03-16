@@ -42,7 +42,7 @@ export default function LoginScreen() {
     if (error) {
       setError(error)
     } else {
-      router.replace('/(tabs)')
+      router.replace('/(tabs)/scan')
     }
   }
 
@@ -52,7 +52,7 @@ export default function LoginScreen() {
     const { error } = await signInWithApple()
     setLoading(false)
     if (error) setError(error)
-    else router.replace('/(tabs)')
+    else router.replace('/(tabs)/scan')
   }
 
   const handleGoogle = async () => {
@@ -61,7 +61,7 @@ export default function LoginScreen() {
     const { error } = await signInWithGoogle()
     setLoading(false)
     if (error) setError(error)
-    else router.replace('/(tabs)')
+    else router.replace('/(tabs)/scan')
   }
 
   return (

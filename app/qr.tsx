@@ -74,7 +74,7 @@ export default function TabFourScreen() {
       <Pressable
         onPress={() =>
           router.push({
-            pathname: "/(tabs)/recipe",
+            pathname: "/recipe",
             params: backParams,
           })
         }
