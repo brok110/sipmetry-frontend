@@ -708,16 +708,15 @@ export default function TabOneScreen() {
       }
 
       // Stage 6: 已登入時，合併 My Bar 的 ingredient_key 到推薦計算中
-      const inventoryKeys =
-        session?.access_token && !inventoryInitialized
-          ? await refreshInventory({ silent: true })
-              .then((items) =>
-                items
-                  .filter((it) => Number(it.remaining_pct) > 0)
-                  .map((it) => String(it.ingredient_key ?? "").trim())
-                  .filter(Boolean)
-              )
-          : availableIngredientKeys;
+      let inventoryKeys = availableIngredientKeys;
+      if (session?.access_token && !inventoryInitialized) {
+        inventoryKeys = await refreshInventory({ silent: true }).then((items) =>
+          items
+            .filter((it) => Number(it.remaining_pct) > 0)
+            .map((it) => String(it.ingredient_key ?? "").trim())
+            .filter(Boolean)
+        );
+      }
 
       const mergedIngredients = dedupeCaseInsensitive([
         ...canonicalDeduped,
