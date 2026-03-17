@@ -12,6 +12,7 @@ import {
 import { useInteractions } from "@/context/interactions";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
 import { FEATURE_FLAGS } from "@/constants/Features";
+import { MissingIngredientsList } from "@/components/MissingIngredientsList";
 
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -1839,6 +1840,18 @@ export default function TabOneScreen() {
                 </Text>
               ) : (
                 <Text style={{ color: "#666" }}>{isZh ? "（不缺材料）" : "(No missing items)"}</Text>
+              )}
+
+              {/* Phase 1: Purchase intent — show buy buttons for missing ingredients */}
+              {FEATURE_FLAGS.ENABLE_PURCHASE_INTENT && miss.length > 0 && (
+                <MissingIngredientsList
+                  missingIngredients={miss.map((m) => ({
+                    key: m,
+                    display_name: m.replace(/_/g, " "),
+                  }))}
+                  recipeId={r.iba_code}
+                  source="recommendation"
+                />
               )}
             </View>
           );
