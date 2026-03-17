@@ -1809,12 +1809,26 @@ export default function TabOneScreen() {
                     reasons.find((s) => s === "No missing ingredients." || s === "不缺材料。") ||
                     "";
 
-                  if (!missingLine) return null;
+                  // Stage 3: Show taste profile match reason
+                  const tasteLine =
+                    reasons.find((s) => s.startsWith("Matches your taste") || s.startsWith("符合你的口味")) ||
+                    "";
+
+                  if (!missingLine && !tasteLine) return null;
 
                   return (
-                    <Text style={{ color: "#555" }} numberOfLines={2}>
-                      {missingLine}
-                    </Text>
+                    <View style={{ gap: 2 }}>
+                      {missingLine ? (
+                        <Text style={{ color: "#555" }} numberOfLines={2}>
+                          {missingLine}
+                        </Text>
+                      ) : null}
+                      {tasteLine ? (
+                        <Text style={{ color: "#2563eb", fontSize: 12 }} numberOfLines={1}>
+                          {tasteLine}
+                        </Text>
+                      ) : null}
+                    </View>
                   );
                 })()
               ) : miss.length > 0 ? (

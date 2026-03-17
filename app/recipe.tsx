@@ -2,8 +2,9 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useNavigation } from "@react-navigation/native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Text, View } from "react-native";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/context/auth";
 
 import * as Clipboard from "expo-clipboard";
@@ -298,6 +299,32 @@ export default function TabTwoScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dbRecipe, setDbRecipe] = useState<DbRecipe | null>(null);
+
+  // Stage 3: First-interaction feedback toast
+  const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  const showFeedbackToast = useCallback((message: string) => {
+    setFeedbackToast(message);
+    Animated.sequence([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.delay(2500),
+      Animated.timing(toastOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start(() => setFeedbackToast(null));
+  }, [toastOpacity]);
+
+  const maybeShowFirstInteractionToast = useCallback(async (type: "favorite" | "like") => {
+    try {
+      const key = "sipmetry:first_interaction_toast_shown";
+      const shown = await AsyncStorage.getItem(key);
+      if (shown) return;
+      await AsyncStorage.setItem(key, "1");
+      const msg = type === "favorite"
+        ? "Got it! We'll show you more drinks like this."
+        : "Noted! Your recommendations will adapt.";
+      showFeedbackToast(msg);
+    } catch { /* ignore */ }
+  }, [showFeedbackToast]);
 
   // Stage 9: 「我做了這杯！」確認流程
   // idle   → 顯示黑色「I made this! 🍹」
@@ -598,6 +625,8 @@ export default function TabTwoScreen() {
       interaction_type: wasFav ? "unfavorite" : "favorite",
       context: { source: "detail", has_ingredients: ingredientsFromScan.length > 0 },
     });
+    // Stage 3: first-interaction toast (only on add, not remove)
+    if (!wasFav) maybeShowFirstInteractionToast("favorite");
     doAddFavorite();
   };
 
@@ -610,6 +639,8 @@ export default function TabTwoScreen() {
       interaction_type: next === "like" ? "like" : "dislike",
       context: { source: "detail", has_ingredients: ingredientsFromScan.length > 0 },
     });
+    // Stage 3: first-interaction toast (only on like)
+    if (next === "like") maybeShowFirstInteractionToast("like");
 
     const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
     const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
@@ -1037,6 +1068,29 @@ export default function TabTwoScreen() {
 
         <Text style={{ color: "#666" }}>You can switch back to Scan anytime to view another recipe.</Text>
       </ScrollView>
+
+      {/* Stage 3: First-interaction feedback toast */}
+      {feedbackToast && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            bottom: 90,
+            left: 24,
+            right: 24,
+            opacity: toastOpacity,
+            backgroundColor: "#1e293b",
+            borderRadius: 12,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "white", fontSize: 14, fontWeight: "600", textAlign: "center" }}>
+            {feedbackToast}
+          </Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
