@@ -335,17 +335,32 @@ export default function TabTwoScreen() {
   const [madeDrinkLoading, setMadeDrinkLoading] = useState(false);
   const madeDrinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Stage 4: Track whether user took any positive action during this visit
+  const hadPositiveActionRef = useRef(false);
+
   // 離開畫面時重置（回來會重新看到「I made this!」，且 inventory 也會重新 fetch）
   useFocusEffect(
     useCallback(() => {
+      hadPositiveActionRef.current = false;
       return () => {
         setMadeDrinkState('idle');
         if (madeDrinkTimerRef.current) {
           clearTimeout(madeDrinkTimerRef.current);
           madeDrinkTimerRef.current = null;
         }
+        // Stage 4: Fire "skip" if user left without any positive action
+        if (!hadPositiveActionRef.current && recipeKey) {
+          track({
+            recipe_key: recipeKey,
+            interaction_type: "skip",
+            context: {
+              source: "detail",
+              has_ingredients: ingredientsFromScan.length > 0,
+            },
+          });
+        }
       };
-    }, [])
+    }, [recipeKey, ingredientsFromScan.length, track])
   );
 
   useEffect(() => {
@@ -627,6 +642,8 @@ export default function TabTwoScreen() {
     });
     // Stage 3: first-interaction toast (only on add, not remove)
     if (!wasFav) maybeShowFirstInteractionToast("favorite");
+    // Stage 4: mark positive action (suppress skip on leave)
+    if (!wasFav) hadPositiveActionRef.current = true;
     doAddFavorite();
   };
 
@@ -641,6 +658,8 @@ export default function TabTwoScreen() {
     });
     // Stage 3: first-interaction toast (only on like)
     if (next === "like") maybeShowFirstInteractionToast("like");
+    // Stage 4: mark positive action (suppress skip on leave)
+    if (next === "like") hadPositiveActionRef.current = true;
 
     const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
     const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
