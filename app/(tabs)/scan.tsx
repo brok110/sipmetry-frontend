@@ -9,6 +9,7 @@ import {
   getUnknownIngredients,
   normalizeIngredientKey,
 } from "@/context/ontology";
+import { useInteractions } from "@/context/interactions";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
 
 import * as Clipboard from "expo-clipboard";
@@ -573,6 +574,7 @@ export default function TabOneScreen() {
   const ratingMetaByKey: Record<string, any> = feedback?.ratingMetaByKey ?? {};
 
   const { favoritesByKey } = useFavorites();
+  const { queueView, flushViews } = useInteractions();
 
   const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
 
@@ -1028,6 +1030,22 @@ export default function TabOneScreen() {
       setRecipesStaleReason(null);
       lastRecommendPrefsKeyRef.current = prefsKey;
       setStage("idle");
+
+      // Stage 1: batch-track "view" for all returned recommendations
+      for (let i = 0; i < flattened.length; i++) {
+        const r = flattened[i];
+        const rk = String(r?.recipe_key ?? r?.iba_code ?? "").trim();
+        if (!rk) continue;
+        queueView({
+          recipe_key: rk,
+          context: {
+            source: "recommend",
+            has_ingredients: r?.bucket === "ready",
+            position: i,
+          },
+        });
+      }
+      flushViews();
     } catch (e: any) {
       setError(e?.message ?? "Failed to recommend classics.");
       setStage("idle");

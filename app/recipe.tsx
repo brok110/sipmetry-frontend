@@ -9,6 +9,7 @@ import { useAuth } from "@/context/auth";
 import * as Clipboard from "expo-clipboard";
 
 import { FeedbackRating, useFeedback } from "@/context/feedback";
+import { useInteractions } from "@/context/interactions";
 import { useInventory } from "@/context/inventory";
 import {
   aggregateIngredientVectors,
@@ -290,6 +291,7 @@ export default function TabTwoScreen() {
   const { ratingsByKey, setRating, clearRating } = useFeedback();
   const { favoritesByKey, toggleFavorite } = useFavorites();
   const { inventory, initialized: inventoryInitialized, refreshInventory, recordInventoryUse } = useInventory();
+  const { track } = useInteractions();
 
   const { session } = useAuth();
 
@@ -442,6 +444,22 @@ export default function TabTwoScreen() {
 
   const isFav = !!favoritesByKey?.[recipeKey];
 
+  // Stage 1: track "click" when user opens recipe detail
+  const clickTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!recipeKey || clickTrackedRef.current) return;
+    clickTrackedRef.current = true;
+    track({
+      recipe_key: recipeKey,
+      interaction_type: "click",
+      context: {
+        source: "detail",
+        has_ingredients: ingredientsFromScan.length > 0,
+        ingredient_keys: ingredientsFromScan.slice(0, 20),
+      },
+    });
+  }, [recipeKey]);
+
   useEffect(() => {
     setError(null);
   }, [recipeKey]);
@@ -573,11 +591,25 @@ export default function TabTwoScreen() {
   };
 
   const onToggleFavorite = () => {
+    // Stage 1: track favorite/unfavorite
+    const wasFav = !!favoritesByKey?.[recipeKey];
+    track({
+      recipe_key: recipeKey,
+      interaction_type: wasFav ? "unfavorite" : "favorite",
+      context: { source: "detail", has_ingredients: ingredientsFromScan.length > 0 },
+    });
     doAddFavorite();
   };
 
   const sendFeedback = async (next: FeedbackRating) => {
     setError(null);
+
+    // Stage 1: track like/dislike
+    track({
+      recipe_key: recipeKey,
+      interaction_type: next === "like" ? "like" : "dislike",
+      context: { source: "detail", has_ingredients: ingredientsFromScan.length > 0 },
+    });
 
     const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
     const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
