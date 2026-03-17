@@ -18,12 +18,24 @@ import { useFeedback } from "@/context/feedback";
 // Shows bottle recommendations based on user inventory + preferences.
 // Tracks "Buy" clicks via POST /affiliate/click for conversion analysis.
 
+type ScoreBreakdown = {
+  unlock: number;
+  versatility: number;
+  preference: number;
+  interaction: number;
+  similar_penalty: number;
+};
+
 type Suggestion = {
   ingredient_key: string;
   display_name: string;
   unlocks_count: number;
   avg_pref_match: number;
   score: number;
+  score_breakdown?: ScoreBreakdown;
+  category_key?: string | null;
+  family_key?: string | null;
+  versatility_categories?: string[];
   reason: string;
   buy_url: string;
   recipes: { iba_code: string; name: string; iba_category: string }[];
@@ -223,6 +235,26 @@ export default function CartScreen() {
                 </Text>
               </View>
             </View>
+
+            {/* Stage 2: Taste match + versatility badges */}
+            {(s.avg_pref_match > 0.6 || (s.versatility_categories && s.versatility_categories.length > 1)) && (
+              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                {s.avg_pref_match > 0.6 && (
+                  <View style={{ backgroundColor: "#eff6ff", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#2563eb" }}>
+                      {Math.round(s.avg_pref_match * 100)}% taste match
+                    </Text>
+                  </View>
+                )}
+                {s.versatility_categories && s.versatility_categories.length > 1 && (
+                  <View style={{ backgroundColor: "#fefce8", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#a16207" }}>
+                      {s.versatility_categories.length} categories
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* Reason */}
             <Text style={{ color: "#666", fontSize: 13, lineHeight: 18 }}>{s.reason}</Text>
