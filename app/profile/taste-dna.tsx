@@ -11,6 +11,7 @@ import { useFeedback } from "@/context/feedback";
 type RadarDim = { key: string; label: string; value: number };
 type Strength = RadarDim & { representative?: { iba_code: string; name: string } | null };
 type Unexplored = RadarDim & { suggestions?: { iba_code: string; name: string }[] };
+type AffinityItem = { key: string; label: string; score: number; count: number };
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -131,6 +132,9 @@ export default function TasteDNAScreen() {
   const [radar, setRadar] = useState<RadarDim[]>([]);
   const [strengths, setStrengths] = useState<Strength[]>([]);
   const [unexplored, setUnexplored] = useState<Unexplored[]>([]);
+  const [spiritAffinity, setSpiritAffinity] = useState<AffinityItem[]>([]);
+  const [categoryAffinity, setCategoryAffinity] = useState<AffinityItem[]>([]);
+  const [confidence, setConfidence] = useState<number>(0);
   const [meta, setMeta] = useState<any>(null);
   const [ready, setReady] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
@@ -162,9 +166,14 @@ export default function TasteDNAScreen() {
         else if (rating === "dislike") dislikedCodes.push(code);
       }
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers.Authorization = `Bearer ${session.access_token}`;
+      }
+
       const resp = await fetch(`${API_URL}/taste-profile`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           locale: isZh ? "zh" : "en",
           user_interactions: {
@@ -187,6 +196,9 @@ export default function TasteDNAScreen() {
         setRadar(Array.isArray(data.radar) ? data.radar : []);
         setStrengths(Array.isArray(data.strengths) ? data.strengths : []);
         setUnexplored(Array.isArray(data.unexplored) ? data.unexplored : []);
+        setSpiritAffinity(Array.isArray(data.spirit_affinity) ? data.spirit_affinity : []);
+        setCategoryAffinity(Array.isArray(data.category_affinity) ? data.category_affinity : []);
+        setConfidence(typeof data.confidence === "number" ? data.confidence : 0);
       }
       setMeta(data.meta || null);
     } catch (e: any) {
@@ -194,7 +206,7 @@ export default function TasteDNAScreen() {
     } finally {
       setLoading(false);
     }
-  }, [favoritesByKey, ratingsByKey, ratingMetaByKey, isZh]);
+  }, [favoritesByKey, ratingsByKey, ratingMetaByKey, isZh, session?.access_token]);
 
   useFocusEffect(
     useCallback(() => {
@@ -261,6 +273,33 @@ export default function TasteDNAScreen() {
             : `Based on ${meta?.interaction_count ?? 0} interactions`}
         </Text>
       </View>
+
+      {/* Confidence bar */}
+      {confidence > 0 && (
+        <View style={{ gap: 4 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <Text style={{ fontSize: 12, fontWeight: "600", color: "#6b7280" }}>
+              {isZh ? "分析信心度" : "Profile Confidence"}
+            </Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: confidence >= 0.7 ? "#059669" : confidence >= 0.4 ? "#d97706" : "#9ca3af" }}>
+              {Math.round(confidence * 100)}%
+            </Text>
+          </View>
+          <View style={{ height: 6, borderRadius: 3, backgroundColor: "#e5e7eb" }}>
+            <View style={{
+              height: 6,
+              borderRadius: 3,
+              width: `${Math.round(confidence * 100)}%` as any,
+              backgroundColor: confidence >= 0.7 ? "#059669" : confidence >= 0.4 ? "#d97706" : "#d1d5db",
+            }} />
+          </View>
+          {confidence < 0.5 && (
+            <Text style={{ fontSize: 11, color: "#9ca3af" }}>
+              {isZh ? "繼續探索以提高準確度" : "Keep exploring to improve accuracy"}
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Radar chart */}
       {radar.length > 0 ? (
@@ -334,6 +373,60 @@ export default function TasteDNAScreen() {
           ))}
         </View>
       ) : null}
+
+      {/* Spirit Affinity */}
+      {spiritAffinity.length > 0 && (
+        <View style={{ borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, borderColor: "#e5e7eb" }}>
+          <Text style={{ fontWeight: "900", fontSize: 15 }}>
+            {isZh ? "🥃 烈酒偏好" : "🥃 Spirit Affinity"}
+          </Text>
+          {spiritAffinity.map((item) => (
+            <View key={item.key} style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ fontWeight: "700", fontSize: 14 }}>{item.label}</Text>
+                <Text style={{ fontSize: 12, color: "#6b7280" }}>
+                  {item.count} {isZh ? "杯" : item.count === 1 ? "drink" : "drinks"}
+                </Text>
+              </View>
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: "#e5e7eb" }}>
+                <View style={{
+                  height: 6,
+                  borderRadius: 3,
+                  width: `${Math.min(100, Math.round(item.score * 100))}%` as any,
+                  backgroundColor: "#8b5cf6",
+                }} />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Category Affinity */}
+      {categoryAffinity.length > 0 && (
+        <View style={{ borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, borderColor: "#e5e7eb" }}>
+          <Text style={{ fontWeight: "900", fontSize: 15 }}>
+            {isZh ? "🍸 類別偏好" : "🍸 Category Affinity"}
+          </Text>
+          {categoryAffinity.map((item) => (
+            <View key={item.key} style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ fontWeight: "700", fontSize: 14 }}>{item.label}</Text>
+                <Text style={{ fontSize: 12, color: "#6b7280" }}>
+                  {item.count} {isZh ? "杯" : item.count === 1 ? "drink" : "drinks"}
+                </Text>
+              </View>
+              <View style={{ height: 6, borderRadius: 3, backgroundColor: "#e5e7eb" }}>
+                <View style={{
+                  height: 6,
+                  borderRadius: 3,
+                  width: `${Math.min(100, Math.round(item.score * 100))}%` as any,
+                  backgroundColor: "#f59e0b",
+                }} />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Meta footer */}
       <Text style={{ color: "#bbb", fontSize: 11, textAlign: "center" }}>
