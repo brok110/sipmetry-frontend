@@ -11,6 +11,7 @@ import {
 } from "@/context/ontology";
 import { useInteractions } from "@/context/interactions";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
+import { FEATURE_FLAGS } from "@/constants/Features";
 
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -2097,7 +2098,8 @@ export default function TabOneScreen() {
             </View>
           </View>
 
-          {/* Stage 7 + 9b: Mood selector with unlock */}
+          {/* Stage 7 + 9b: Mood selector — hidden behind feature flag (Phase 1) */}
+          {FEATURE_FLAGS.ENABLE_MOOD_SELECTOR && (
           <View style={{ marginTop: 8 }}>
             <Text style={{ fontWeight: "700", fontSize: 13, marginBottom: 6 }}>Mood (optional)</Text>
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
@@ -2153,6 +2155,7 @@ export default function TabOneScreen() {
               })}
             </View>
           </View>
+          )}
 
           {/* Stage 10: Flavor Explorer — future feature, not yet implemented */}
 
