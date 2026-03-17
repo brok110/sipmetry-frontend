@@ -1,9 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { Alert } from "react-native";
 
 import { useAuth } from "@/context/auth";
-import { useEconomy } from "@/context/economy";
 
 export type FavoriteItem = {
   recipe_key: string;
@@ -116,9 +114,8 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const accessToken = session?.access_token ?? null;
   const apiUrl = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
 
-  // Economy: favorites capacity is controlled by economy.favoriteLimit (default 5)
-  const economy = useEconomy();
-  const favoriteLimit = Number.isFinite(economy?.favoriteLimit) ? Number(economy.favoriteLimit) : 5;
+  // Favorites are unlimited (token-based limits removed — invisible progression)
+  const favoriteLimit = Infinity;
 
   // ── Hydration from AsyncStorage (runs once on mount) ────────────────────────
   useEffect(() => {
@@ -289,18 +286,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         return next;
       }
 
-      // Adding: enforce capacity limit (only when not logged in — DB has no limit)
-      const count = Object.keys(prev ?? {}).length;
-      const limit = Math.floor(Number.isFinite(favoriteLimit) ? favoriteLimit : 5);
-
-      if (!accessToken && count >= limit) {
-        Alert.alert(
-          "Favorites full",
-          `You've reached your favorites limit (${limit}).\nGo to "My Favorites" to spend 3 tokens to unlock +1 slot.`
-        );
-        return prev;
-      }
-
+      // Adding
       dbAdd(normalized);
       return { ...prev, [normalized.recipe_key]: normalized };
     });

@@ -10,7 +10,7 @@ import {
   normalizeIngredientKey,
 } from "@/context/ontology";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
-import { useTokens, Feature } from "@/context/tokens";
+
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -573,7 +573,6 @@ export default function TabOneScreen() {
   const ratingMetaByKey: Record<string, any> = feedback?.ratingMetaByKey ?? {};
 
   const { favoritesByKey } = useFavorites();
-  const { isUnlocked, spend: spendToken, earn: earnToken, costs: unlockCosts, balance: tokenBalance } = useTokens();
 
   const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
 
@@ -1422,8 +1421,6 @@ export default function TabOneScreen() {
 
       setError(null);
 
-      // Server-backed token earn for successful scan (deduped by timestamp key)
-      earnToken("scan", `scan_${Date.now()}`);
     } catch (e: any) {
       setError(e?.message ?? "Failed to analyze image.");
       setStage("idle");
@@ -2074,45 +2071,17 @@ export default function TabOneScreen() {
             <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
               {(
                 [
-                  { key: "chill", label: "Chill", emoji: "😌", color: "#4ade80", feature: "mood_chill" as Feature },
-                  { key: "party", label: "Party", emoji: "🎉", color: "#f59e0b", feature: "mood_party" as Feature },
-                  { key: "date_night", label: "Date Night", emoji: "💕", color: "#f472b6", feature: "mood_date_night" as Feature },
-                  { key: "solo", label: "Solo", emoji: "🧘", color: "#60a5fa", feature: "mood_solo" as Feature },
+                  { key: "chill", label: "Chill", emoji: "😌", color: "#4ade80" },
+                  { key: "party", label: "Party", emoji: "🎉", color: "#f59e0b" },
+                  { key: "date_night", label: "Date Night", emoji: "💕", color: "#f472b6" },
+                  { key: "solo", label: "Solo", emoji: "🧘", color: "#60a5fa" },
                 ] as const
               ).map((m) => {
                 const isActive = selectedMood === m.key;
-                const unlocked = isUnlocked(m.feature);
-                const cost = unlockCosts[m.feature] ?? 0;
                 return (
                   <Pressable
                     key={m.key}
-                    onPress={async () => {
-                      if (!unlocked) {
-                        // Show unlock dialog
-                        if (!session) {
-                          Alert.alert("Sign in required", "Please sign in to unlock mood filters.");
-                          return;
-                        }
-                        Alert.alert(
-                          `Unlock ${m.label}?`,
-                          `Spend ${cost} tokens to unlock the ${m.label} mood filter?\n\nYour balance: ${tokenBalance} tokens`,
-                          [
-                            { text: "Cancel", style: "cancel" },
-                            {
-                              text: `Unlock (${cost} tokens)`,
-                              onPress: async () => {
-                                const result = await spendToken(m.feature);
-                                if (result.ok) {
-                                  Alert.alert("Unlocked!", `${m.label} mood is now available.`);
-                                } else if (result.reason === "insufficient_balance") {
-                                  Alert.alert("Not enough tokens", `You need ${cost} tokens but only have ${tokenBalance}. Keep scanning and rating to earn more!`);
-                                }
-                              },
-                            },
-                          ]
-                        );
-                        return;
-                      }
+                    onPress={() => {
                       const next = isActive ? null : m.key;
                       setSelectedMood(next);
                       if (hasRecommended && recipes.length > 0 && next !== lastRecommendMoodRef.current) {
@@ -2133,21 +2102,16 @@ export default function TabOneScreen() {
                       paddingVertical: 7,
                       borderRadius: 20,
                       borderWidth: 1.5,
-                      borderColor: unlocked ? (isActive ? m.color : "#ccc") : "#e5e5e5",
-                      backgroundColor: unlocked ? (isActive ? m.color + "18" : "transparent") : "#f5f5f5",
-                      opacity: unlocked ? 1 : 0.7,
+                      borderColor: isActive ? m.color : "#ccc",
+                      backgroundColor: isActive ? m.color + "18" : "transparent",
                     }}
                   >
-                    {!unlocked ? (
-                      <Text style={{ fontSize: 12 }}>🔒</Text>
-                    ) : (
-                      <Text style={{ fontSize: 14 }}>{m.emoji}</Text>
-                    )}
+                    <Text style={{ fontSize: 14 }}>{m.emoji}</Text>
                     <Text
                       style={{
                         fontSize: 12,
-                        fontWeight: isActive && unlocked ? "700" : "500",
-                        color: unlocked ? (isActive ? m.color : "#888") : "#bbb",
+                        fontWeight: isActive ? "700" : "500",
+                        color: isActive ? m.color : "#888",
                       }}
                     >
                       {m.label}
@@ -2158,73 +2122,7 @@ export default function TabOneScreen() {
             </View>
           </View>
 
-          {/* Stage 10: Flavor Explorer button — hidden during development */}
-          {false && <View style={{ marginTop: 8 }}>
-            {(() => {
-              const exploreUnlocked = isUnlocked("flavor_explorer");
-              const exploreCost = unlockCosts["flavor_explorer" as Feature] ?? 15;
-              return (
-                <Pressable
-                  onPress={async () => {
-                    if (!exploreUnlocked) {
-                      if (!session) {
-                        Alert.alert("Sign in required", "Please sign in to unlock Flavor Explorer.");
-                        return;
-                      }
-                      Alert.alert(
-                        "Unlock Flavor Explorer?",
-                        `Spend ${exploreCost} tokens to unlock recommendations outside your comfort zone?\n\nYour balance: ${tokenBalance} tokens`,
-                        [
-                          { text: "Cancel", style: "cancel" },
-                          {
-                            text: `Unlock (${exploreCost} tokens)`,
-                            onPress: async () => {
-                              const result = await spendToken("flavor_explorer" as Feature);
-                              if (result.ok) {
-                                Alert.alert("Unlocked!", "Flavor Explorer is now available.");
-                              } else if (result.reason === "insufficient_balance") {
-                                Alert.alert("Not enough tokens", `You need ${exploreCost} tokens but only have ${tokenBalance}. Keep scanning and rating!`);
-                              }
-                            },
-                          },
-                        ]
-                      );
-                      return;
-                    }
-                    if (showExplore) {
-                      setShowExplore(false);
-                      return;
-                    }
-                    fetchExplore();
-                  }}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    paddingHorizontal: 14,
-                    paddingVertical: 9,
-                    borderRadius: 20,
-                    borderWidth: 1.5,
-                    borderColor: exploreUnlocked ? (showExplore ? "#8b5cf6" : "#ccc") : "#e5e5e5",
-                    backgroundColor: exploreUnlocked ? (showExplore ? "#8b5cf618" : "transparent") : "#f5f5f5",
-                    opacity: exploreUnlocked ? 1 : 0.7,
-                    alignSelf: "flex-start",
-                  }}
-                >
-                  <Text style={{ fontSize: 14 }}>{exploreUnlocked ? "🧭" : "🔒"}</Text>
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      fontWeight: showExplore && exploreUnlocked ? "700" : "500",
-                      color: exploreUnlocked ? (showExplore ? "#8b5cf6" : "#888") : "#bbb",
-                    }}
-                  >
-                    {exploreLoading ? "Exploring..." : "Flavor Explorer"}
-                  </Text>
-                </Pressable>
-              );
-            })()}
-          </View>}
+          {/* Stage 10: Flavor Explorer — future feature, not yet implemented */}
 
           <View style={{ marginTop: 8 }}>
             <Button

@@ -9,7 +9,6 @@ import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
 import { useInventory } from "@/context/inventory";
 
-import { TokenEarnToast } from "../../context/tokens";
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -91,7 +90,6 @@ export default function TabLayout() {
       </Tabs>
       <ForegroundInventoryScanner />
       <LowStockBanner />
-      <TokenEarnToast />
     </>
   );
 }

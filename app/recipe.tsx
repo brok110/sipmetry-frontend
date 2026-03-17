@@ -8,10 +8,8 @@ import { useAuth } from "@/context/auth";
 
 import * as Clipboard from "expo-clipboard";
 
-import { useEconomy } from "@/context/economy";
 import { FeedbackRating, useFeedback } from "@/context/feedback";
 import { useInventory } from "@/context/inventory";
-import { useTokens } from "@/context/tokens";
 import {
   aggregateIngredientVectors,
   buildFourWordDescriptor,
@@ -291,13 +289,7 @@ export default function TabTwoScreen() {
 
   const { ratingsByKey, setRating, clearRating } = useFeedback();
   const { favoritesByKey, toggleFavorite } = useFavorites();
-  const { tokens, favoriteLimit, canSpend, purchaseFavoriteSlot, earnOncePerRecipe } = useEconomy();
-  const { earn: earnToken } = useTokens();
   const { inventory, initialized: inventoryInitialized, refreshInventory, recordInventoryUse } = useInventory();
-
-  const favoritesCount = useMemo(() => {
-    return Object.keys(favoritesByKey ?? {}).length;
-  }, [favoritesByKey]);
 
   const { session } = useAuth();
 
@@ -556,11 +548,6 @@ export default function TabTwoScreen() {
                 return { key, resolved: fromScan || null };
               })
           : null,
-        economy: {
-          tokens,
-          favoriteLimit,
-          favoritesCount,
-        },
       };
 
       await Clipboard.setStringAsync(JSON.stringify(payload, null, 2));
@@ -586,49 +573,7 @@ export default function TabTwoScreen() {
   };
 
   const onToggleFavorite = () => {
-    if (isFav) {
-      doAddFavorite();
-      return;
-    }
-
-    if (favoritesCount < favoriteLimit) {
-      doAddFavorite();
-      earnToken("favorite", recipeKey);
-      return;
-    }
-
-    const cost = 3;
-    const can = canSpend(cost);
-
-    Alert.alert(
-      "Favorites full",
-      `You’ve reached your favorites limit (${favoritesCount}/${favoriteLimit}).\n\nSpend ${cost} tokens to add +1 slot?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Go to My Favorites",
-          onPress: () => router.push("/profile/favorites"),
-        },
-        {
-          text: `Spend ${cost}`,
-          onPress: () => {
-            if (!can) {
-              Alert.alert("Not enough tokens", `You have ${tokens} tokens.\nNeed ${cost} tokens to add +1 slot.`);
-              return;
-            }
-
-            const ok = purchaseFavoriteSlot();
-            if (!ok) {
-              Alert.alert("Purchase failed", "Could not add a favorites slot. Please try again.");
-              return;
-            }
-
-            doAddFavorite();
-            earnToken("favorite", recipeKey);
-          },
-        },
-      ]
-    );
+    doAddFavorite();
   };
 
   const sendFeedback = async (next: FeedbackRating) => {
@@ -671,11 +616,6 @@ export default function TabTwoScreen() {
         throw new Error(`Feedback API failed: ${resp.status} ${t}`);
       }
 
-      if (!prev) {
-        earnOncePerRecipe(recipeKey, "rate", 1);
-      }
-      // Server-backed token earn (deduped server-side)
-      earnToken(next as "like" | "dislike", recipeKey);
     } catch (e: any) {
       if (prev) setRating(recipeKey, prev);
       else clearRating(recipeKey);
@@ -704,8 +644,6 @@ export default function TabTwoScreen() {
       }
 
       const data = (await resp.json()) as { share_id: string; share_url: string };
-
-      earnOncePerRecipe(recipeKey, "share", 1);
 
       const recipe_json = encodeURIComponent(JSON.stringify(recipe));
       const ingredients_json = encodeURIComponent(JSON.stringify(ingredientsFromScan));

@@ -4,7 +4,6 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/context/auth";
-import { useTokens } from "@/context/tokens";
 
 function ProfileMenuItem({
   icon,
@@ -39,8 +38,6 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const userEmail = session?.user?.email;
-  const { balance, unlocks, loading: tokenLoading } = useTokens();
-
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
       {/* User info */}
@@ -88,48 +85,6 @@ export default function ProfileScreen() {
         />
         */}
       </View>
-
-      {/* Token balance */}
-      {userEmail ? (
-        <View style={{ padding: 16, borderWidth: 1, borderRadius: 12, backgroundColor: "white", gap: 8 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <FontAwesome name="diamond" size={16} color="#f59e0b" />
-            <Text style={{ fontWeight: "800", fontSize: 16 }}>
-              {tokenLoading ? "..." : balance}
-            </Text>
-            <Text style={{ color: "#888", fontSize: 13 }}>tokens</Text>
-          </View>
-          <Text style={{ color: "#aaa", fontSize: 12 }}>
-            Earn tokens by scanning, rating, and adding favorites
-          </Text>
-        </View>
-      ) : null}
-
-      {/* Unlocked features */}
-      {userEmail && unlocks.size > 0 ? (
-        <View style={{ padding: 16, borderWidth: 1, borderRadius: 12, backgroundColor: "white", gap: 8 }}>
-          <Text style={{ fontWeight: "800", fontSize: 13, color: "#555" }}>Unlocked Features</Text>
-          <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-            {[...unlocks].map((f) => (
-              <View
-                key={f}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                  backgroundColor: "#ecfdf5",
-                  borderWidth: 1,
-                  borderColor: "#a7f3d0",
-                }}
-              >
-                <Text style={{ fontSize: 11, fontWeight: "600", color: "#059669" }}>
-                  {f.replace(/_/g, " ")}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      ) : null}
 
       {/* Sign out */}
       {userEmail && (
