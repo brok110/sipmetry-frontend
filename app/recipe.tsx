@@ -21,7 +21,8 @@ import {
   PreferencePreset,
   PRESET_VECTORS,
 } from "@/context/ontology";
-import { useFavorites } from "../context/favorites";
+import { useFavorites } from "@/context/favorites";
+import OaklandDusk from "@/constants/OaklandDusk";
 
 type DbRecipeIngredient = {
   sort_order: number;
@@ -338,31 +339,6 @@ export default function TabTwoScreen() {
   // Stage 4: Track whether user took any positive action during this visit
   const hadPositiveActionRef = useRef(false);
 
-  // 離開畫面時重置（回來會重新看到「I made this!」，且 inventory 也會重新 fetch）
-  useFocusEffect(
-    useCallback(() => {
-      hadPositiveActionRef.current = false;
-      return () => {
-        setMadeDrinkState('idle');
-        if (madeDrinkTimerRef.current) {
-          clearTimeout(madeDrinkTimerRef.current);
-          madeDrinkTimerRef.current = null;
-        }
-        // Stage 4: Fire "skip" if user left without any positive action
-        if (!hadPositiveActionRef.current && recipeKey) {
-          track({
-            recipe_key: recipeKey,
-            interaction_type: "skip",
-            context: {
-              source: "detail",
-              has_ingredients: ingredientsFromScan.length > 0,
-            },
-          });
-        }
-      };
-    }, [recipeKey, ingredientsFromScan.length, track])
-  );
-
   useEffect(() => {
     let alive = true;
 
@@ -382,7 +358,13 @@ export default function TabTwoScreen() {
 
       setLoading(true);
       try {
-        const resp = await fetch(`${API_URL}/recipes/${encodeURIComponent(ibaCode)}`);
+        const recipeHeaders: Record<string, string> = {};
+        if (session?.access_token) {
+          recipeHeaders["Authorization"] = `Bearer ${session.access_token}`;
+        }
+        const resp = await fetch(`${API_URL}/recipes/${encodeURIComponent(ibaCode)}`, {
+          headers: recipeHeaders,
+        });
         if (!resp.ok) {
           const t = await resp.text();
           throw new Error(`Recipe API failed: ${resp.status} ${t}`);
@@ -481,6 +463,31 @@ export default function TabTwoScreen() {
   }, [params.recipe_key, ibaCode, recipeTitle, idxNum]);
 
   const recipeKey = stableRecipeKey;
+
+  // 離開畫面時重置（回來會重新看到「I made this!」，且 inventory 也會重新 fetch）
+  useFocusEffect(
+    useCallback(() => {
+      hadPositiveActionRef.current = false;
+      return () => {
+        setMadeDrinkState('idle');
+        if (madeDrinkTimerRef.current) {
+          clearTimeout(madeDrinkTimerRef.current);
+          madeDrinkTimerRef.current = null;
+        }
+        // Stage 4: Fire "skip" if user left without any positive action
+        if (!hadPositiveActionRef.current && recipeKey) {
+          track({
+            recipe_key: recipeKey,
+            interaction_type: "skip",
+            context: {
+              source: "detail",
+              has_ingredients: ingredientsFromScan.length > 0,
+            },
+          });
+        }
+      };
+    }, [recipeKey, ingredientsFromScan.length, track])
+  );
 
   const currentRating: FeedbackRating | null = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
 
@@ -681,9 +688,14 @@ export default function TabTwoScreen() {
     }
 
     try {
+      const feedbackHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        feedbackHeaders["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const resp = await fetch(`${API_URL}/feedback`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: feedbackHeaders,
         body: JSON.stringify({
           recipe_key: recipeKey,
           rating: next,
@@ -714,9 +726,14 @@ export default function TabTwoScreen() {
     }
 
     try {
+      const shareHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        shareHeaders["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const resp = await fetch(`${API_URL}/share-recipe`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: shareHeaders,
         body: JSON.stringify({ recipe, ingredients: ingredientsFromScan }),
       });
 
@@ -848,7 +865,7 @@ export default function TabTwoScreen() {
 
   const renderDbIngredients = () => {
     const list = Array.isArray(dbRecipe?.ingredients) ? dbRecipe!.ingredients : [];
-    if (list.length === 0) return <Text style={{ color: "#666" }}>(No ingredients)</Text>;
+    if (list.length === 0) return <Text style={{ color: OaklandDusk.text.tertiary }}>(No ingredients)</Text>;
 
     const sorted = [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
@@ -877,9 +894,9 @@ export default function TabTwoScreen() {
           }
 
           return (
-            <Text key={i}>
+            <Text key={i} style={{ color: OaklandDusk.text.secondary }}>
               • {name} — {amountLabel}
-              {isOptional ? " (optional)" : ""}
+              {isOptional ? <Text style={{ color: OaklandDusk.text.tertiary }}> (optional)</Text> : ""}
             </Text>
           );
         })}
@@ -891,38 +908,42 @@ export default function TabTwoScreen() {
 
   if (!hasSelection) {
     return (
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Text style={{ fontSize: 20, fontWeight: "800" }}>Recipe</Text>
-        <Text style={{ color: "#666" }}>No recipe selected. Go back to Scan and tap “View”.</Text>
+      <ScrollView
+        style={{ backgroundColor: OaklandDusk.bg.void }}
+        contentContainerStyle={{ padding: 16, gap: 12 }}
+      >
+        <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>Recipe</Text>
+        <Text style={{ color: OaklandDusk.text.secondary }}>No recipe selected. Go back to Scan and tap "View".</Text>
 
         {__DEV__ ? (
-          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
-            <Text style={{ fontWeight: "800" }}>Debug</Text>
-            <Text style={{ color: "#666" }}>ibaCode: {ibaCode || "(empty)"}</Text>
-            <Text style={{ color: "#666" }}>recipe_key: {String((params as any)?.recipe_key ?? "") || "(empty)"}</Text>
-            <Text style={{ color: "#666" }}>idx: {String((params as any)?.idx ?? "") || "(empty)"}</Text>
+          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 6, backgroundColor: OaklandDusk.bg.card }}>
+            <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Debug</Text>
+            <Text style={{ color: OaklandDusk.text.tertiary }}>ibaCode: {ibaCode || "(empty)"}</Text>
+            <Text style={{ color: OaklandDusk.text.tertiary }}>recipe_key: {String((params as any)?.recipe_key ?? "") || "(empty)"}</Text>
+            <Text style={{ color: OaklandDusk.text.tertiary }}>idx: {String((params as any)?.idx ?? "") || "(empty)"}</Text>
           </View>
         ) : null}
 
         <Pressable
-          onPress={() => router.replace("/(tabs)/scan")}
+          onPress={() => router.back()}
           style={{
             alignSelf: "flex-start",
             borderWidth: 1,
+            borderColor: OaklandDusk.bg.border,
             borderRadius: 999,
             paddingHorizontal: 12,
             paddingVertical: 8,
             marginTop: 8,
           }}
         >
-          <Text style={{ fontWeight: "800" }}>Back</Text>
+          <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Back</Text>
         </Pressable>
       </ScrollView>
     );
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
       <ScrollView
         contentContainerStyle={{
           padding: 16,
@@ -931,12 +952,12 @@ export default function TabTwoScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Text style={{ fontSize: 22, fontWeight: "900", flex: 1 }}>
+          <Text style={{ fontSize: 22, fontWeight: "900", flex: 1, color: OaklandDusk.text.primary }}>
             {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
           </Text>
 
           <Pressable onPress={onToggleFavorite} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-            <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? "#E11D48" : "#888"} size={20} />
+            <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? "#E11D48" : OaklandDusk.text.tertiary} size={20} />
           </Pressable>
 
           {__DEV__ ? (
@@ -945,28 +966,29 @@ export default function TabTwoScreen() {
               hitSlop={10}
               style={{
                 borderWidth: 1,
+                borderColor: OaklandDusk.bg.border,
                 borderRadius: 999,
                 paddingHorizontal: 10,
                 paddingVertical: 6,
                 marginLeft: 8,
               }}
             >
-              <Text style={{ fontWeight: "800", color: "#666" }}>Copy Debug</Text>
+              <Text style={{ fontWeight: "800", color: OaklandDusk.text.tertiary }}>Copy Debug</Text>
             </Pressable>
           ) : null}
         </View>
 
         {headerLine ? (
-          <Pressable onLongPress={copyDebug} delayLongPress={450}>
-            <Text style={{ color: "#555" }}>{headerLine}</Text>
+          <Pressable onLongPress={__DEV__ ? copyDebug : undefined} delayLongPress={450}>
+            <Text style={{ color: OaklandDusk.text.secondary }}>{headerLine}</Text>
           </Pressable>
         ) : null}
 
 
         {loading ? (
-          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-            <Text style={{ fontWeight: "800" }}>Loading…</Text>
-            <Text style={{ color: "#666" }}>
+          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, backgroundColor: OaklandDusk.bg.card }}>
+            <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Loading…</Text>
+            <Text style={{ color: OaklandDusk.text.secondary }}>
               Fetching full recipe from backend using iba_code: {ibaCode || "(missing)"}
             </Text>
           </View>
@@ -978,13 +1000,15 @@ export default function TabTwoScreen() {
             style={{
               flex: 1,
               borderWidth: 1,
+              borderColor: currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
               borderRadius: 12,
               paddingVertical: 10,
               alignItems: "center",
-              opacity: currentRating === "dislike" ? 0.6 : 1,
+              backgroundColor: currentRating === "like" ? OaklandDusk.brand.tagBg : OaklandDusk.bg.card,
+              opacity: currentRating === "dislike" ? 0.5 : 1,
             }}
           >
-            <Text style={{ fontWeight: "800" }}>{currentRating === "like" ? "Liked" : "Like"}</Text>
+            <Text style={{ fontWeight: "800", color: currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.text.primary }}>{currentRating === "like" ? "Liked" : "Like"}</Text>
           </Pressable>
 
           <Pressable
@@ -992,13 +1016,15 @@ export default function TabTwoScreen() {
             style={{
               flex: 1,
               borderWidth: 1,
+              borderColor: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.bg.border,
               borderRadius: 12,
               paddingVertical: 10,
               alignItems: "center",
-              opacity: currentRating === "like" ? 0.6 : 1,
+              backgroundColor: currentRating === "dislike" ? OaklandDusk.accent.roseBg : OaklandDusk.bg.card,
+              opacity: currentRating === "like" ? 0.5 : 1,
             }}
           >
-            <Text style={{ fontWeight: "800" }}>{currentRating === "dislike" ? "Disliked" : "Dislike"}</Text>
+            <Text style={{ fontWeight: "800", color: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.primary }}>{currentRating === "dislike" ? "Disliked" : "Dislike"}</Text>
           </Pressable>
         </View>
 
@@ -1028,64 +1054,66 @@ export default function TabTwoScreen() {
         ) : null}
 
         {error ? (
-          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-            <Text style={{ fontWeight: "800" }}>Error</Text>
-            <Text>{error}</Text>
+          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.accent.crimson, borderRadius: 12, backgroundColor: OaklandDusk.accent.roseBg }}>
+            <Text style={{ fontWeight: "800", color: OaklandDusk.accent.crimson }}>Error</Text>
+            <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
           </View>
         ) : null}
 
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 12 }}>
+        <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 12, backgroundColor: OaklandDusk.bg.card }}>
           <View>
-            <Text style={{ fontWeight: "900", marginBottom: 6 }}>Ingredients</Text>
+            <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.text.primary }}>Ingredients</Text>
             {dbRecipe ? (
               renderDbIngredients()
             ) : loading ? (
-              <Text style={{ color: "#666" }}>(Loading full recipe…)</Text>
+              <Text style={{ color: OaklandDusk.text.tertiary }}>(Loading full recipe…)</Text>
             ) : error ? (
-              <Text style={{ color: "#B00020" }}>Failed to load recipe: {error}</Text>
+              <Text style={{ color: OaklandDusk.semantic.error }}>Failed to load recipe: {error}</Text>
             ) : ibaCode ? (
-              <Text style={{ color: "#666" }}>(Waiting for full recipe…)</Text>
+              <Text style={{ color: OaklandDusk.text.tertiary }}>(Waiting for full recipe…)</Text>
             ) : (
-              <Text style={{ color: "#666" }}>(Missing iba_code)</Text>
+              <Text style={{ color: OaklandDusk.text.tertiary }}>(Missing iba_code)</Text>
             )}
           </View>
 
           {dbRecipe?.instructions ? (
             <View>
-              <Text style={{ fontWeight: "900", marginBottom: 6 }}>Instructions</Text>
-              <Text>{String(dbRecipe.instructions)}</Text>
+              <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.text.primary }}>Instructions</Text>
+              <Text style={{ color: OaklandDusk.text.secondary }}>{String(dbRecipe.instructions)}</Text>
             </View>
           ) : null}
         </View>
 
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
           <Pressable
-            onPress={() => router.replace("/(tabs)/scan")}
+            onPress={() => router.back()}
             style={{
               borderWidth: 1,
+              borderColor: OaklandDusk.bg.border,
               borderRadius: 999,
               paddingHorizontal: 12,
               paddingVertical: 8,
             }}
           >
-            <Text style={{ fontWeight: "800" }}>Back</Text>
+            <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Back</Text>
           </Pressable>
 
           <Pressable
             onPress={createShareAndGo}
             style={{
               borderWidth: 1,
+              borderColor: OaklandDusk.brand.gold,
               borderRadius: 999,
               paddingHorizontal: 14,
               paddingVertical: 8,
-              backgroundColor: "white",
+              backgroundColor: OaklandDusk.brand.gold,
             }}
           >
-            <Text style={{ fontWeight: "900" }}>Share</Text>
+            <Text style={{ fontWeight: "900", color: OaklandDusk.bg.void }}>Share</Text>
           </Pressable>
         </View>
 
-        <Text style={{ color: "#666" }}>You can switch back to Scan anytime to view another recipe.</Text>
+        <Text style={{ color: OaklandDusk.text.tertiary }}>You can switch back to Scan anytime to view another recipe.</Text>
       </ScrollView>
 
       {/* Stage 3: First-interaction feedback toast */}
