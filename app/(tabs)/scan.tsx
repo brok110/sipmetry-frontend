@@ -1,3 +1,4 @@
+import OaklandDusk from "@/constants/OaklandDusk";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
@@ -952,9 +953,14 @@ export default function TabOneScreen() {
       }
       lastRecommendMoodRef.current = selectedMood;
 
+      const classicsHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        classicsHeaders["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const resp = await fetch(`${API_URL}/recommend-classics`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: classicsHeaders,
         body: JSON.stringify(recommendBody),
       });
 
@@ -1076,9 +1082,14 @@ export default function TabOneScreen() {
         else if (rating === "dislike") dislikedCodes.push(code);
       }
 
+      const exploreHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        exploreHeaders["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const resp = await fetch(`${API_URL}/recommend-explore`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: exploreHeaders,
         body: JSON.stringify({
           detected_ingredients: detectedList,
           locale: isZh ? "zh" : "en",
@@ -1623,25 +1634,25 @@ export default function TabOneScreen() {
   const toneStyles = (tone: SectionTone) => {
     if (tone === "ready") {
       return {
-        bar: "#6F8F7C",
-        bg: "#EEF2EF",
-        text: "#3F5A4B",
-        border: "#D7E0DA",
+        bar: "#7AB89A",           // muted sage green
+        bg: OaklandDusk.bg.card,
+        text: "#7AB89A",
+        border: "#2A4030",
       };
     }
     if (tone === "one_missing") {
       return {
-        bar: "#B6A77A",
-        bg: "#F4F1E8",
-        text: "#6B5D36",
-        border: "#E6DECC",
+        bar: OaklandDusk.brand.gold,
+        bg: OaklandDusk.bg.card,
+        text: OaklandDusk.brand.gold,
+        border: OaklandDusk.brand.tagBg,
       };
     }
     return {
-      bar: "#B78A7A",
-      bg: "#F5EEEB",
-      text: "#6A3F34",
-      border: "#E6D3CD",
+      bar: OaklandDusk.brand.rust,
+      bg: OaklandDusk.bg.card,
+      text: OaklandDusk.text.secondary,
+      border: OaklandDusk.bg.border,
     };
   };
 
@@ -1743,10 +1754,12 @@ export default function TabOneScreen() {
                 borderRadius: 12,
                 padding: 12,
                 gap: 8,
+                borderColor: OaklandDusk.bg.border,
+                backgroundColor: OaklandDusk.bg.card,
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Text style={{ fontWeight: "800", flex: 1 }} numberOfLines={1}>
+                <Text style={{ fontWeight: "800", flex: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
                   {name}
                 </Text>
 
@@ -1757,10 +1770,10 @@ export default function TabOneScreen() {
                       borderRadius: 999,
                       paddingHorizontal: 10,
                       paddingVertical: 4,
-                      borderColor: "#DDD",
+                      borderColor: OaklandDusk.bg.border,
                     }}
                   >
-                    <Text style={{ fontWeight: "400", color: "#777" }}>Rated</Text>
+                    <Text style={{ fontWeight: "400", color: OaklandDusk.text.tertiary }}>Rated</Text>
                   </View>
                 ) : null}
 
@@ -1771,9 +1784,10 @@ export default function TabOneScreen() {
                     borderRadius: 999,
                     paddingHorizontal: 12,
                     paddingVertical: 6,
+                    borderColor: OaklandDusk.bg.border,
                   }}
                 >
-                  <Text style={{ fontWeight: "800" }}>View</Text>
+                  <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>View</Text>
                 </Pressable>
               </View>
 
@@ -1788,11 +1802,11 @@ export default function TabOneScreen() {
                         borderRadius: 999,
                         paddingHorizontal: 8,
                         paddingVertical: 3,
-                        backgroundColor: "#faf5ff",
-                        borderColor: "#d8b4fe",
+                        backgroundColor: OaklandDusk.accent.indigoBg,
+                        borderColor: OaklandDusk.accent.indigo,
                       }}
                     >
-                      <Text style={{ fontSize: 11, fontWeight: "800", color: "#7c3aed" }}>
+                      <Text style={{ fontSize: 11, fontWeight: "800", color: OaklandDusk.accent.indigo }}>
                         {badge}
                       </Text>
                     </Pressable>
@@ -1821,12 +1835,12 @@ export default function TabOneScreen() {
                   return (
                     <View style={{ gap: 2 }}>
                       {missingLine ? (
-                        <Text style={{ color: "#555" }} numberOfLines={2}>
+                        <Text style={{ color: OaklandDusk.text.secondary }} numberOfLines={2}>
                           {missingLine}
                         </Text>
                       ) : null}
                       {tasteLine ? (
-                        <Text style={{ color: "#2563eb", fontSize: 12 }} numberOfLines={1}>
+                        <Text style={{ color: OaklandDusk.accent.indigo, fontSize: 12 }} numberOfLines={1}>
                           {tasteLine}
                         </Text>
                       ) : null}
@@ -1834,12 +1848,12 @@ export default function TabOneScreen() {
                   );
                 })()
               ) : miss.length > 0 ? (
-                <Text style={{ color: "#555" }} numberOfLines={2}>
+                <Text style={{ color: OaklandDusk.text.secondary }} numberOfLines={2}>
                   {isZh ? "缺少：" : "Missing: "}
                   {miss.join(" • ")}
                 </Text>
               ) : (
-                <Text style={{ color: "#666" }}>{isZh ? "（不缺材料）" : "(No missing items)"}</Text>
+                <Text style={{ color: OaklandDusk.text.tertiary }}>{isZh ? "（不缺材料）" : "(No missing items)"}</Text>
               )}
 
               {/* Phase 1: Purchase intent — show buy buttons for missing ingredients */}
@@ -1868,7 +1882,7 @@ export default function TabOneScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1 }}>Scan Ingredients</Text>
+        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1, color: OaklandDusk.text.primary }}>Scan Ingredients</Text>
       </View>
 
       {__DEV__ ? (
@@ -1893,41 +1907,47 @@ export default function TabOneScreen() {
 
       {imageUri ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontWeight: "700" }}>Preview</Text>
+          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Preview</Text>
           <Image
             source={{ uri: imageUri }}
             style={{ width: "100%", height: 260, borderRadius: 12 }}
             resizeMode="cover"
           />
 
-          <Button
-            title={
-              loading
-                ? stage === "identifying ingredients"
-                  ? "Identifying ingredients..."
-                  : "Loading..."
-                : "Run Ingredients"
-            }
+          <Pressable
             onPress={analyze}
             disabled={loading}
-          />
+            style={{
+              alignSelf: "flex-end",
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderWidth: 1,
+              borderRadius: 20,
+              borderColor: OaklandDusk.bg.border,
+              opacity: loading ? 0.5 : 1,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary }}>
+              {loading ? "Scanning..." : "↺ Re-scan"}
+            </Text>
+          </Pressable>
         </View>
       ) : (
-        <Text style={{ color: "#666" }}>Choose a photo or take a photo to start.</Text>
+        <Text style={{ color: OaklandDusk.text.tertiary }}>Choose a photo or take a photo to start.</Text>
       )}
 
       {error ? (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-          <Text style={{ fontWeight: "800" }}>Error</Text>
-          <Text>{error}</Text>
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
+          <Text style={{ fontWeight: "800", color: OaklandDusk.accent.crimson }}>Error</Text>
+          <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
         </View>
       ) : null}
 
       {safety && (safety.risk_level !== "none" || safety.non_consumable_items.length > 0) ? (
-        <View style={{ padding: 12, borderWidth: 2, borderRadius: 12 }}>
-          <Text style={{ fontWeight: "900", marginBottom: 6 }}>Warning</Text>
+        <View style={{ padding: 12, borderWidth: 2, borderRadius: 12, borderColor: OaklandDusk.brand.rust, backgroundColor: OaklandDusk.brand.tagBg }}>
+          <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.brand.sundown }}>Warning</Text>
 
-          <Text style={{ marginBottom: 8 }}>
+          <Text style={{ marginBottom: 8, color: OaklandDusk.text.secondary }}>
             {safety.message && safety.message.trim()
               ? safety.message
               : safety.risk_level === "high"
@@ -1935,26 +1955,26 @@ export default function TabOneScreen() {
               : "Possible non-consumable item(s) detected. Do NOT ingest and please double-check."}
           </Text>
 
-          <Text style={{ fontWeight: "800", marginBottom: 4 }}>Risk: {safety.risk_level}</Text>
+          <Text style={{ fontWeight: "800", marginBottom: 4, color: OaklandDusk.text.primary }}>Risk: {safety.risk_level}</Text>
 
           {safety.non_consumable_items.length > 0 ? (
             <View style={{ gap: 4 }}>
-              <Text style={{ fontWeight: "800" }}>Detected:</Text>
+              <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Detected:</Text>
               {safety.non_consumable_items.map((x, i) => (
-                <Text key={i}>• {x}</Text>
+                <Text key={i} style={{ color: OaklandDusk.text.secondary }}>• {x}</Text>
               ))}
             </View>
           ) : null}
         </View>
       ) : null}
 
-      <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-        <Text style={{ fontWeight: "800", marginBottom: 8 }}>Ingredients (editable)</Text>
+      <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
+        <Text style={{ fontWeight: "800", marginBottom: 8, color: OaklandDusk.text.primary }}>Ingredients (editable)</Text>
 
         {recipesStale ? (
-          <View style={{ padding: 10, borderWidth: 1, borderRadius: 10, marginBottom: 8 }}>
-            <Text style={{ fontWeight: "800" }}>Results out of date</Text>
-            <Text style={{ color: "#555" }}>
+          <View style={{ padding: 10, borderWidth: 1, borderRadius: 10, marginBottom: 8, borderColor: OaklandDusk.brand.gold }}>
+            <Text style={{ fontWeight: "800", color: OaklandDusk.brand.gold }}>Results out of date</Text>
+            <Text style={{ color: OaklandDusk.text.secondary }}>
               {recipesStaleReason === "preferences"
                 ? "Preferences changed. Please refresh recommendations."
                 : recipesStaleReason === "mood"
@@ -1965,7 +1985,7 @@ export default function TabOneScreen() {
         ) : null}
 
         {activeIngredients.length === 0 ? (
-          <Text style={{ color: "#666" }}>(No ingredients yet)</Text>
+          <Text style={{ color: OaklandDusk.text.tertiary }}>(No ingredients yet)</Text>
         ) : (
           <View style={{ gap: 8 }}>
             {activeIngredients.map((ing, idx) => {
@@ -1989,6 +2009,7 @@ export default function TabOneScreen() {
                         onChangeText={setEditingValue}
                         autoCapitalize="none"
                         maxLength={80}
+                        placeholderTextColor={OaklandDusk.text.tertiary}
                         onFocus={(e) => {
                           scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
                             e.target as any,
@@ -2001,16 +2022,19 @@ export default function TabOneScreen() {
                           borderRadius: 12,
                           paddingHorizontal: 12,
                           paddingVertical: 10,
+                          borderColor: OaklandDusk.brand.gold,
+                          backgroundColor: OaklandDusk.bg.surface,
+                          color: OaklandDusk.text.primary,
                         }}
                       />
                     ) : (
-                      <Text style={{ flex: 1, flexShrink: 1, paddingRight: 8 }} numberOfLines={1}>
+                      <Text style={{ flex: 1, flexShrink: 1, paddingRight: 8, color: OaklandDusk.text.primary }} numberOfLines={1}>
                         • {ing.display}
                       </Text>
                     )}
                   </View>
 
-                  <View style={{ flexDirection: "row", gap: 8, flexShrink: 0 }}>
+                  <View style={{ flexDirection: "row", gap: 8, flexShrink: 0, alignItems: "center" }}>
                     {isEditing ? (
                       <>
                         <Pressable
@@ -2023,9 +2047,10 @@ export default function TabOneScreen() {
                             paddingVertical: 6,
                             borderWidth: 1,
                             borderRadius: 10,
+                            borderColor: OaklandDusk.bg.border,
                           }}
                         >
-                          <Text style={{ fontWeight: "800" }}>Cancel</Text>
+                          <Text style={{ fontWeight: "800", color: OaklandDusk.text.secondary }}>Cancel</Text>
                         </Pressable>
 
                         <Pressable
@@ -2035,35 +2060,27 @@ export default function TabOneScreen() {
                             paddingVertical: 6,
                             borderWidth: 1,
                             borderRadius: 10,
+                            borderColor: OaklandDusk.brand.gold,
+                            backgroundColor: OaklandDusk.brand.gold,
                           }}
                         >
-                          <Text style={{ fontWeight: "800" }}>Save</Text>
+                          <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>Save</Text>
                         </Pressable>
                       </>
                     ) : (
                       <>
                         <Pressable
-                          onPress={() => startEditIngredient(ing.id, ing.display)}
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderWidth: 1,
-                            borderRadius: 10,
-                          }}
+                          onPress={() =>
+                            Alert.alert(ing.display, undefined, [
+                              { text: "Edit", onPress: () => startEditIngredient(ing.id, ing.display) },
+                              { text: "Delete", style: "destructive", onPress: () => removeIngredient(idx) },
+                              { text: "Cancel", style: "cancel" },
+                            ])
+                          }
+                          hitSlop={12}
+                          style={{ paddingHorizontal: 8, paddingVertical: 6 }}
                         >
-                          <Text style={{ fontWeight: "800" }}>Edit</Text>
-                        </Pressable>
-
-                        <Pressable
-                          onPress={() => removeIngredient(idx)}
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderWidth: 1,
-                            borderRadius: 10,
-                          }}
-                        >
-                          <Text style={{ fontWeight: "800" }}>Delete</Text>
+                          <Text style={{ fontSize: 18, color: OaklandDusk.text.tertiary }}>⋯</Text>
                         </Pressable>
 
                         {session ? (
@@ -2072,11 +2089,11 @@ export default function TabOneScreen() {
                             style={{
                               paddingHorizontal: 10,
                               paddingVertical: 6,
-                              backgroundColor: '#111',
+                              backgroundColor: OaklandDusk.brand.gold,
                               borderRadius: 10,
                             }}
                           >
-                            <Text style={{ fontWeight: "800", color: '#FFF' }}>+ Bar</Text>
+                            <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>+ Bar</Text>
                           </Pressable>
                         ) : null}
                       </>
@@ -2089,12 +2106,13 @@ export default function TabOneScreen() {
         )}
 
         <View style={{ marginTop: 12, gap: 8 }}>
-          <Text style={{ fontWeight: "800" }}>Add ingredient</Text>
+          <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>Add ingredient</Text>
 
           <TextInput
             value={newIngredient}
             onChangeText={setNewIngredient}
             placeholder='e.g., "simple syrup"'
+            placeholderTextColor={OaklandDusk.text.tertiary}
             autoCapitalize="none"
             maxLength={80}
             style={{
@@ -2102,6 +2120,9 @@ export default function TabOneScreen() {
               borderRadius: 12,
               paddingHorizontal: 12,
               paddingVertical: 10,
+              borderColor: OaklandDusk.bg.border,
+              backgroundColor: OaklandDusk.bg.surface,
+              color: OaklandDusk.text.primary,
             }}
           />
 
@@ -2149,7 +2170,7 @@ export default function TabOneScreen() {
                       paddingVertical: 7,
                       borderRadius: 20,
                       borderWidth: 1.5,
-                      borderColor: isActive ? m.color : "#ccc",
+                      borderColor: isActive ? m.color : OaklandDusk.bg.border,
                       backgroundColor: isActive ? m.color + "18" : "transparent",
                     }}
                   >
@@ -2158,7 +2179,7 @@ export default function TabOneScreen() {
                       style={{
                         fontSize: 12,
                         fontWeight: isActive ? "700" : "500",
-                        color: isActive ? m.color : "#888",
+                        color: isActive ? m.color : OaklandDusk.text.tertiary,
                       }}
                     >
                       {m.label}
@@ -2172,23 +2193,41 @@ export default function TabOneScreen() {
 
           {/* Stage 10: Flavor Explorer — future feature, not yet implemented */}
 
-          <View style={{ marginTop: 8 }}>
-            <Button
-              title={loading ? "Loading..." : hasRecommended ? "Refresh Classics" : "Recommend Classics"}
-              onPress={() => regenerateRecipes()}
-              disabled={loading || activeIngredients.length === 0}
-            />
-          </View>
+          <Pressable
+            onPress={() => regenerateRecipes()}
+            disabled={loading || activeIngredients.length === 0}
+            style={{
+              marginTop: 8,
+              backgroundColor: loading || activeIngredients.length === 0 ? OaklandDusk.bg.border : '#D4A030',
+              paddingVertical: 16,
+              borderRadius: 12,
+              alignItems: 'center',
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            <Text style={{
+              color: loading || activeIngredients.length === 0 ? OaklandDusk.text.tertiary : '#1A1A2E',
+              fontSize: 18,
+              fontWeight: '700',
+            }}>
+              {loading ? "Finding cocktails..." : hasRecommended ? "Refresh results" : "Find matching cocktails"}
+            </Text>
+            {!loading && activeIngredients.length > 0 ? (
+              <Text style={{ color: '#1A1A2E', fontSize: 13, opacity: 0.7, marginTop: 2 }}>
+                Based on {activeIngredients.length} ingredient{activeIngredients.length !== 1 ? 's' : ''}
+              </Text>
+            ) : null}
+          </Pressable>
         </View>
       </View>
 
       {activeSafetyFilters.length > 0 ? (
         <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
           <Text style={{ fontWeight: "800" }}>🛡 Safety Mode Active</Text>
-          <Text style={{ color: "#666" }}>Filtered:</Text>
+          <Text style={{ color: OaklandDusk.text.tertiary }}>Filtered:</Text>
           <View style={{ gap: 2 }}>
             {activeSafetyFilters.map((item) => (
-              <Text key={item} style={{ color: "#666" }}>
+              <Text key={item} style={{ color: OaklandDusk.text.tertiary }}>
                 • {item}
               </Text>
             ))}
@@ -2201,7 +2240,7 @@ export default function TabOneScreen() {
           {recipesStale ? (
             <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
               <Text style={{ fontWeight: "800" }}>Results out of date</Text>
-              <Text style={{ color: "#666" }}>
+              <Text style={{ color: OaklandDusk.text.tertiary }}>
                 {recipesStaleReason === "preferences"
                   ? "Preferences changed. Refresh Classics to see updated recommendations."
                   : recipesStaleReason === "mood"
@@ -2218,7 +2257,7 @@ export default function TabOneScreen() {
               {visibleRecipeCount === 0 ? (
                 <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
                   <Text style={{ fontWeight: "800" }}>No matches</Text>
-                  <Text style={{ color: "#666" }}>
+                  <Text style={{ color: OaklandDusk.text.tertiary }}>
                     No suitable classic cocktails match your current ingredients. Please add more ingredients and try again.
                   </Text>
                 </View>
@@ -2231,27 +2270,27 @@ export default function TabOneScreen() {
       {/* Stage 10: Flavor Explorer results — hidden during development */}
       {false && showExplore && exploreResults.length > 0 ? (
         <View style={{ gap: 10 }}>
-          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10, borderColor: "#8b5cf6" }}>
+          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10, borderColor: OaklandDusk.accent.indigo }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: "#8b5cf6" }} />
+              <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: OaklandDusk.accent.indigo }} />
               <View
                 style={{
                   borderWidth: 1,
                   borderRadius: 999,
                   paddingHorizontal: 10,
                   paddingVertical: 4,
-                  backgroundColor: "#8b5cf618",
-                  borderColor: "#8b5cf6",
+                  backgroundColor: OaklandDusk.accent.indigoBg,
+                  borderColor: OaklandDusk.accent.indigo,
                 }}
               >
-                <Text style={{ fontWeight: "900", color: "#8b5cf6" }}>
+                <Text style={{ fontWeight: "900", color: OaklandDusk.accent.indigo }}>
                   🧭 Explore ({exploreResults.length})
                 </Text>
               </View>
             </View>
 
             {exploreMeta?.explore_dims ? (
-              <Text style={{ color: "#666", fontSize: 12 }}>
+              <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12 }}>
                 {isZh ? "探索方向：" : "Exploring: "}
                 {(exploreMeta.explore_dims as any[]).map((d: any) => d.label || d.dim).join(", ")}
               </Text>
@@ -2267,11 +2306,11 @@ export default function TabOneScreen() {
                     borderRadius: 12,
                     padding: 12,
                     gap: 8,
-                    borderColor: "#e5e7eb",
+                    borderColor: OaklandDusk.bg.border,
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <Text style={{ fontWeight: "800", flex: 1 }} numberOfLines={1}>
+                    <Text style={{ fontWeight: "800", flex: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
                       {name}
                     </Text>
                     <Pressable
@@ -2281,16 +2320,17 @@ export default function TabOneScreen() {
                         borderRadius: 999,
                         paddingHorizontal: 12,
                         paddingVertical: 6,
+                        borderColor: OaklandDusk.bg.border,
                       }}
                     >
-                      <Text style={{ fontWeight: "800" }}>View</Text>
+                      <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>View</Text>
                     </Pressable>
                   </View>
 
                   {Array.isArray(r.reasons) && r.reasons.length > 0 ? (
                     <View style={{ gap: 2 }}>
                       {r.reasons.map((reason, ri) => (
-                        <Text key={ri} style={{ color: "#555", fontSize: 13 }}>
+                        <Text key={ri} style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>
                           {reason}
                         </Text>
                       ))}
@@ -2302,9 +2342,9 @@ export default function TabOneScreen() {
           </View>
         </View>
       ) : false && showExplore && exploreMeta?.reason === "insufficient_data" ? (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: "#8b5cf6" }}>
-          <Text style={{ fontWeight: "700", color: "#8b5cf6" }}>🧭 Flavor Explorer</Text>
-          <Text style={{ color: "#666", marginTop: 4 }}>
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.indigo }}>
+          <Text style={{ fontWeight: "700", color: OaklandDusk.accent.indigo }}>🧭 Flavor Explorer</Text>
+          <Text style={{ color: OaklandDusk.text.tertiary, marginTop: 4 }}>
             {exploreMeta?.message || (isZh ? "需要更多互動資料才能生成探險推薦" : "Need more interactions to generate explore recommendations")}
           </Text>
         </View>
