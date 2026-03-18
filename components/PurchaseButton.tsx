@@ -36,8 +36,7 @@ export function PurchaseButton({
     });
   };
 
-  const buttonText =
-    variant === "subtle" ? "哪裡買?" : `購買 ${displayName}`;
+  const buttonText = `Find ${displayName}`;
 
   return (
     <Pressable
