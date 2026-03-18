@@ -1856,14 +1856,15 @@ export default function TabOneScreen() {
                 <Text style={{ color: OaklandDusk.text.tertiary }}>{isZh ? "（不缺材料）" : "(No missing items)"}</Text>
               )}
 
-              {/* Phase 1: Purchase intent — show buy buttons for missing ingredients */}
-              {FEATURE_FLAGS.ENABLE_PURCHASE_INTENT && miss.length > 0 && (
+              {/* Show missing ingredient card(s) — prominent "1 ingredient away" for single miss */}
+              {miss.length > 0 && (
                 <MissingIngredientsList
                   missingIngredients={miss.map((m) => ({
                     key: m,
                     display_name: m.replace(/_/g, " "),
                   }))}
                   recipeId={r.iba_code}
+                  recipeTitle={name}
                   source="recommendation"
                 />
               )}
