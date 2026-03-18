@@ -869,6 +869,15 @@ export default function TabTwoScreen() {
 
     const sorted = [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
+    // Build inventory lookup for availability display (ingredient_key → remaining_volume)
+    const invByKey: Record<string, number> = {};
+    if (inventoryInitialized) {
+      for (const inv of inventory) {
+        const k = String(inv.ingredient_key ?? '').trim();
+        if (k) invByKey[k] = Number(inv.remaining_volume ?? 0);
+      }
+    }
+
     return (
       <View style={{ gap: 6 }}>
         {sorted.map((it, i) => {
@@ -893,10 +902,33 @@ export default function TabTwoScreen() {
             amountLabel = "n/a";
           }
 
+          // Availability indicator from My Bar
+          let availBadge: React.ReactNode = null;
+          if (inventoryInitialized && key) {
+            const remaining = invByKey[key];
+            const needed = Number.isFinite(ml) ? ml! : null;
+            if (remaining !== undefined) {
+              if (needed !== null && remaining < needed) {
+                availBadge = (
+                  <Text style={{ color: '#D97706', fontSize: 12 }}> ⚠ Running low ({remaining}ml left)</Text>
+                );
+              } else {
+                availBadge = (
+                  <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ In your bar</Text>
+                );
+              }
+            } else {
+              availBadge = (
+                <Text style={{ color: OaklandDusk.semantic.error, fontSize: 12 }}> ✗ Missing</Text>
+              );
+            }
+          }
+
           return (
             <Text key={i} style={{ color: OaklandDusk.text.secondary }}>
               • {name} — {amountLabel}
               {isOptional ? <Text style={{ color: OaklandDusk.text.tertiary }}> (optional)</Text> : ""}
+              {availBadge}
             </Text>
           );
         })}
@@ -952,12 +984,20 @@ export default function TabTwoScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+            <FontAwesome name="arrow-left" color={OaklandDusk.text.tertiary} size={18} />
+          </Pressable>
+
           <Text style={{ fontSize: 22, fontWeight: "900", flex: 1, color: OaklandDusk.text.primary }}>
             {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
           </Text>
 
           <Pressable onPress={onToggleFavorite} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
             <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? "#E11D48" : OaklandDusk.text.tertiary} size={20} />
+          </Pressable>
+
+          <Pressable onPress={createShareAndGo} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+            <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
           </Pressable>
 
           {__DEV__ ? (
@@ -994,61 +1034,60 @@ export default function TabTwoScreen() {
           </View>
         ) : null}
 
-        <View style={{ flexDirection: "row", gap: 10 }}>
+        <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
           <Pressable
             onPress={() => sendFeedback("like")}
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
-              borderRadius: 12,
-              paddingVertical: 10,
-              alignItems: "center",
-              backgroundColor: currentRating === "like" ? OaklandDusk.brand.tagBg : OaklandDusk.bg.card,
-              opacity: currentRating === "dislike" ? 0.5 : 1,
-            }}
+            hitSlop={12}
+            style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: currentRating === "dislike" ? 0.4 : 1 }}
           >
-            <Text style={{ fontWeight: "800", color: currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.text.primary }}>{currentRating === "like" ? "Liked" : "Like"}</Text>
+            <FontAwesome
+              name={currentRating === "like" ? "thumbs-up" : "thumbs-o-up"}
+              color={currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary}
+              size={18}
+            />
+            <Text style={{ fontSize: 13, color: currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary }}>
+              {currentRating === "like" ? "Liked" : "Like"}
+            </Text>
           </Pressable>
 
           <Pressable
             onPress={() => sendFeedback("dislike")}
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.bg.border,
-              borderRadius: 12,
-              paddingVertical: 10,
-              alignItems: "center",
-              backgroundColor: currentRating === "dislike" ? OaklandDusk.accent.roseBg : OaklandDusk.bg.card,
-              opacity: currentRating === "like" ? 0.5 : 1,
-            }}
+            hitSlop={12}
+            style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: currentRating === "like" ? 0.4 : 1 }}
           >
-            <Text style={{ fontWeight: "800", color: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.primary }}>{currentRating === "dislike" ? "Disliked" : "Dislike"}</Text>
+            <FontAwesome
+              name={currentRating === "dislike" ? "thumbs-down" : "thumbs-o-down"}
+              color={currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary}
+              size={18}
+            />
+            <Text style={{ fontSize: 13, color: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary }}>
+              {currentRating === "dislike" ? "Disliked" : "Dislike"}
+            </Text>
           </Pressable>
         </View>
 
-        {/* Stage 9: 「I made this!」按鈕（hidden 時完全不顯示） */}
+        {/* Primary CTA: Make this cocktail */}
         {session && dbRecipe && madeDrinkState !== 'hidden' ? (
           <Pressable
             onPress={handleMadeDrink}
             disabled={madeDrinkLoading || madeDrinkState === 'done'}
             style={{
               borderRadius: 12,
-              paddingVertical: 14,
+              paddingVertical: 16,
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: madeDrinkState === 'done' ? '#6F8F7C' : '#111',
+              backgroundColor: madeDrinkState === 'done' ? '#6F8F7C' : '#D4A030',
               flexDirection: 'row',
               gap: 8,
+              marginTop: 8,
               opacity: madeDrinkLoading ? 0.7 : 1,
             }}
           >
             {madeDrinkLoading
-              ? <ActivityIndicator size="small" color="#FFF" />
+              ? <ActivityIndicator size="small" color={madeDrinkState === 'done' ? '#FFF' : '#1A1A2E'} />
               : null}
-            <Text style={{ fontWeight: '900', color: '#FFF', fontSize: 15 }}>
-              {madeDrinkState === 'done' ? 'Logged! 🍹' : 'I made this! 🍹'}
+            <Text style={{ fontWeight: '900', color: madeDrinkState === 'done' ? '#FFF' : '#1A1A2E', fontSize: 18 }}>
+              {madeDrinkState === 'done' ? 'Logged! 🍹' : 'Make this cocktail 🍹'}
             </Text>
           </Pressable>
         ) : null}
@@ -1084,36 +1123,6 @@ export default function TabTwoScreen() {
           ) : null}
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 4 }}>
-          <Pressable
-            onPress={() => router.back()}
-            style={{
-              borderWidth: 1,
-              borderColor: OaklandDusk.bg.border,
-              borderRadius: 999,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Back</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={createShareAndGo}
-            style={{
-              borderWidth: 1,
-              borderColor: OaklandDusk.brand.gold,
-              borderRadius: 999,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              backgroundColor: OaklandDusk.brand.gold,
-            }}
-          >
-            <Text style={{ fontWeight: "900", color: OaklandDusk.bg.void }}>Share</Text>
-          </Pressable>
-        </View>
-
-        <Text style={{ color: OaklandDusk.text.tertiary }}>You can switch back to Scan anytime to view another recipe.</Text>
       </ScrollView>
 
       {/* Stage 3: First-interaction feedback toast */}
