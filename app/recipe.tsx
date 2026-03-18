@@ -66,6 +66,7 @@ export default function TabTwoScreen() {
     iba_code?: string;
     missing_items_json?: string;
     scan_items_json?: string;
+    overlap_hits_json?: string;
   }>();
 
   const paramToString = (v: any): string => {
@@ -180,6 +181,25 @@ export default function TabTwoScreen() {
 
     return m;
   }, [scanItems]);
+
+  // Parse overlap_hits from navigation params (passed from Scan results).
+  // Used to show "✓ Detected" for ingredients found in the current scan session,
+  // ensuring the Recipe detail page agrees with the Scan list's "Ready" judgment.
+  const overlapHitsSet = useMemo(() => {
+    try {
+      const raw0 = paramToString((params as any).overlap_hits_json);
+      if (!raw0) return new Set<string>();
+      const tryParse = (s: string) => {
+        const t = String(s || "").trim();
+        if (!t) return null;
+        try { const v = JSON.parse(t); return Array.isArray(v) ? v : null; } catch { return null; }
+      };
+      const arr = tryParse(raw0) ?? tryParse(decodeURIComponent(raw0)) ?? tryParse(decodeURIComponent(decodeURIComponent(raw0))) ?? [];
+      return new Set<string>(arr.map((x: any) => String(x || "").trim()).filter(Boolean));
+    } catch {
+      return new Set<string>();
+    }
+  }, [(params as any).overlap_hits_json]);
 
   const humanizeKey = (k: string) => {
     const s = String(k || "").trim();
@@ -902,11 +922,15 @@ export default function TabTwoScreen() {
             amountLabel = "n/a";
           }
 
-          // Availability indicator from My Bar
+          // Availability indicator from My Bar + scan session overlap
           let availBadge: React.ReactNode = null;
           if (inventoryInitialized && key) {
             const remaining = invByKey[key];
             const needed = Number.isFinite(ml) ? ml! : null;
+
+            // Check if ingredient was in the scanned/detected set (from Scan results)
+            const isInOverlap = overlapHitsSet.has(key);
+
             if (remaining !== undefined) {
               if (needed !== null && remaining < needed) {
                 availBadge = (
@@ -917,6 +941,10 @@ export default function TabTwoScreen() {
                   <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ In your bar</Text>
                 );
               }
+            } else if (isInOverlap) {
+              availBadge = (
+                <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ Detected</Text>
+              );
             } else {
               availBadge = (
                 <Text style={{ color: OaklandDusk.semantic.error, fontSize: 12 }}> ✗ Missing</Text>

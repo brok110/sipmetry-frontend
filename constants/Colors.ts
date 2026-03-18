@@ -1,5 +1,6 @@
+import OaklandDusk from './OaklandDusk'
+
 const tintColorLight = '#2f95dc';
-const tintColorDark = '#fff';
 
 export default {
   light: {
@@ -10,10 +11,10 @@ export default {
     tabIconSelected: tintColorLight,
   },
   dark: {
-    text: '#fff',
-    background: '#000',
-    tint: tintColorDark,
-    tabIconDefault: '#ccc',
-    tabIconSelected: tintColorDark,
+    text:            OaklandDusk.text.primary,
+    background:      OaklandDusk.bg.void,
+    tint:            OaklandDusk.brand.gold,
+    tabIconDefault:  OaklandDusk.text.tertiary,
+    tabIconSelected: OaklandDusk.brand.gold,
   },
 };

@@ -5,7 +5,6 @@ import { AppState, AppStateStatus } from "react-native";
 
 import LowStockBanner from "@/components/LowStockBanner";
 import { useClientOnlyValue } from "@/components/useClientOnlyValue";
-import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
 import { useInventory } from "@/context/inventory";
 
@@ -45,15 +44,30 @@ function ForegroundInventoryScanner() {
 }
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <>
       <Tabs
         initialRouteName="scan"
         screenOptions={{
-          tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
+          tabBarActiveTintColor: Colors['dark'].tint,
+          tabBarInactiveTintColor: Colors['dark'].tabIconDefault,
+          tabBarStyle: {
+            backgroundColor: '#100C18',
+            borderTopColor: '#251810',
+            borderTopWidth: 1,
+          },
+          tabBarLabelStyle: {
+            fontSize: 10,
+            letterSpacing: 0.5,
+          },
           headerShown: useClientOnlyValue(false, true),
+          headerStyle: {
+            backgroundColor: '#08070C',
+          },
+          headerTintColor: '#F0E4C8',
+          headerTitleStyle: {
+            color: '#F0E4C8',
+          },
         }}
       >
         <Tabs.Screen

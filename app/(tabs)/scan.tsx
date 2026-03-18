@@ -405,6 +405,24 @@ function maybeParseCodeFromRecipeKey(recipeKey: string): string {
 function inferCanonicalFromDisplay(display: string): string {
   const s = String(display || "").toLowerCase();
 
+  // --- Citrus juices (must come before bare "lime"/"lemon" checks) ---
+  if (/lime\s*juice|fresh\s*lime/.test(s)) return "lime_juice";
+  if (/lemon\s*juice|fresh\s*lemon/.test(s)) return "lemon_juice";
+  if (/orange\s*juice/.test(s)) return "orange_juice";
+  if (/grapefruit\s*juice/.test(s)) return "grapefruit_juice";
+  if (/pineapple\s*juice/.test(s)) return "pineapple_juice";
+  if (/cranberry\s*juice/.test(s)) return "cranberry_juice";
+
+  // --- Common mixers / syrups ---
+  if (/simple\s*syrup|sugar\s*syrup|gomme/.test(s)) return "simple_syrup";
+  if (/ginger\s*beer/.test(s)) return "ginger_beer";
+  if (/ginger\s*ale/.test(s)) return "ginger_ale";
+  if (/tonic\s*water|tonic/.test(s)) return "tonic_water";
+  if (/soda\s*water|club\s*soda/.test(s)) return "soda_water";
+  if (/coconut\s*cream/.test(s)) return "coconut_cream";
+  if (/grenadine/.test(s)) return "grenadine";
+
+  // --- Base spirits ---
   if (/(^|\b)vodka(\b|$)/.test(s)) return "vodka";
   if (/(^|\b)gin(\b|$)/.test(s)) return "gin";
   if (/(^|\b)tequila(\b|$)/.test(s) || /100%\s*agave/.test(s)) return "tequila";
@@ -793,6 +811,11 @@ export default function TabOneScreen() {
 
     const missing_items_json = encodeURIComponent(JSON.stringify(miss));
 
+    const overlapHitsRaw = Array.isArray(r?.overlap_hits) ? r.overlap_hits : [];
+    const overlap_hits_json = encodeURIComponent(
+      JSON.stringify(overlapHitsRaw.map((x: any) => String(x ?? "").trim()).filter(Boolean))
+    );
+
     router.push({
       pathname: "/recipe",
       params: {
@@ -803,6 +826,7 @@ export default function TabOneScreen() {
         ingredients_json,
         scan_items_json,
         missing_items_json,
+        overlap_hits_json,
       },
     });
   };
@@ -936,6 +960,10 @@ export default function TabOneScreen() {
       ).sort((a, b) => a.localeCompare(b));
 
       const localeForApi = isZh ? "zh" : "en";
+
+      // DEBUG: log canonicalization result before sending to backend
+      console.log("[DEBUG] canonicalDeduped:", canonicalDeduped);
+      console.log("[DEBUG] mergedIngredients:", mergedIngredients);
 
       // Stage 7: build request body with optional mood filter
       const recommendBody: Record<string, any> = {

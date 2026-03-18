@@ -671,10 +671,34 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
       },
 
       setPreferences: (next) => {
-        const normalized = normalizePreferences(next);
-        const updated = withDerived(normalized, { touch: true });
-        setPreferencesState(updated);
-        if (hydrated) persistAll(updated);
+        setPreferencesState((prev) => {
+          const candidate: PreferencesState = {
+            ...prev,
+            ...(next && typeof next === "object" ? next : {}),
+            schema_version: 2,
+            dims:
+              next && typeof next === "object" && next.dims && typeof next.dims === "object"
+                ? { ...prev.dims, ...next.dims }
+                : prev.dims,
+            intensities:
+              next && typeof next === "object" && next.intensities && typeof next.intensities === "object"
+                ? { ...prev.intensities, ...next.intensities }
+                : prev.intensities,
+            explicit:
+              next && typeof next === "object" && next.explicit && typeof next.explicit === "object"
+                ? { ...prev.explicit, ...next.explicit }
+                : prev.explicit,
+            safetyMode:
+              next && typeof next === "object" && next.safetyMode && typeof next.safetyMode === "object"
+                ? { ...prev.safetyMode, ...next.safetyMode }
+                : prev.safetyMode,
+          };
+
+          const normalized = normalizePreferences(candidate);
+          const updated = withDerived(normalized, { touch: true });
+          if (hydrated) persistAll(updated);
+          return updated;
+        });
       },
 
       resetPreferences: () => {

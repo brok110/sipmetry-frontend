@@ -1,5 +1,5 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 import { Pressable, Text } from 'react-native';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import OaklandDusk from '@/constants/OaklandDusk';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { FavoritesProvider } from '@/context/favorites';
 import { FeedbackProvider } from '@/context/feedback';
@@ -69,7 +69,6 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
   const { user, hydrated } = useAuth();
   const router = useRouter();
   const segments = useSegments();
@@ -85,13 +84,45 @@ function RootLayoutNav() {
     }
   }, [user, hydrated, segments]);
 
+  const OaklandDuskNavTheme = {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      primary:      OaklandDusk.brand.gold,
+      background:   OaklandDusk.bg.void,
+      card:         OaklandDusk.bg.card,
+      text:         OaklandDusk.text.primary,
+      border:       OaklandDusk.bg.border,
+      notification: OaklandDusk.brand.rust,
+    },
+  }
+
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+    <ThemeProvider value={OaklandDuskNavTheme}>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="recipe" options={{ title: 'Recipe', headerShown: false }} />
-        <Stack.Screen name="qr" options={{ title: 'Share Recipe' }} />
+        <Stack.Screen
+          name="recipe"
+          options={{
+            title: 'Recipe',
+            headerShown: true,
+            headerBackVisible: false,
+            headerStyle: { backgroundColor: OaklandDusk.bg.void },
+            headerTintColor: OaklandDusk.text.primary,
+            headerTitleStyle: { color: OaklandDusk.text.primary },
+          }}
+        />
+        <Stack.Screen
+          name="qr"
+          options={{
+            title: 'Share',
+            headerShown: true,
+            headerStyle: { backgroundColor: OaklandDusk.bg.void },
+            headerTintColor: OaklandDusk.text.primary,
+            headerTitleStyle: { color: OaklandDusk.text.primary },
+          }}
+        />
         <Stack.Screen name="profile/preferences" options={{
           title: 'Preferences',
           headerLeft: () => (
