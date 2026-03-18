@@ -1920,16 +1920,21 @@ export default function TabOneScreen() {
             disabled={loading}
             style={{
               alignSelf: "flex-end",
-              paddingHorizontal: 12,
-              paddingVertical: 6,
+              paddingHorizontal: 16,
+              paddingVertical: 9,
               borderWidth: 1,
               borderRadius: 20,
               borderColor: OaklandDusk.bg.border,
+              backgroundColor: OaklandDusk.bg.card,
               opacity: loading ? 0.5 : 1,
             }}
           >
-            <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary }}>
-              {loading ? "Scanning..." : "↺ Re-scan"}
+            <Text style={{ fontSize: 14, color: OaklandDusk.text.secondary, fontWeight: "600" }}>
+              {loading
+                ? "Scanning..."
+                : activeIngredients.length > 0
+                ? "↺ Re-scan"
+                : "Identify ingredients"}
             </Text>
           </Pressable>
         </View>
