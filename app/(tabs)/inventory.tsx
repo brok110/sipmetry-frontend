@@ -1,9 +1,10 @@
+import OaklandDusk from '@/constants/OaklandDusk'
 import AddToInventoryModal from '@/components/AddToInventoryModal'
 import { useAuth } from '@/context/auth'
 import { InventoryItem, useInventory } from '@/context/inventory'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, router } from 'expo-router'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
@@ -99,7 +100,7 @@ function sortInventory(items: InventoryItem[], by: SortBy, order: SortOrder): In
 }
 
 // ── Filter icon (3 horizontal lines, pyramid style) ───────────────────────────
-function FilterIcon({ color = '#111' }: { color?: string }) {
+function FilterIcon({ color = OaklandDusk.text.secondary }: { color?: string }) {
   return (
     <View style={{ gap: 4, alignItems: 'flex-end' }}>
       <View style={{ width: 18, height: 2, borderRadius: 1, backgroundColor: color }} />
@@ -110,7 +111,7 @@ function FilterIcon({ color = '#111' }: { color?: string }) {
 }
 
 // ── Camera icon (minimal, view-based) ─────────────────────────────────────────
-function CameraIcon({ color = '#111' }: { color?: string }) {
+function CameraIcon({ color = OaklandDusk.text.secondary }: { color?: string }) {
   return (
     <View style={{ width: 22, height: 18, alignItems: 'center', justifyContent: 'center' }}>
       {/* Viewfinder body */}
@@ -200,7 +201,7 @@ const sliderStyles = StyleSheet.create({
   },
   track: {
     height: 28,
-    backgroundColor: '#EEE',
+    backgroundColor: OaklandDusk.bg.surface,
     borderRadius: 14,
     overflow: 'visible',
     justifyContent: 'center',
@@ -217,7 +218,7 @@ const sliderStyles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFF',
+    backgroundColor: OaklandDusk.bg.card,
     borderWidth: 2,
     marginLeft: -14,
     top: 0,
@@ -353,10 +354,12 @@ function InventoryCard({
   item,
   onEdit,
   onDelete,
+  onRestock,
 }: {
   item: InventoryItem
   onEdit: (item: InventoryItem) => void
   onDelete: (id: string, name: string) => void
+  onRestock?: () => void
 }) {
   const parsedPct = Math.round(Number(item.remaining_pct))
   const remainingMl = Math.round(Number(item.remaining_ml))
@@ -406,6 +409,15 @@ function InventoryCard({
           ]}
         />
       </View>
+
+      {/* Low-stock restock nudge */}
+      {isLow && onRestock ? (
+        <Pressable onPress={onRestock} hitSlop={8} style={{ alignSelf: 'flex-start', marginTop: 2 }}>
+          <Text style={{ fontSize: 12, color: OaklandDusk.brand.gold, fontWeight: '600' }}>
+            Running low — Restock →
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   )
 }
@@ -657,6 +669,28 @@ export default function MyBarScreen() {
         </View>
       </View>
 
+      {/* CTA: See your cocktails */}
+      {inventory.length > 0 ? (
+        <Pressable
+          onPress={() => router.push('/(tabs)/scan')}
+          style={{
+            borderWidth: 1,
+            borderColor: OaklandDusk.brand.gold,
+            borderRadius: 12,
+            padding: 14,
+            backgroundColor: OaklandDusk.brand.tagBg,
+            gap: 4,
+          }}
+        >
+          <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary }}>
+            You have {inventory.length} bottle{inventory.length !== 1 ? 's' : ''}
+          </Text>
+          <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
+            See your cocktails →
+          </Text>
+        </Pressable>
+      ) : null}
+
       {/* Sort Dropdown Modal */}
       <Modal
         transparent
@@ -739,6 +773,7 @@ export default function MyBarScreen() {
               item={item}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              onRestock={() => router.push('/(tabs)/cart')}
             />
           ))}
         </View>
@@ -771,10 +806,11 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '900',
     marginBottom: 2,
+    color: OaklandDusk.text.primary,
   },
   subheading: {
     fontSize: 14,
-    color: '#888',
+    color: OaklandDusk.text.tertiary,
   },
 
   // Filter button
@@ -793,12 +829,14 @@ const styles = StyleSheet.create({
   dropdown: {
     marginTop: 100,
     marginRight: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: OaklandDusk.bg.card,
     borderRadius: 14,
     paddingVertical: 8,
     minWidth: 200,
+    borderWidth: 1,
+    borderColor: OaklandDusk.bg.border,
     shadowColor: '#000',
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.4,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 8,
@@ -806,7 +844,7 @@ const styles = StyleSheet.create({
   dropdownTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#AAA',
+    color: OaklandDusk.text.tertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     paddingHorizontal: 16,
@@ -820,37 +858,38 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   dropdownItemActive: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: OaklandDusk.bg.surface,
   },
   dropdownItemText: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#222',
+    color: OaklandDusk.text.secondary,
   },
   dropdownItemTextActive: {
     fontWeight: '700',
-    color: '#111',
+    color: OaklandDusk.text.primary,
   },
   dropdownCheckmark: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111',
+    color: OaklandDusk.brand.gold,
   },
 
   errorBox: {
     padding: 12,
     borderWidth: 1,
-    borderColor: '#E53935',
+    borderColor: OaklandDusk.semantic.error,
     borderRadius: 10,
     marginBottom: 8,
   },
   errorText: {
-    color: '#E53935',
+    color: OaklandDusk.semantic.error,
     fontWeight: '700',
   },
   emptyBox: {
     padding: 24,
     borderWidth: 1,
+    borderColor: OaklandDusk.bg.border,
     borderRadius: 12,
     alignItems: 'center',
     gap: 8,
@@ -858,10 +897,11 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 18,
     fontWeight: '800',
+    color: OaklandDusk.text.primary,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#666',
+    color: OaklandDusk.text.tertiary,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -872,7 +912,8 @@ const styles = StyleSheet.create({
   // Card
   card: {
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: OaklandDusk.bg.border,
+    backgroundColor: OaklandDusk.bg.card,
     borderRadius: 14,
     padding: 14,
     gap: 10,
@@ -886,10 +927,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     marginBottom: 2,
+    color: OaklandDusk.text.primary,
   },
   cardMeta: {
     fontSize: 13,
-    color: '#666',
+    color: OaklandDusk.text.tertiary,
   },
 
   // Edit / delete buttons
@@ -897,45 +939,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: OaklandDusk.bg.border,
     borderRadius: 8,
   },
   editBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#444',
+    color: OaklandDusk.text.secondary,
   },
   deleteBtn: {
     padding: 6,
   },
   deleteBtnText: {
     fontSize: 16,
-    color: '#AAA',
+    color: OaklandDusk.text.tertiary,
     fontWeight: '700',
   },
   editActionBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: OaklandDusk.bg.border,
     borderRadius: 8,
     minWidth: 60,
     alignItems: 'center',
   },
   editActionBtnSave: {
-    backgroundColor: '#111',
-    borderColor: '#111',
+    backgroundColor: OaklandDusk.brand.gold,
+    borderColor: OaklandDusk.brand.gold,
   },
   editActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#444',
+    color: OaklandDusk.text.secondary,
   },
 
   // Fill bar
   fillBarBg: {
     height: 8,
-    backgroundColor: '#EEE',
+    backgroundColor: OaklandDusk.bg.surface,
     borderRadius: 999,
     overflow: 'hidden',
   },
@@ -949,13 +991,17 @@ const styles = StyleSheet.create({
 const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF',
+    backgroundColor: OaklandDusk.bg.card,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: OaklandDusk.bg.border,
     padding: 24,
     paddingBottom: 40,
     gap: 12,
@@ -964,24 +1010,26 @@ const modalStyles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     marginBottom: 4,
+    color: OaklandDusk.text.primary,
   },
   fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#888',
+    color: OaklandDusk.text.tertiary,
     textTransform: 'uppercase',
     letterSpacing: 0.6,
     marginTop: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: OaklandDusk.bg.border,
+    backgroundColor: OaklandDusk.bg.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 16,
     fontWeight: '500',
-    color: '#111',
+    color: OaklandDusk.text.primary,
   },
   sizeRow: {
     flexDirection: 'row',
@@ -993,20 +1041,20 @@ const modalStyles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#DDD',
-    backgroundColor: '#F5F5F5',
+    borderColor: OaklandDusk.bg.border,
+    backgroundColor: OaklandDusk.bg.surface,
   },
   sizePillActive: {
-    backgroundColor: '#111',
-    borderColor: '#111',
+    backgroundColor: OaklandDusk.brand.gold,
+    borderColor: OaklandDusk.brand.gold,
   },
   sizePillText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#444',
+    color: OaklandDusk.text.secondary,
   },
   sizePillTextActive: {
-    color: '#FFF',
+    color: OaklandDusk.bg.void,
   },
   actions: {
     flexDirection: 'row',
@@ -1018,24 +1066,24 @@ const modalStyles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: OaklandDusk.bg.border,
     alignItems: 'center',
   },
   cancelBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#444',
+    color: OaklandDusk.text.secondary,
   },
   saveBtn: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#111',
+    backgroundColor: OaklandDusk.brand.gold,
     alignItems: 'center',
   },
   saveBtnText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFF',
+    color: OaklandDusk.bg.void,
   },
 })
