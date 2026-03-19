@@ -356,6 +356,7 @@ export default function TabTwoScreen() {
   type MadeDrinkState = 'idle' | 'done' | 'hidden'
   const [madeDrinkState, setMadeDrinkState] = useState<MadeDrinkState>('idle');
   const [madeDrinkLoading, setMadeDrinkLoading] = useState(false);
+  const [servings, setServings] = useState(1);
   const madeDrinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stage 4: Track whether user took any positive action during this visit
@@ -492,6 +493,7 @@ export default function TabTwoScreen() {
       hadPositiveActionRef.current = false;
       return () => {
         setMadeDrinkState('idle');
+        setServings(1);
         if (madeDrinkTimerRef.current) {
           clearTimeout(madeDrinkTimerRef.current);
           madeDrinkTimerRef.current = null;
@@ -831,7 +833,7 @@ export default function TabTwoScreen() {
 
         toDeduct.push({
           ingredient_id: invItem.id,
-          amount_ml: Math.round(ml),
+          amount_ml: Math.round(ml * servings),
           display_name: invItem.display_name,
         })
       }
@@ -847,7 +849,7 @@ export default function TabTwoScreen() {
       // 3. 確認 dialog
       const lines = toDeduct.map((x) => `• ${x.display_name}: −${x.amount_ml}ml`)
       Alert.alert(
-        'I made this! 🍹',
+        servings > 1 ? `I made this! 🍹 ×${servings}` : 'I made this! 🍹',
         `Deduct from My Bar:\n\n${lines.join('\n')}`,
         [
           { text: 'Cancel', style: 'cancel' },
@@ -917,11 +919,12 @@ export default function TabTwoScreen() {
 
           let amountLabel = "";
           if (Number.isFinite(ml)) {
+            const scaledMl = ml! * servings;
             if (displayUnit === "oz") {
-              const oz = ml! * 0.033814;
+              const oz = scaledMl * 0.033814;
               amountLabel = `${oz < 0.1 ? oz.toFixed(2) : oz.toFixed(1)} oz`;
             } else {
-              amountLabel = `${ml} ml`;
+              amountLabel = `${scaledMl} ml`;
             }
           } else if (it?.amount_text && String(it.amount_text).trim()) {
             amountLabel = unit ? `${String(it.amount_text).trim()} ${unit}` : String(it.amount_text).trim();
@@ -1031,9 +1034,11 @@ export default function TabTwoScreen() {
             <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? "#E11D48" : OaklandDusk.text.tertiary} size={20} />
           </Pressable>
 
-          <Pressable onPress={createShareAndGo} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-            <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
-          </Pressable>
+          {false && (
+            <Pressable onPress={createShareAndGo} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+              <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
+            </Pressable>
+          )}
 
           {__DEV__ ? (
             <Pressable
@@ -1100,6 +1105,55 @@ export default function TabTwoScreen() {
             </Text>
           </Pressable>
         </View>
+
+        {/* Servings selector */}
+        {session && dbRecipe && madeDrinkState !== 'hidden' ? (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 16,
+            marginTop: 12,
+          }}>
+            <Pressable
+              onPress={() => setServings(s => Math.max(1, s - 1))}
+              disabled={servings <= 1}
+              hitSlop={10}
+              style={{
+                width: 36, height: 36,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: servings <= 1 ? OaklandDusk.bg.border : OaklandDusk.text.tertiary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: servings <= 1 ? 0.3 : 1,
+              }}
+            >
+              <Text style={{ color: OaklandDusk.text.primary, fontSize: 18, fontWeight: '700' }}>−</Text>
+            </Pressable>
+
+            <Text style={{ color: OaklandDusk.text.primary, fontSize: 20, fontWeight: '900', minWidth: 60, textAlign: 'center' }}>
+              {servings} {servings === 1 ? 'serving' : 'servings'}
+            </Text>
+
+            <Pressable
+              onPress={() => setServings(s => Math.min(5, s + 1))}
+              disabled={servings >= 5}
+              hitSlop={10}
+              style={{
+                width: 36, height: 36,
+                borderRadius: 18,
+                borderWidth: 1,
+                borderColor: servings >= 5 ? OaklandDusk.bg.border : OaklandDusk.text.tertiary,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: servings >= 5 ? 0.3 : 1,
+              }}
+            >
+              <Text style={{ color: OaklandDusk.text.primary, fontSize: 18, fontWeight: '700' }}>+</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* Primary CTA: Make this cocktail */}
         {session && dbRecipe && madeDrinkState !== 'hidden' ? (
