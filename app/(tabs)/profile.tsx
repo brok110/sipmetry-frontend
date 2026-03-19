@@ -1,7 +1,7 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import React, { useMemo } from "react";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/context/auth";
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -41,6 +41,14 @@ export default function ProfileScreen() {
   const { session, signOut } = useAuth();
   const { unit: displayUnit, setUnit: setDisplayUnit } = useUnitPreference();
   const userEmail = session?.user?.email;
+  const isZh = useMemo(() => {
+    try {
+      const l = Intl.DateTimeFormat().resolvedOptions().locale;
+      return String(l || "en").toLowerCase().startsWith("zh");
+    } catch {
+      return false;
+    }
+  }, []);
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
       {/* User info */}
@@ -139,6 +147,34 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         </View>
+
+        <Pressable
+          onPress={() => {
+            Alert.alert(
+              isZh ? "📸 拍照小技巧" : "📸 Photo Tips",
+              isZh
+                ? "🏷️ 讓酒瓶標籤正面朝向鏡頭，距離約 30-50cm\n\n💡 確保光線充足，標籤文字清晰可見\n\n🍾 一次拍 1-4 瓶，標籤之間不要互相遮擋\n\n🔍 如果某瓶辨識失敗，可以單獨拍那瓶的標籤特寫"
+                : "🏷️ Face bottle labels toward the camera, about 30-50cm away\n\n💡 Make sure lighting is good and label text is clearly visible\n\n🍾 Capture 1-4 bottles at a time, don't let labels overlap\n\n🔍 If a bottle isn't recognized, try a close-up of just that label"
+            );
+          }}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderWidth: 0.5,
+            borderRadius: 10,
+            borderColor: OaklandDusk.bg.border,
+            backgroundColor: OaklandDusk.bg.card,
+          }}
+        >
+          <Text style={{ fontSize: 14 }}>📸</Text>
+          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            {isZh ? "拍照小技巧" : "Photo tips"}
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+        </Pressable>
       </View>
 
       {/* Sign out */}

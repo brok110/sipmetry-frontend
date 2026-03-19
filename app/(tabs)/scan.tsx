@@ -17,6 +17,7 @@ import { usePreferences as usePreferencesContext } from "@/context/preferences";
 import { FEATURE_FLAGS } from "@/constants/Features";
 import { MissingIngredientsList } from "@/components/MissingIngredientsList";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -87,6 +88,7 @@ type AnalyzeImageResponse = {
     raw_display?: string;
     text?: string;
     label?: string;
+    confidence?: string;
   }>;
   safety?: Safety;
   alias?: { loaded_at: string | null; count: number };
@@ -121,6 +123,7 @@ type ActiveIngredient = {
   display: string;
   canonical: string;
   isUserAdded: boolean;
+  confidence?: "high" | "low";
 };
 
 function dedupeCaseInsensitive(list: string[]) {
@@ -455,11 +458,13 @@ function buildActiveIngredientsFromAnalyze(data: AnalyzeImageResponse): ActiveIn
       const canonicalRaw = String(it?.canonical ?? "").trim();
       const canonical = String(normalizeIngredientKey(canonicalRaw) || "").trim();
       if (!display && !canonical) return null;
+      const confidence = String(it?.confidence ?? "").trim();
       return {
         id: `scan-${idx}-${display || canonical}`,
         display: display || canonical || "(unknown)",
         canonical,
         isUserAdded: false,
+        confidence: confidence === "low" ? "low" : "high",
       } as ActiveIngredient;
     })
     .filter(Boolean) as ActiveIngredient[];
@@ -484,6 +489,7 @@ function buildActiveIngredientsFromAnalyze(data: AnalyzeImageResponse): ActiveIn
       display: chosenDisplay,
       canonical,
       isUserAdded: false,
+      confidence: "high",
     });
   }
 
@@ -578,6 +584,7 @@ export default function TabOneScreen() {
   const [stage, setStage] = useState<"idle" | "identifying ingredients" | "generating">("idle");
   const [error, setError] = useState<string | null>(null);
   const [safety, setSafety] = useState<Safety | null>(null);
+  const [showPhotoTips, setShowPhotoTips] = useState(true);
 
   const [newIngredient, setNewIngredient] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -616,6 +623,18 @@ export default function TabOneScreen() {
       setCategoryMapReady(true);
     }
   }, [API_URL]);
+
+  const SCAN_COUNT_KEY = "sipmetry_scan_count";
+  const PHOTO_TIPS_THRESHOLD = 3;
+
+  useEffect(() => {
+    AsyncStorage.getItem(SCAN_COUNT_KEY).then((val) => {
+      const count = parseInt(val || "0", 10);
+      if (count >= PHOTO_TIPS_THRESHOLD) {
+        setShowPhotoTips(false);
+      }
+    });
+  }, []);
 
   const [hasRecommended, setHasRecommended] = useState(false);
   const [hasRecommendedLocal, setHasRecommendedLocal] = useState(false);
@@ -1498,6 +1517,14 @@ export default function TabOneScreen() {
 
       setError(null);
 
+      AsyncStorage.getItem(SCAN_COUNT_KEY).then((val) => {
+        const count = parseInt(val || "0", 10) + 1;
+        AsyncStorage.setItem(SCAN_COUNT_KEY, String(count));
+        if (count >= PHOTO_TIPS_THRESHOLD) {
+          setShowPhotoTips(false);
+        }
+      });
+
     } catch (e: any) {
       setError(e?.message ?? "Failed to analyze image.");
       setStage("idle");
@@ -2007,7 +2034,32 @@ export default function TabOneScreen() {
           </Pressable>
         </View>
       ) : (
-        <Text style={{ color: OaklandDusk.text.tertiary }}>Choose a photo or take a photo to start.</Text>
+        <View style={{ gap: 10 }}>
+          {showPhotoTips ? (
+            <View style={{
+              flexDirection: "row",
+              alignItems: "flex-start",
+              gap: 10,
+              padding: 12,
+              borderRadius: 10,
+              backgroundColor: "#2A2518",
+              borderWidth: 0.5,
+              borderColor: "#5A4820",
+            }}>
+              <Text style={{ fontSize: 14 }}>💡</Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ fontSize: 13, color: "#C8B880" }}>
+                  {isZh
+                    ? "標籤朝向鏡頭、光線充足，1-4 瓶不重疊"
+                    : "Point labels at camera, good lighting, 1-4 bottles, no overlap"}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+          <Text style={{ color: OaklandDusk.text.tertiary, textAlign: "center" }}>
+            {isZh ? "選擇照片或拍照開始" : "Choose a photo or take a photo to start."}
+          </Text>
+        </View>
       )}
 
       {error ? (
@@ -2102,9 +2154,21 @@ export default function TabOneScreen() {
                         }}
                       />
                     ) : (
-                      <Text style={{ flex: 1, flexShrink: 1, paddingRight: 8, color: OaklandDusk.text.primary }} numberOfLines={1}>
-                        • {ing.display}
-                      </Text>
+                      <View style={{ flex: 1, flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 6, paddingRight: 8 }}>
+                        <Text style={{ flexShrink: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
+                          • {ing.display}
+                        </Text>
+                        {ing.confidence === "low" && !ing.isUserAdded ? (
+                          <Pressable
+                            onPress={() => startEditIngredient(ing.id, ing.display)}
+                            hitSlop={8}
+                          >
+                            <Text style={{ fontSize: 12, color: OaklandDusk.brand.gold }}>
+                              ⚠️
+                            </Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
                     )}
                   </View>
 
@@ -2212,6 +2276,22 @@ export default function TabOneScreen() {
               {isZh
                 ? "ℹ️ Sipmetry 僅管理酒精類產品，果汁、糖漿等短效期材料不納入 My Bar"
                 : "ℹ️ Sipmetry only manages spirits & liqueurs. Juices, syrups, and perishables are not tracked in My Bar."}
+            </Text>
+          </View>
+        ) : null}
+
+        {activeIngredients.some((ing) => ing.confidence === "low" && !ing.isUserAdded) ? (
+          <View style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 6,
+            paddingVertical: 6,
+            paddingHorizontal: 4,
+          }}>
+            <Text style={{ fontSize: 12, color: OaklandDusk.brand.gold, lineHeight: 18 }}>
+              {isZh
+                ? "⚠️ 標有警告的項目辨識信心較低，點擊 ⚠️ 可以編輯修正"
+                : "⚠️ Items marked with ⚠️ may be inaccurate. Tap to edit."}
             </Text>
           </View>
         ) : null}
