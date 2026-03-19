@@ -31,6 +31,7 @@ export function PurchaseButton({
   const handlePress = () => {
     trackAndOpenPurchaseLink({
       ingredientKey,
+      displayName,
       source,
       recipeId,
     });

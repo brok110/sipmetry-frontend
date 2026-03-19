@@ -2,6 +2,7 @@ import OaklandDusk from '@/constants/OaklandDusk'
 import AddToInventoryModal from '@/components/AddToInventoryModal'
 import { useAuth } from '@/context/auth'
 import { InventoryItem, useInventory } from '@/context/inventory'
+import { usePurchaseIntent } from '@/hooks/usePurchaseIntent'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
 import { useFocusEffect, router } from 'expo-router'
@@ -443,6 +444,7 @@ function InventoryCard({
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function MyBarScreen() {
   const { session } = useAuth()
+  const { trackAndOpenPurchaseLink } = usePurchaseIntent()
   const {
     inventory,
     loading,
@@ -802,7 +804,11 @@ export default function MyBarScreen() {
                         sortBy={sortBy}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
-                        onRestock={() => router.push('/(tabs)/cart')}
+                        onRestock={() => trackAndOpenPurchaseLink({
+                        ingredientKey: item.ingredient_key,
+                        displayName: item.display_name,
+                        source: "my_bar",
+                      })}
                       />
                     </React.Fragment>
                   )
@@ -815,7 +821,11 @@ export default function MyBarScreen() {
                   sortBy={sortBy}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
-                  onRestock={() => router.push('/(tabs)/cart')}
+                  onRestock={() => trackAndOpenPurchaseLink({
+                        ingredientKey: item.ingredient_key,
+                        displayName: item.display_name,
+                        source: "my_bar",
+                      })}
                 />
               ))
           }
