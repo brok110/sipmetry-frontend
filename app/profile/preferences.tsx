@@ -16,7 +16,6 @@ import {
   usePreferences,
 } from "@/context/preferences";
 
-// Dims to display in the Learned section (most intuitive for users)
 const LEARNED_DISPLAY_DIMS: { key: string; label: string }[] = [
   { key: "sweetness",      label: "Sweetness" },
   { key: "sourness",       label: "Sourness" },
@@ -330,7 +329,10 @@ export default function TabZeroPreferencesScreen() {
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                 <FontAwesome name="glass" size={16} color="#555" />
-                <Text style={{ fontWeight: "800", flex: 1 }}>{alcoholWord}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: "800", color: "#eee" }}>Alcohol Strength</Text>
+                  <Text style={{ fontSize: 12, color: "#eee" }}>{alcoholWord}</Text>
+                </View>
                 <Text style={{ color: "#777", fontWeight: "800" }}>{Number(draftAlcohol)}</Text>
               </View>
 
@@ -347,7 +349,10 @@ export default function TabZeroPreferencesScreen() {
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                 <FontAwesome name="cube" size={16} color="#555" />
-                <Text style={{ fontWeight: "800", flex: 1 }}>{sweetnessWord}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: "800", color: "#eee" }}>Sweetness</Text>
+                  <Text style={{ fontSize: 12, color: "#eee" }}>{sweetnessWord}</Text>
+                </View>
                 <Text style={{ color: "#777", fontWeight: "800" }}>{Number(draftSweetness)}</Text>
               </View>
 
@@ -364,7 +369,10 @@ export default function TabZeroPreferencesScreen() {
             <View style={{ gap: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                 <FontAwesome name="leaf" size={16} color="#555" />
-                <Text style={{ fontWeight: "800", flex: 1 }}>{bitternessWord}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontWeight: "800", color: "#eee" }}>Bitterness</Text>
+                  <Text style={{ fontSize: 12, color: "#eee" }}>{bitternessWord}</Text>
+                </View>
                 <Text style={{ color: "#777", fontWeight: "800" }}>{Number(draftBitterness)}</Text>
               </View>
 
@@ -455,7 +463,6 @@ export default function TabZeroPreferencesScreen() {
           </Text>
         )}
 
-        {/* Learned preferences — only shown when logged in */}
         {isLoggedIn && (
           <View
             style={{
