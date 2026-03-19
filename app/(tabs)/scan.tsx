@@ -9,6 +9,8 @@ import {
   aggregateIngredientVectors,
   getUnknownIngredients,
   normalizeIngredientKey,
+  isAlcoholicIngredient,
+  fetchCategoryMap,
 } from "@/context/ontology";
 import { useInteractions } from "@/context/interactions";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
@@ -19,7 +21,7 @@ import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Button,
@@ -584,7 +586,13 @@ export default function TabOneScreen() {
   // Inventory Modal state
   const [inventoryModalTarget, setInventoryModalTarget] = useState<ActiveIngredient | null>(null);
   const { session } = useAuth();
-  const { availableIngredientKeys, initialized: inventoryInitialized, refreshInventory, addInventoryItem } = useInventory();
+  const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem } = useInventory();
+
+  const isInInventory = useCallback((canonical: string): boolean => {
+    const key = String(canonical ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+    if (!key) return false;
+    return key in inventoryByIngredientKey;
+  }, [inventoryByIngredientKey]);
   const [pendingScrollIndex, setPendingScrollIndex] = useState<number | null>(null);
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -598,6 +606,16 @@ export default function TabOneScreen() {
   const { queueView, flushViews } = useInteractions();
 
   const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
+
+  // Ensure category map is loaded; triggers re-render when fetch completes.
+  const [categoryMapReady, setCategoryMapReady] = useState(false);
+  useEffect(() => {
+    if (API_URL) {
+      fetchCategoryMap(API_URL).then(() => setCategoryMapReady(true));
+    } else {
+      setCategoryMapReady(true);
+    }
+  }, [API_URL]);
 
   const [hasRecommended, setHasRecommended] = useState(false);
   const [hasRecommendedLocal, setHasRecommendedLocal] = useState(false);
@@ -1546,7 +1564,28 @@ export default function TabOneScreen() {
     total_ml: number;
     remaining_pct: number;
   }) => {
-    await addInventoryItem(payload);
+    // Canonicalize the ingredient_key before sending to avoid duplicates
+    // caused by the AI returning inconsistent keys (e.g. "rum" vs "white_rum").
+    // Falls back to the raw key if the network call fails — the backend
+    // POST /inventory also applies smartCanonicalize as a safety net.
+    let canonicalKey = payload.ingredient_key;
+    try {
+      if (API_URL) {
+        const canonResponse = await fetch(`${API_URL}/canonicalize`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items: [payload.ingredient_key] }),
+        });
+        const canonData = await canonResponse.json();
+        canonicalKey = canonData?.canonical?.[0] || payload.ingredient_key;
+        if (canonicalKey !== payload.ingredient_key) {
+          console.log(`[handleAddToInventory] canonicalized: "${payload.ingredient_key}" → "${canonicalKey}"`);
+        }
+      }
+    } catch (err) {
+      console.warn("[handleAddToInventory] canonicalize failed, using raw key:", err);
+    }
+    await addInventoryItem({ ...payload, ingredient_key: canonicalKey });
   };
 
   const saveEditIngredient = async () => {
@@ -2118,17 +2157,38 @@ export default function TabOneScreen() {
                         </Pressable>
 
                         {session ? (
-                          <Pressable
-                            onPress={() => setInventoryModalTarget(ing)}
-                            style={{
-                              paddingHorizontal: 10,
-                              paddingVertical: 6,
-                              backgroundColor: OaklandDusk.brand.gold,
-                              borderRadius: 10,
-                            }}
-                          >
-                            <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>+ Bar</Text>
-                          </Pressable>
+                          (() => {
+                            const alcoholic = isAlcoholicIngredient(ing.canonical);
+                            console.log(`[bar-filter] canonical="${ing.canonical}" alcoholic=${alcoholic}`);
+                            if (alcoholic === false) return null;
+
+                            return isInInventory(ing.canonical) ? (
+                              <View
+                                style={{
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 6,
+                                  backgroundColor: OaklandDusk.bg.surface,
+                                  borderRadius: 10,
+                                  borderWidth: 1,
+                                  borderColor: "#7AB89A",
+                                }}
+                              >
+                                <Text style={{ fontWeight: "800", color: "#7AB89A", fontSize: 12 }}>In My Bar ✓</Text>
+                              </View>
+                            ) : (
+                              <Pressable
+                                onPress={() => setInventoryModalTarget(ing)}
+                                style={{
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 6,
+                                  backgroundColor: OaklandDusk.brand.gold,
+                                  borderRadius: 10,
+                                }}
+                              >
+                                <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>+ Bar</Text>
+                              </Pressable>
+                            );
+                          })()
                         ) : null}
                       </>
                     )}
@@ -2138,6 +2198,22 @@ export default function TabOneScreen() {
             })}
           </View>
         )}
+
+        {session && activeIngredients.some((ing) => isAlcoholicIngredient(ing.canonical) === false) ? (
+          <View style={{
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: 6,
+            paddingVertical: 6,
+            paddingHorizontal: 4,
+          }}>
+            <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, lineHeight: 18 }}>
+              {isZh
+                ? "ℹ️ Sipmetry 僅管理酒精類產品，果汁、糖漿等短效期材料不納入 My Bar"
+                : "ℹ️ Sipmetry only manages spirits & liqueurs. Juices, syrups, and perishables are not tracked in My Bar."}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={{ marginTop: 12, gap: 8 }}>
           <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>Add ingredient</Text>

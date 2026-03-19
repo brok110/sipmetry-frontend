@@ -4,6 +4,8 @@ import React from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/context/auth";
+import OaklandDusk from "@/constants/OaklandDusk";
+import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 function ProfileMenuItem({
   icon,
@@ -37,6 +39,7 @@ function ProfileMenuItem({
 export default function ProfileScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
+  const { unit: displayUnit, setUnit: setDisplayUnit } = useUnitPreference();
   const userEmail = session?.user?.email;
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
@@ -84,6 +87,58 @@ export default function ProfileScreen() {
           onPress={() => router.push("/profile/taste-dna" as any)}
         />
         */}
+
+        {/* Recipe unit toggle */}
+        <View style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 12,
+          paddingHorizontal: 4,
+        }}>
+          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>
+            Recipe Units
+          </Text>
+          <View style={{ flexDirection: "row", gap: 0 }}>
+            <Pressable
+              onPress={() => setDisplayUnit("oz")}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderTopLeftRadius: 10,
+                borderBottomLeftRadius: 10,
+                borderWidth: 1,
+                borderColor: OaklandDusk.bg.border,
+                backgroundColor: displayUnit === "oz" ? OaklandDusk.brand.gold : "transparent",
+              }}
+            >
+              <Text style={{
+                fontWeight: "800",
+                fontSize: 13,
+                color: displayUnit === "oz" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
+              }}>oz</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setDisplayUnit("ml")}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderTopRightRadius: 10,
+                borderBottomRightRadius: 10,
+                borderWidth: 1,
+                borderLeftWidth: 0,
+                borderColor: OaklandDusk.bg.border,
+                backgroundColor: displayUnit === "ml" ? OaklandDusk.brand.gold : "transparent",
+              }}
+            >
+              <Text style={{
+                fontWeight: "800",
+                fontSize: 13,
+                color: displayUnit === "ml" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
+              }}>ml</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       {/* Sign out */}

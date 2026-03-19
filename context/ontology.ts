@@ -666,3 +666,59 @@ export function buildFourWordDescriptor(v: FlavorVector): FourWordDescriptor {
   out.words = words.slice(0, 4);
   return out;
 }
+
+// ── Category-based alcohol classification ──────────────────────────────────
+// Fetched from backend /ontology/categories at app startup.
+// Maps canonical ingredient_key → category (e.g. "gin" → "spirit")
+
+const ALCOHOLIC_CATEGORIES = new Set([
+  "spirit", "spirits",
+  "liqueur", "liqueurs",
+  "wine", "wines",
+  "bitters",
+  "beer", "beers",
+]);
+
+let _categoryMap: Record<string, string> | null = null;
+let _categoryFetchPromise: Promise<void> | null = null;
+
+export async function fetchCategoryMap(apiUrl: string): Promise<void> {
+  if (_categoryMap) return;
+  if (_categoryFetchPromise) return _categoryFetchPromise;
+
+  _categoryFetchPromise = (async () => {
+    try {
+      const resp = await fetch(`${apiUrl}/ontology/categories`);
+      if (!resp.ok) {
+        console.warn("[ontology] failed to fetch categories:", resp.status);
+        return;
+      }
+      const data = await resp.json();
+      if (data && typeof data === "object") {
+        _categoryMap = data;
+        console.log(`[ontology] category map loaded: ${Object.keys(data).length} entries`);
+      }
+    } catch (err) {
+      console.warn("[ontology] category fetch error:", err);
+    } finally {
+      _categoryFetchPromise = null;
+    }
+  })();
+
+  return _categoryFetchPromise;
+}
+
+export function isAlcoholicIngredient(canonicalKey: string): boolean | null {
+  const normalized = String(normalizeIngredientKey(String(canonicalKey ?? "").trim()) || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+  if (!normalized) return null;
+
+  if (!_categoryMap) return null;
+
+  const category = _categoryMap[normalized];
+  if (!category) return null;
+
+  return ALCOHOLIC_CATEGORIES.has(category);
+}

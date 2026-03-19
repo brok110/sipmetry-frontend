@@ -23,6 +23,7 @@ import {
 } from "@/context/ontology";
 import { useFavorites } from "@/context/favorites";
 import OaklandDusk from "@/constants/OaklandDusk";
+import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 type DbRecipeIngredient = {
   sort_order: number;
@@ -316,6 +317,7 @@ export default function TabTwoScreen() {
   const { track } = useInteractions();
 
   const { session } = useAuth();
+  const { unit: displayUnit } = useUnitPreference();
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -915,7 +917,12 @@ export default function TabTwoScreen() {
 
           let amountLabel = "";
           if (Number.isFinite(ml)) {
-            amountLabel = `${ml} ml`;
+            if (displayUnit === "oz") {
+              const oz = ml! * 0.033814;
+              amountLabel = `${oz < 0.1 ? oz.toFixed(2) : oz.toFixed(1)} oz`;
+            } else {
+              amountLabel = `${ml} ml`;
+            }
           } else if (it?.amount_text && String(it.amount_text).trim()) {
             amountLabel = unit ? `${String(it.amount_text).trim()} ${unit}` : String(it.amount_text).trim();
           } else {
