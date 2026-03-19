@@ -15,6 +15,7 @@ export type InventoryItem = {
   last_used_at: string | null;
   flavor_profile: string[];
   low_stock_notified_at: string | null;
+  family_key: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -75,13 +76,14 @@ function normalizeInventoryItem(raw: any): InventoryItem | null {
     display_name: String(raw?.display_name ?? "").trim(),
     total_ml: Number(raw?.total_ml ?? 0),
     remaining_pct: Number(raw?.remaining_pct ?? 0),
-    remaining_ml: Number(raw?.remaining_ml ?? 0),
+    remaining_ml: Number(raw?.remaining_ml ?? raw?.remaining_volume ?? 0),
     remaining_volume: Number(raw?.remaining_volume ?? 0),
     last_used_at: raw?.last_used_at ? String(raw.last_used_at) : null,
     flavor_profile: Array.isArray(raw?.flavor_profile)
       ? raw.flavor_profile.map((x: any) => String(x ?? "").trim()).filter(Boolean)
       : [],
     low_stock_notified_at: raw?.low_stock_notified_at ? String(raw.low_stock_notified_at) : null,
+    family_key: raw?.family_key ? String(raw.family_key).trim() : null,
     created_at: String(raw?.created_at ?? ""),
     updated_at: String(raw?.updated_at ?? ""),
   };

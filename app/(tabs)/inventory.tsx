@@ -23,7 +23,7 @@ import {
 type SortBy =
   | 'date_added'
   | 'remaining_volume'
-  | 'category'
+  | 'family'
   | 'last_used_at'
   | 'brand_name'
   | 'flavor_profile'
@@ -33,28 +33,12 @@ type SortOrder = 'asc' | 'desc'
 const DROPDOWN_SORT_OPTIONS: { key: SortBy; label: string }[] = [
   { key: 'date_added',       label: 'Added' },
   { key: 'remaining_volume', label: 'Remaining Volume' },
-  { key: 'category',         label: 'Category' },
+  { key: 'family',           label: 'Family' },
   { key: 'last_used_at',     label: 'Last Used' },
   { key: 'brand_name',       label: 'Brand Name' },
   { key: 'flavor_profile',   label: 'Flavor Profile' },
 ]
 
-// 從 ingredient_key 推導酒類分類（e.g. "dry_gin" → "Gin"）
-function deriveCategory(key: string): string {
-  const k = String(key ?? '').toLowerCase()
-  if (k.includes('gin'))     return 'Gin'
-  if (k.includes('vodka'))   return 'Vodka'
-  if (k.includes('rum'))     return 'Rum'
-  if (k.includes('tequila') || k.includes('mezcal')) return 'Tequila'
-  if (k.includes('bourbon')) return 'Bourbon'
-  if (k.includes('whiskey') || k.includes('whisky') || k.includes('scotch') || k.includes('rye')) return 'Whiskey'
-  if (k.includes('brandy') || k.includes('cognac')) return 'Brandy'
-  if (k.includes('liqueur') || k.includes('triple_sec') || k.includes('cointreau') || k.includes('curacao')) return 'Liqueur'
-  if (k.includes('vermouth') || k.includes('aperitif') || k.includes('campari')) return 'Aperitif'
-  if (k.includes('juice') || k.includes('syrup') || k.includes('soda') || k.includes('water')) return 'Mixer'
-  if (k.includes('bitters')) return 'Bitters'
-  return 'Other'
-}
 
 function sortInventory(items: InventoryItem[], by: SortBy, order: SortOrder): InventoryItem[] {
   const dir = order === 'asc' ? 1 : -1
@@ -68,9 +52,9 @@ function sortInventory(items: InventoryItem[], by: SortBy, order: SortOrder): In
       case 'remaining_volume': {
         return (Number(a.remaining_volume ?? 0) - Number(b.remaining_volume ?? 0)) * dir
       }
-      case 'category': {
-        const ca = deriveCategory(a.ingredient_key)
-        const cb = deriveCategory(b.ingredient_key)
+      case 'family': {
+        const ca = a.family_key ?? ''
+        const cb = b.family_key ?? ''
         return ca.localeCompare(cb) * dir
       }
       case 'last_used_at': {
@@ -97,6 +81,31 @@ function sortInventory(items: InventoryItem[], by: SortBy, order: SortOrder): In
         return 0
     }
   })
+}
+
+function formatFamilyKey(key: string | null): string {
+  if (!key) return 'Other'
+  return key
+    .split('_')
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+}
+
+function formatRelativeTime(dateStr: string | null): string {
+  if (!dateStr) return 'Never used'
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000)
+  if (diff === 0) return 'Used today'
+  if (diff === 1) return 'Used yesterday'
+  if (diff < 7) return `Used ${diff}d ago`
+  if (diff < 30) return `Used ${Math.floor(diff / 7)}w ago`
+  return `Used ${Math.floor(diff / 30)}mo ago`
+}
+
+function formatAddedDate(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  return `Added ${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
 }
 
 // ── Filter icon (3 horizontal lines, pyramid style) ───────────────────────────
@@ -352,11 +361,13 @@ function EditBottleModal({
 // ── Inventory card ────────────────────────────────────────────────────────────
 function InventoryCard({
   item,
+  sortBy,
   onEdit,
   onDelete,
   onRestock,
 }: {
   item: InventoryItem
+  sortBy: SortBy
   onEdit: (item: InventoryItem) => void
   onDelete: (id: string, name: string) => void
   onRestock?: () => void
@@ -374,6 +385,13 @@ function InventoryCard({
             {item.display_name}
           </Text>
           <Text style={styles.cardMeta}>
+            {sortBy === 'date_added'
+              ? `${formatAddedDate(item.updated_at)} · `
+              : sortBy === 'last_used_at'
+              ? `${formatRelativeTime(item.last_used_at)} · `
+              : sortBy === 'flavor_profile' && item.flavor_profile.length > 0
+              ? `${item.flavor_profile.join(', ')} · `
+              : ''}
             {remainingMl}ml left ({parsedPct}%)
           </Text>
         </View>
@@ -460,7 +478,7 @@ export default function MyBarScreen() {
     } else {
       // 切換條件：依條件設預設方向
       setSortBy(key)
-      setSortOrder(key === 'category' ? 'asc' : 'desc')
+      setSortOrder(key === 'family' ? 'asc' : 'desc')
     }
     setShowSortDropdown(false)
   }
@@ -767,15 +785,40 @@ export default function MyBarScreen() {
         </View>
       ) : (
         <View style={styles.list}>
-          {sortedInventory.map((item) => (
-            <InventoryCard
-              key={item.id}
-              item={item}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onRestock={() => router.push('/(tabs)/cart')}
-            />
-          ))}
+          {sortBy === 'family'
+            ? (() => {
+                let lastGroup = ''
+                return sortedInventory.map((item) => {
+                  const group = formatFamilyKey(item.family_key)
+                  const showHeader = group !== lastGroup
+                  lastGroup = group
+                  return (
+                    <React.Fragment key={item.id}>
+                      {showHeader ? (
+                        <Text style={styles.sectionHeader}>{group}</Text>
+                      ) : null}
+                      <InventoryCard
+                        item={item}
+                        sortBy={sortBy}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onRestock={() => router.push('/(tabs)/cart')}
+                      />
+                    </React.Fragment>
+                  )
+                })
+              })()
+            : sortedInventory.map((item) => (
+                <InventoryCard
+                  key={item.id}
+                  item={item}
+                  sortBy={sortBy}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onRestock={() => router.push('/(tabs)/cart')}
+                />
+              ))
+          }
         </View>
       )}
     </ScrollView>
@@ -907,6 +950,16 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: 12,
+  },
+  sectionHeader: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: OaklandDusk.text.tertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingLeft: 2,
   },
 
   // Card
