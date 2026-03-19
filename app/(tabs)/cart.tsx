@@ -236,29 +236,6 @@ export default function CartScreen() {
               </View>
             </View>
 
-            {/* Stage 2: Taste match + versatility badges */}
-            {(s.avg_pref_match > 0.6 || (s.versatility_categories && s.versatility_categories.length > 1)) && (
-              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                {s.avg_pref_match > 0.6 && (
-                  <View style={{ backgroundColor: "#eff6ff", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
-                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#2563eb" }}>
-                      {Math.round(s.avg_pref_match * 100)}% taste match
-                    </Text>
-                  </View>
-                )}
-                {s.versatility_categories && s.versatility_categories.length > 1 && (
-                  <View style={{ backgroundColor: "#fefce8", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
-                    <Text style={{ fontSize: 11, fontWeight: "600", color: "#a16207" }}>
-                      {s.versatility_categories.length} categories
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Reason */}
-            <Text style={{ color: "#666", fontSize: 13, lineHeight: 18 }}>{s.reason}</Text>
-
             {/* Recipe pills */}
             <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
               {s.recipes.slice(0, 4).map((r) => (

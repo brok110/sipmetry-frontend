@@ -66,10 +66,6 @@ export function MissingIngredientsList({
   // Multiple missing ingredients: compact list
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>
-        Missing {missingIngredients.length} ingredients
-      </Text>
-
       {missingIngredients.map((ingredient) => {
         const name = ingredient.display_name
           ? ingredient.display_name.charAt(0).toUpperCase() + ingredient.display_name.slice(1)

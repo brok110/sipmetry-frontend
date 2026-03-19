@@ -1898,6 +1898,7 @@ export default function TabOneScreen() {
                     "";
 
                   if (!missingLine && !tasteLine) return null;
+                  if (tone === "two_missing") return null;
 
                   return (
                     <View style={{ gap: 2 }}>
@@ -1914,7 +1915,7 @@ export default function TabOneScreen() {
                     </View>
                   );
                 })()
-              ) : miss.length > 0 ? (
+              ) : miss.length > 0 && tone !== "two_missing" ? (
                 <Text style={{ color: OaklandDusk.text.secondary }} numberOfLines={2}>
                   {isZh ? "缺少：" : "Missing: "}
                   {miss.join(" • ")}
