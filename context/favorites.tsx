@@ -89,7 +89,7 @@ function dbRowToFavoriteItem(row: any): FavoriteItem | null {
   const recipe_key = String(row?.recipe_key ?? "").trim();
   if (!recipe_key) return null;
 
-  const data = row?.recipe_data ?? {};
+  const data = row?.recipe ?? {};
 
   return {
     recipe_key,
@@ -210,7 +210,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const dbAdd = (item: FavoriteItem) => {
     if (!accessToken || !apiUrl) return;
 
-    const recipe_data = {
+    const recipe = {
       iba_code: item.iba_code,
       title: item.title,
       tags: item.tags,
@@ -224,7 +224,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken}`,
       },
-      body: JSON.stringify({ recipe_key: item.recipe_key, recipe_data }),
+      body: JSON.stringify({ recipe_key: item.recipe_key, recipe }),
     }).catch(() => {
       // ignore — local state already reflects the change
     });
