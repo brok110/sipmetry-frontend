@@ -17,21 +17,21 @@ type Step = {
 // 2B. Updated STEPS with new copy and OaklandDusk accent colors
 const STEPS: Step[] = [
   {
-    title: "Your bar, analyzed",
-    text: "Snap a photo of your bottles — Sipmetry identifies them instantly",
+    title: "Snap your bottles",
+    text: "Take a photo — Sipmetry instantly identifies what you have and builds your bar",
     icon: "camera",
     accent: OaklandDusk.brand.gold,
   },
   {
-    title: "Drink smarter",
-    text: "Set your taste preferences and safety filters — Sipmetry respects your limits",
-    icon: "shield",
+    title: "See what you can make",
+    text: "Only cocktails you can actually make right now — no guessing, no missing ingredients",
+    icon: "glass",
     accent: OaklandDusk.brand.rust,
   },
   {
-    title: "Classic cocktails, your way",
-    text: "Discover what you can make right now with what you already have",
-    icon: "glass",
+    title: "Buy smart, unlock more",
+    text: "Sipmetry tells you which one bottle to buy next to unlock the most new cocktails",
+    icon: "shopping-cart",
     accent: OaklandDusk.brand.sundown,
   },
 ];
