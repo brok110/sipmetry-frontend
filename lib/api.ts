@@ -1,9 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 
 const getApiUrl = (): string => {
-  const url = __DEV__
-    ? "http://localhost:8787"
-    : String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
+  const url = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
   return url.replace(/\/+$/, "");
 };
 

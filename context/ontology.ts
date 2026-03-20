@@ -690,22 +690,33 @@ export async function fetchCategoryMap(session?: { access_token: string } | null
   if (_categoryFetchPromise) return _categoryFetchPromise;
 
   _categoryFetchPromise = (async () => {
-    try {
-      const resp = await apiFetch("/ontology/categories", { session });
-      if (!resp.ok) {
-        warn("[ontology] failed to fetch categories:", resp.status);
-        return;
+    const attempt = async (): Promise<boolean> => {
+      try {
+        const resp = await apiFetch("/ontology/categories", { session });
+        if (!resp.ok) {
+          warn("[ontology] failed to fetch categories:", resp.status);
+          return false;
+        }
+        const data = await resp.json();
+        if (data && typeof data === "object") {
+          _categoryMap = data;
+          log(`[ontology] category map loaded: ${Object.keys(data).length} entries`);
+          return true;
+        }
+        return false;
+      } catch (err) {
+        warn("[ontology] category fetch error:", err);
+        return false;
       }
-      const data = await resp.json();
-      if (data && typeof data === "object") {
-        _categoryMap = data;
-        log(`[ontology] category map loaded: ${Object.keys(data).length} entries`);
-      }
-    } catch (err) {
-      warn("[ontology] category fetch error:", err);
-    } finally {
-      _categoryFetchPromise = null;
+    };
+
+    const ok = await attempt();
+    if (!ok && !_categoryMap) {
+      await new Promise(r => setTimeout(r, 3000));
+      await attempt();
     }
+
+    _categoryFetchPromise = null;
   })();
 
   return _categoryFetchPromise;

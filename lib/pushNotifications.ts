@@ -79,6 +79,6 @@ export async function registerPushToken(session: Session): Promise<void> {
     log('[push] token registered:', token)
   } catch (err: any) {
     // Simulator, permission denied, network error — all handled silently
-    log('[push] registerPushToken skipped:', err?.message ?? err)
+    if (!__DEV__) log('[push] registerPushToken skipped:', err?.message ?? err)
   }
 }
