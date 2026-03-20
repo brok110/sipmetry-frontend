@@ -1921,16 +1921,6 @@ export default function TabOneScreen() {
         <Text style={{ fontSize: 20, fontWeight: "800", flex: 1, color: OaklandDusk.brand.gold }}>Sipmetry</Text>
       </View>
 
-      {__DEV__ ? (
-        <View style={{ flexDirection: "row", gap: 10 }}>
-          <View style={{ flex: 1 }}>
-            <Button title="Ping API (/health)" onPress={pingApi} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Button title="Copy Debug" onPress={copyDebug} />
-          </View>
-        </View>
-      ) : null}
 
       <View style={{ flexDirection: "row", gap: 12 }}>
         <Pressable
