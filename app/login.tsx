@@ -1,5 +1,4 @@
 import { useAuth } from '@/context/auth'
-import { log } from '@/lib/logger'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
@@ -19,33 +18,23 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
 
   const handleEmail = async () => {
-    // 先測試基本網路
-    try {
-      const r = await fetch('https://cuvkwqtdmzlcpidj.supabase.co/auth/v1/health')
-      log('[fetch test] status:', r.status)
-      const t = await r.text()
-      log('[fetch test] body:', t.slice(0, 100))
-    } catch (e: any) {
-      log('[fetch test] FAILED:', e?.message)
-    }
+      if (!email || !password) {
+        setError('Please enter email and password.')
+        return
+      }
+      setLoading(true)
+      setError(null)
 
-    if (!email || !password) {
-      setError('Please enter email and password.')
-      return
-    }
-    setLoading(true)
-    setError(null)
+      const fn = isSignUp ? signUpWithEmail : signInWithEmail
+      const { error } = await fn(email, password)
 
-    const fn = isSignUp ? signUpWithEmail : signInWithEmail
-    const { error } = await fn(email, password)
-
-    setLoading(false)
-    if (error) {
-      setError(error)
-    } else {
-      router.replace('/(tabs)/scan')
+      setLoading(false)
+      if (error) {
+        setError(error)
+      } else {
+        router.replace('/(tabs)/scan')
+      }
     }
-  }
 
   const handleApple = async () => {
     setLoading(true)

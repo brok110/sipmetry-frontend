@@ -16,7 +16,6 @@ import { InventoryProvider } from '@/context/inventory';
 import { LearnedPreferencesProvider } from '@/context/learnedPreferences';
 import { LowStockAlertProvider } from '@/context/lowStockAlert';
 import { PreferencesProvider } from '@/context/preferences';
-import { fetchCategoryMap } from '@/context/ontology';
 
 export {
   ErrorBoundary
@@ -43,13 +42,6 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [loaded]);
-
-  useEffect(() => {
-    const apiUrl = process.env.EXPO_PUBLIC_API_URL;
-    if (apiUrl) {
-      fetchCategoryMap(apiUrl);
-    }
-  }, []);
 
   if (!loaded) {
     return null;

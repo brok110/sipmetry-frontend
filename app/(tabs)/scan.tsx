@@ -614,13 +614,12 @@ export default function TabOneScreen() {
   const { favoritesByKey } = useFavorites();
   const { queueView, flushViews } = useInteractions();
 
-  const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
-
   // Ensure category map is loaded; triggers re-render when fetch completes.
   const [categoryMapReady, setCategoryMapReady] = useState(false);
   useEffect(() => {
-    fetchCategoryMap().then(() => setCategoryMapReady(true)).catch(() => setCategoryMapReady(true));
-  }, []);
+    if (!session) return;
+    fetchCategoryMap(session).then(() => setCategoryMapReady(true)).catch(() => setCategoryMapReady(true));
+  }, [session]);
 
   const SCAN_COUNT_KEY = "sipmetry_scan_count";
   const PHOTO_TIPS_THRESHOLD = 3;
@@ -874,7 +873,7 @@ export default function TabOneScreen() {
   };
 
   const regenerateRecipes = async (overrideIngredients?: ActiveIngredient[]) => {
-    if (!API_URL) {
+    if (!process.env.EXPO_PUBLIC_API_URL) {
       setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }
@@ -1101,7 +1100,7 @@ export default function TabOneScreen() {
 
   // ── Stage 10: Flavor Explorer ─────────────────────────────────────────
   const fetchExplore = async () => {
-    if (!API_URL || activeIngredients.length === 0) return;
+    if (!process.env.EXPO_PUBLIC_API_URL || activeIngredients.length === 0) return;
 
     setExploreLoading(true);
     setError(null);
@@ -1152,7 +1151,7 @@ export default function TabOneScreen() {
     try {
       const payload: any = {
         build: "RECIPES_V1",
-        API_URL: API_URL ?? "(missing)",
+        API_URL: process.env.EXPO_PUBLIC_API_URL ?? "(missing)",
         stage,
         loading,
         error,
@@ -1323,7 +1322,7 @@ export default function TabOneScreen() {
   const analyze = async () => {
     if (!imageUri) return;
 
-    if (!API_URL) {
+    if (!process.env.EXPO_PUBLIC_API_URL) {
       setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
     }

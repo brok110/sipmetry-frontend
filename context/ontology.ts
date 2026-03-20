@@ -685,13 +685,13 @@ const ALCOHOLIC_CATEGORIES = new Set([
 let _categoryMap: Record<string, string> | null = null;
 let _categoryFetchPromise: Promise<void> | null = null;
 
-export async function fetchCategoryMap(): Promise<void> {
+export async function fetchCategoryMap(session?: { access_token: string } | null): Promise<void> {
   if (_categoryMap) return;
   if (_categoryFetchPromise) return _categoryFetchPromise;
 
   _categoryFetchPromise = (async () => {
     try {
-      const resp = await apiFetch("/ontology/categories");
+      const resp = await apiFetch("/ontology/categories", { session });
       if (!resp.ok) {
         warn("[ontology] failed to fetch categories:", resp.status);
         return;

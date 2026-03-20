@@ -451,7 +451,7 @@ export default function TabTwoScreen() {
     return () => {
       alive = false;
     };
-  }, [ibaCode, API_URL]);
+  }, [ibaCode]);
 
   const recipe = dbRecipe ?? legacyRecipe;
 
@@ -598,7 +598,7 @@ export default function TabTwoScreen() {
         ibaCode,
         recipeTitle,
         recipeKey,
-        API_URL: API_URL || "(missing)",
+        API_URL: process.env.EXPO_PUBLIC_API_URL || "(missing)",
         subtitle: headerLine || "(none)",
         subtitle_tokens: subtitleTokensForFavorite,
         recipe_ingredients_for_ontology: recipeIngredientsForOntology,
@@ -756,7 +756,7 @@ export default function TabTwoScreen() {
       return
     }
 
-    if (!API_URL) {
+    if (!process.env.EXPO_PUBLIC_API_URL) {
       Alert.alert('Error', 'Missing API URL.')
       return
     }
