@@ -1,7 +1,6 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Slider from "@react-native-community/slider";
 import { useNavigation } from "@react-navigation/native";
-import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
@@ -187,7 +186,6 @@ function SafetyToggleRow({
 }
 
 export default function TabZeroPreferencesScreen() {
-  const router = useRouter();
   const navigation = useNavigation<any>();
 
   useEffect(() => {
@@ -205,6 +203,7 @@ export default function TabZeroPreferencesScreen() {
   const [draftBitterness, setDraftBitterness] = useState<FlavorLevel>(preferences.dims.bitterness);
   const [draftAvoidHighProof, setDraftAvoidHighProof] = useState<boolean>(preferences.safetyMode.avoidHighProof);
   const [draftAvoidAllergens, setDraftAvoidAllergens] = useState<boolean>(preferences.safetyMode.avoidAllergens);
+  const [saving, setSaving] = useState(false);
   const [draftAvoidCaffeineAlcohol, setDraftAvoidCaffeineAlcohol] = useState<boolean>(
     preferences.safetyMode.avoidCaffeineAlcohol
   );
@@ -293,8 +292,8 @@ export default function TabZeroPreferencesScreen() {
   const disabled = !hydrated;
 
   const save = () => {
-    if (!hydrated) return;
-
+    if (!hydrated || saving) return;
+    setSaving(true);
     setPreferences({
       stylePreset: draftStyle,
       dims: {
@@ -308,8 +307,7 @@ export default function TabZeroPreferencesScreen() {
         avoidCaffeineAlcohol: draftAvoidCaffeineAlcohol,
       },
     });
-
-    router.back();
+    setTimeout(() => setSaving(false), 800);
   };
 
   const reset = () => {
@@ -459,7 +457,7 @@ export default function TabZeroPreferencesScreen() {
         <View style={{ flexDirection: "row", gap: 10 }}>
           <Pressable
             onPress={save}
-            disabled={disabled || !hasChanges}
+            disabled={disabled || !hasChanges || saving}
             style={{
               flex: 1,
               borderWidth: 1,
@@ -467,10 +465,12 @@ export default function TabZeroPreferencesScreen() {
               paddingVertical: 12,
               alignItems: "center",
               backgroundColor: "white",
-              opacity: disabled || !hasChanges ? 0.55 : 1,
+              opacity: saving ? 0.4 : disabled || !hasChanges ? 0.55 : 1,
             }}
           >
-            <Text style={{ fontWeight: "900" }}>Save preferences</Text>
+            <Text style={{ fontWeight: "900" }}>
+              {saving ? "Saved ✓" : "Save preferences"}
+            </Text>
           </Pressable>
 
           <Pressable
