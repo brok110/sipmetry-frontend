@@ -1,3 +1,4 @@
+import OaklandDusk from "@/constants/OaklandDusk";
 import React from "react";
 import {
   Pressable,
@@ -56,7 +57,7 @@ export function PurchaseButton({
       {loading ? (
         <ActivityIndicator
           testID="activity-indicator"
-          color={variant === "subtle" ? "#374151" : "#fff"}
+          color={variant === "subtle" ? OaklandDusk.brand.gold : OaklandDusk.bg.void}
           size="small"
         />
       ) : (
@@ -88,7 +89,7 @@ const styles = StyleSheet.create({
 
 const variantStyles: Record<string, ViewStyle> = {
   primary: {
-    backgroundColor: "#059669",
+    backgroundColor: OaklandDusk.brand.gold,
   },
   secondary: {
     backgroundColor: "#0284c7",
@@ -96,7 +97,7 @@ const variantStyles: Record<string, ViewStyle> = {
   subtle: {
     backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: OaklandDusk.brand.gold,
   },
 };
 
@@ -117,13 +118,13 @@ const sizeStyles: Record<string, ViewStyle> = {
 
 const textStyles: Record<string, TextStyle> = {
   primary: {
-    color: "#fff",
+    color: OaklandDusk.bg.void,
   },
   secondary: {
     color: "#fff",
   },
   subtle: {
-    color: "#374151",
+    color: OaklandDusk.brand.gold,
   },
 };
 

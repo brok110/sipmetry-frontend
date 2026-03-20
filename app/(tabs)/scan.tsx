@@ -1,3 +1,4 @@
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
@@ -1917,7 +1918,7 @@ export default function TabOneScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1, color: OaklandDusk.text.primary }}>Scan Ingredients</Text>
+        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1, color: OaklandDusk.brand.gold }}>Sipmetry</Text>
       </View>
 
       {__DEV__ ? (
@@ -1932,12 +1933,45 @@ export default function TabOneScreen() {
       ) : null}
 
       <View style={{ flexDirection: "row", gap: 12 }}>
-        <View style={{ flex: 1 }}>
-          <Button title="Choose Photo" onPress={pickImage} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Button title="Take Photo" onPress={takePhoto} />
-        </View>
+        <Pressable
+          onPress={takePhoto}
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            height: 56,
+            borderRadius: 16,
+            backgroundColor: OaklandDusk.brand.gold,
+          }}
+        >
+          <FontAwesome name="camera" size={18} color={OaklandDusk.bg.void} />
+          <Text style={{ fontSize: 16, fontWeight: "800", color: OaklandDusk.bg.void }}>
+            Take Photo
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={pickImage}
+          style={{
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            height: 56,
+            borderRadius: 16,
+            backgroundColor: OaklandDusk.bg.card,
+            borderWidth: 1,
+            borderColor: OaklandDusk.bg.border,
+          }}
+        >
+          <FontAwesome name="image" size={18} color={OaklandDusk.text.primary} />
+          <Text style={{ fontSize: 16, fontWeight: "800", color: OaklandDusk.text.primary }}>
+            Choose Photo
+          </Text>
+        </Pressable>
       </View>
 
       {imageUri ? (
@@ -1973,7 +2007,14 @@ export default function TabOneScreen() {
           </Pressable>
         </View>
       ) : (
-        <View style={{ gap: 10 }}>
+        <View style={{ gap: 12 }}>
+          <View style={{ alignItems: "center", paddingVertical: 20, gap: 8 }}>
+            <FontAwesome name="camera" size={40} color={OaklandDusk.text.tertiary} />
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.secondary, textAlign: "center" }}>
+              {isZh ? "掃描你的酒瓶，找到完美雞尾酒" : "Scan your bottles to find cocktails"}
+            </Text>
+          </View>
+
           {showPhotoTips ? (
             <View style={{
               flexDirection: "row",
@@ -1995,9 +2036,6 @@ export default function TabOneScreen() {
               </View>
             </View>
           ) : null}
-          <Text style={{ color: OaklandDusk.text.tertiary, textAlign: "center" }}>
-            {isZh ? "選擇照片或拍照開始" : "Choose a photo or take a photo to start."}
-          </Text>
         </View>
       )}
 

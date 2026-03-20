@@ -1017,7 +1017,15 @@ export default function TabTwoScreen() {
 
         {headerLine ? (
           <Pressable onLongPress={__DEV__ ? copyDebug : undefined} delayLongPress={450}>
-            <Text style={{ color: OaklandDusk.text.secondary }}>{headerLine}</Text>
+            <View style={{
+              alignSelf: "flex-start",
+              backgroundColor: OaklandDusk.brand.tagBg,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 8,
+            }}>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: OaklandDusk.brand.gold }}>{headerLine}</Text>
+            </View>
           </Pressable>
         ) : null}
 
@@ -1031,18 +1039,33 @@ export default function TabTwoScreen() {
           </View>
         ) : null}
 
-        <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
+        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
           <Pressable
             onPress={() => sendFeedback("like")}
             hitSlop={12}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: currentRating === "dislike" ? 0.4 : 1 }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: currentRating === "like" ? "#1A2A1A" : OaklandDusk.bg.card,
+              borderWidth: 0.5,
+              borderColor: currentRating === "like" ? "#6B8F6B" : OaklandDusk.bg.border,
+              opacity: currentRating === "dislike" ? 0.4 : 1,
+            }}
           >
             <FontAwesome
               name={currentRating === "like" ? "thumbs-up" : "thumbs-o-up"}
-              color={currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary}
-              size={18}
+              color={currentRating === "like" ? "#6B8F6B" : OaklandDusk.text.tertiary}
+              size={16}
             />
-            <Text style={{ fontSize: 13, color: currentRating === "like" ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary }}>
+            <Text style={{
+              fontSize: 13,
+              fontWeight: "700",
+              color: currentRating === "like" ? "#6B8F6B" : OaklandDusk.text.tertiary,
+            }}>
               {currentRating === "like" ? "Liked" : "Like"}
             </Text>
           </Pressable>
@@ -1050,14 +1073,29 @@ export default function TabTwoScreen() {
           <Pressable
             onPress={() => sendFeedback("dislike")}
             hitSlop={12}
-            style={{ flexDirection: "row", alignItems: "center", gap: 6, opacity: currentRating === "like" ? 0.4 : 1 }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor: currentRating === "dislike" ? "#3A2A2A" : OaklandDusk.bg.card,
+              borderWidth: 0.5,
+              borderColor: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.bg.border,
+              opacity: currentRating === "like" ? 0.4 : 1,
+            }}
           >
             <FontAwesome
               name={currentRating === "dislike" ? "thumbs-down" : "thumbs-o-down"}
               color={currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary}
-              size={18}
+              size={16}
             />
-            <Text style={{ fontSize: 13, color: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary }}>
+            <Text style={{
+              fontSize: 13,
+              fontWeight: "700",
+              color: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary,
+            }}>
               {currentRating === "dislike" ? "Disliked" : "Dislike"}
             </Text>
           </Pressable>
@@ -1147,7 +1185,10 @@ export default function TabTwoScreen() {
 
         <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 12, backgroundColor: OaklandDusk.bg.card }}>
           <View>
-            <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.text.primary }}>Ingredients</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <FontAwesome name="flask" size={14} color={OaklandDusk.brand.gold} />
+              <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Ingredients</Text>
+            </View>
             {dbRecipe ? (
               renderDbIngredients()
             ) : loading ? (
@@ -1163,7 +1204,10 @@ export default function TabTwoScreen() {
 
           {dbRecipe?.instructions ? (
             <View>
-              <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.text.primary }}>Instructions</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <FontAwesome name="list-ol" size={14} color={OaklandDusk.brand.gold} />
+                <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Instructions</Text>
+              </View>
               <Text style={{ color: OaklandDusk.text.secondary }}>{String(dbRecipe.instructions)}</Text>
             </View>
           ) : null}
