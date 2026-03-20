@@ -7,12 +7,11 @@ import { usePurchaseIntent } from '@/hooks/usePurchaseIntent'
 import * as ImageManipulator from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
 import { useFocusEffect, router } from 'expo-router'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
   Modal,
-  PanResponder,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -21,6 +20,13 @@ import {
   TextInput,
   View,
 } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  runOnJS,
+  withTiming,
+} from 'react-native-reanimated'
 
 type SortBy =
   | 'date_added'
@@ -134,6 +140,12 @@ function CameraIcon({ color = OaklandDusk.text.secondary }: { color?: string }) 
 }
 
 // ── Horizontal drag slider ────────────────────────────────────────────────────
+
+function snapTo5(pct: number): number {
+  'worklet'
+  return Math.round(pct / 5) * 5
+}
+
 function HorizontalPctSlider({
   value,
   onChange,
@@ -141,56 +153,69 @@ function HorizontalPctSlider({
   value: number
   onChange: (pct: number) => void
 }) {
-  const trackWidth = useRef(0)
-  const currentValue = useRef(value)
+  const trackWidth = useSharedValue(0)
+  const fillPct = useSharedValue(value)
 
-  // Keep ref in sync for PanResponder closure
-  currentValue.current = value
+  useEffect(() => {
+    fillPct.value = value
+  }, [value])
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (evt) => {
-        if (trackWidth.current <= 0) return
-        const x = evt.nativeEvent.locationX
-        const pct = Math.round(Math.max(0, Math.min(100, (x / trackWidth.current) * 100)))
-        onChange(pct)
-      },
-      onPanResponderMove: (evt) => {
-        if (trackWidth.current <= 0) return
-        const x = evt.nativeEvent.locationX
-        const pct = Math.round(Math.max(0, Math.min(100, (x / trackWidth.current) * 100)))
-        onChange(pct)
-      },
+  const stableOnChange = useCallback((v: number) => {
+    onChange(v)
+  }, [onChange])
+
+  const gesture = Gesture.Pan()
+    .onBegin((e) => {
+      'worklet'
+      if (trackWidth.value <= 0) return
+      const pct = Math.max(0, Math.min(100, (e.x / trackWidth.value) * 100))
+      fillPct.value = pct
     })
-  ).current
+    .onUpdate((e) => {
+      'worklet'
+      if (trackWidth.value <= 0) return
+      const pct = Math.max(0, Math.min(100, (e.x / trackWidth.value) * 100))
+      fillPct.value = pct
+    })
+    .onEnd(() => {
+      'worklet'
+      const snapped = snapTo5(fillPct.value)
+      fillPct.value = withTiming(snapped, { duration: 80 })
+      runOnJS(stableOnChange)(snapped)
+    })
+    .hitSlop({ top: 20, bottom: 20, left: 10, right: 10 })
+    .minDistance(0)
+
+  const fillStyle = useAnimatedStyle(() => {
+    const isLow = fillPct.value <= 15
+    return {
+      width: `${fillPct.value}%`,
+      backgroundColor: isLow ? '#E53935' : '#D4A017',
+    }
+  })
+
+  const thumbStyle = useAnimatedStyle(() => {
+    const isLow = fillPct.value <= 15
+    return {
+      left: `${fillPct.value}%`,
+      borderColor: isLow ? '#E53935' : '#D4A017',
+    }
+  })
 
   const isLow = value <= 15
   const fillColor = isLow ? '#E53935' : '#D4A017'
 
   return (
     <View style={sliderStyles.wrapper}>
-      <View
-        style={sliderStyles.track}
-        onLayout={(e) => { trackWidth.current = e.nativeEvent.layout.width }}
-        {...panResponder.panHandlers}
-      >
-        {/* Fill */}
-        <View
-          style={[
-            sliderStyles.fill,
-            { width: `${value}%` as any, backgroundColor: fillColor },
-          ]}
-        />
-        {/* Thumb */}
-        <View
-          style={[
-            sliderStyles.thumb,
-            { left: `${value}%` as any, borderColor: fillColor },
-          ]}
-        />
-      </View>
+      <GestureDetector gesture={gesture}>
+        <Animated.View
+          style={sliderStyles.track}
+          onLayout={(e) => { trackWidth.value = e.nativeEvent.layout.width }}
+        >
+          <Animated.View style={[sliderStyles.fill, fillStyle]} />
+          <Animated.View style={[sliderStyles.thumb, thumbStyle]} />
+        </Animated.View>
+      </GestureDetector>
       <Text style={[sliderStyles.label, { color: fillColor }]}>{value}%</Text>
     </View>
   )

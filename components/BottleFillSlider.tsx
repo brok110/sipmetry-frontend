@@ -1,65 +1,90 @@
-import React from 'react'
-import { View, Text, PanResponder, StyleSheet } from 'react-native'
+import React, { useCallback } from 'react'
+import { View, Text, StyleSheet } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  runOnJS,
+  withTiming,
+} from 'react-native-reanimated'
 
 type Props = {
-  value: number          // 0..100
+  value: number
   onChange: (v: number) => void
   height?: number
 }
 
-export default function BottleFillSlider({ value, onChange, height = 200 }: Props) {
-  const isLow = value <= 5
-  const fillColor = isLow ? '#E53935' : '#D4A017'   // 紅 or 琥珀色
-  const fillHeight = (value / 100) * height
+function snapTo5(pct: number): number {
+  'worklet'
+  return Math.round(pct / 5) * 5
+}
 
-  const panResponder = PanResponder.create({
-    onStartShouldSetPanResponder: () => true,
-    onMoveShouldSetPanResponder: () => true,
-    onPanResponderGrant: (e) => {
-      const y = e.nativeEvent.locationY
-      const pct = Math.round(Math.max(0, Math.min(100, (1 - y / height) * 100)))
-      onChange(pct)
-    },
-    onPanResponderMove: (e) => {
-      const y = e.nativeEvent.locationY
-      const pct = Math.round(Math.max(0, Math.min(100, (1 - y / height) * 100)))
-      onChange(pct)
-    },
+function clampPct(y: number, height: number): number {
+  'worklet'
+  const raw = (1 - y / height) * 100
+  return Math.max(0, Math.min(100, raw))
+}
+
+export default function BottleFillSlider({ value, onChange, height = 200 }: Props) {
+  const fillPct = useSharedValue(value)
+
+  React.useEffect(() => {
+    fillPct.value = value
+  }, [value])
+
+  const stableOnChange = useCallback((v: number) => {
+    onChange(v)
+  }, [onChange])
+
+  const gesture = Gesture.Pan()
+    .onBegin((e) => {
+      'worklet'
+      const pct = clampPct(e.y, height)
+      fillPct.value = pct
+    })
+    .onUpdate((e) => {
+      'worklet'
+      const pct = clampPct(e.y, height)
+      fillPct.value = pct
+    })
+    .onEnd(() => {
+      'worklet'
+      const snapped = snapTo5(fillPct.value)
+      fillPct.value = withTiming(snapped, { duration: 80 })
+      runOnJS(stableOnChange)(snapped)
+    })
+    .hitSlop({ top: 20, bottom: 20, left: 30, right: 30 })
+    .minDistance(0)
+
+  const fillStyle = useAnimatedStyle(() => {
+    const isLow = fillPct.value <= 5
+    return {
+      height: (fillPct.value / 100) * height,
+      backgroundColor: isLow ? '#E53935' : '#D4A017',
+    }
   })
 
+  const isLow = value <= 5
   const markers = [100, 75, 50, 25]
 
   return (
     <View style={styles.container}>
-      {/* 酒瓶軌道 */}
-      <View
-        style={[styles.track, { height }]}
-        {...panResponder.panHandlers}
-      >
-        {/* 液體填充 */}
-        <View
-          style={[
-            styles.fill,
-            {
-              height: fillHeight,
-              backgroundColor: fillColor,
-            },
-          ]}
-        />
+      <GestureDetector gesture={gesture}>
+        <Animated.View style={[styles.track, { height }]}>
+          <Animated.View style={[styles.fill, fillStyle]} />
 
-        {/* 刻度線 */}
-        {markers.map((m) => (
-          <View
-            key={m}
-            style={[
-              styles.marker,
-              { bottom: (m / 100) * height - 1 },
-            ]}
-          />
-        ))}
-      </View>
+          {markers.map((m) => (
+            <View
+              key={m}
+              style={[
+                styles.marker,
+                { bottom: (m / 100) * height - 1 },
+              ]}
+            />
+          ))}
+        </Animated.View>
+      </GestureDetector>
 
-      {/* 百分比標示 */}
       <View style={[styles.labels, { height }]}>
         {markers.map((m) => (
           <Text
@@ -78,7 +103,6 @@ export default function BottleFillSlider({ value, onChange, height = 200 }: Prop
         ))}
       </View>
 
-      {/* 目前數值 */}
       <Text style={[styles.currentValue, { color: isLow ? '#E53935' : '#111' }]}>
         {value}%
       </Text>

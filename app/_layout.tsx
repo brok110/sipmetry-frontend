@@ -1,7 +1,9 @@
+import 'react-native-gesture-handler'
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Pressable, Text } from 'react-native';
@@ -48,6 +50,7 @@ export default function RootLayout() {
   }
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <AuthProvider>
       <InteractionProvider>
       <PreferencesProvider>
@@ -65,6 +68,7 @@ export default function RootLayout() {
       </PreferencesProvider>
       </InteractionProvider>
     </AuthProvider>
+    </GestureHandlerRootView>
   );
 }
 
