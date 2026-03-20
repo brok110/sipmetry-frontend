@@ -13,6 +13,7 @@ import {
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
+import { apiFetch } from "@/lib/api";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -46,9 +47,6 @@ export default function CartScreen() {
   const { favoritesByKey } = useFavorites();
   const feedback = useFeedback() as any;
 
-  const API_URL = useMemo(() => process.env.EXPO_PUBLIC_API_URL, []);
-  const accessToken = session?.access_token ?? null;
-
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,17 +67,14 @@ export default function CartScreen() {
   }, [favoritesByKey, feedback?.ratingsByKey, feedback?.ratings]);
 
   const fetchSuggestions = useCallback(async () => {
-    if (!API_URL || !accessToken) return;
+    if (!session?.access_token) return;
     setLoading(true);
     setError(null);
     try {
-      const resp = await fetch(`${API_URL}/restock-suggestions`, {
+      const resp = await apiFetch("/restock-suggestions", {
+        session,
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ user_interactions: userInteractions }),
+        body: { user_interactions: userInteractions },
       });
 
       if (!resp.ok) {
@@ -95,26 +90,17 @@ export default function CartScreen() {
     } finally {
       setLoading(false);
     }
-  }, [API_URL, accessToken, userInteractions]);
+  }, [session, userInteractions]);
 
   // Track affiliate click then open URL
   const handleBuy = useCallback(
     async (suggestion: Suggestion) => {
       // Fire-and-forget click tracking
-      if (API_URL) {
-        fetch(`${API_URL}/affiliate/click`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify({
-            ingredient_key: suggestion.ingredient_key,
-            source: "restock",
-            buy_url: suggestion.buy_url,
-          }),
-        }).catch(() => {});
-      }
+      apiFetch("/affiliate/click", {
+        session,
+        method: "POST",
+        body: { ingredient_key: suggestion.ingredient_key, source: "restock", buy_url: suggestion.buy_url },
+      }).catch(() => {});
 
       // Open buy URL
       if (suggestion.buy_url) {
@@ -125,7 +111,7 @@ export default function CartScreen() {
         }
       }
     },
-    [API_URL, accessToken]
+    [session]
   );
 
   // Not logged in

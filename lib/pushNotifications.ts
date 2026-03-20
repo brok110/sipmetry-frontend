@@ -13,8 +13,9 @@
 
 import Constants from 'expo-constants'
 import { Platform } from 'react-native'
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? ''
+import type { Session } from '@supabase/supabase-js'
+import { apiFetch } from '@/lib/api'
+import { log, warn } from '@/lib/logger'
 
 // EAS project ID from app.json → extra.eas.projectId
 const PROJECT_ID: string | undefined =
@@ -24,9 +25,9 @@ const PROJECT_ID: string | undefined =
  * Request notification permission, obtain the Expo push token, and register
  * it with the backend. Silent on every failure path.
  *
- * @param authToken - Supabase session access_token for the authenticated user
+ * @param session - Supabase session for the authenticated user
  */
-export async function registerPushToken(authToken: string): Promise<void> {
+export async function registerPushToken(session: Session): Promise<void> {
   try {
     // Dynamic import — gracefully returns null on web / Expo Go
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -46,7 +47,7 @@ export async function registerPushToken(authToken: string): Promise<void> {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('[push] permission denied')
+      log('[push] permission denied')
       return
     }
 
@@ -60,7 +61,7 @@ export async function registerPushToken(authToken: string): Promise<void> {
 
     // Obtain Expo push token (throws on simulators — caught below)
     if (!PROJECT_ID) {
-      console.warn('[push] no projectId found in app.json extra.eas.projectId')
+      warn('[push] no projectId found in app.json extra.eas.projectId')
       return
     }
 
@@ -69,18 +70,15 @@ export async function registerPushToken(authToken: string): Promise<void> {
     })
 
     // Register token with backend
-    await fetch(`${API_URL}/push/register`, {
+    await apiFetch('/push/register', {
+      session,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({ token, platform: Platform.OS }),
+      body: { token, platform: Platform.OS },
     })
 
-    console.log('[push] token registered:', token)
+    log('[push] token registered:', token)
   } catch (err: any) {
     // Simulator, permission denied, network error — all handled silently
-    console.log('[push] registerPushToken skipped:', err?.message ?? err)
+    log('[push] registerPushToken skipped:', err?.message ?? err)
   }
 }

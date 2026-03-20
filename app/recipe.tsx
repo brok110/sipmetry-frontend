@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Text, View }
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/context/auth";
+import { apiFetch } from "@/lib/api";
 
 import * as Clipboard from "expo-clipboard";
 
@@ -47,10 +48,6 @@ type DbRecipe = {
 };
 
 export default function TabTwoScreen() {
-  const API_URL = useMemo(() => {
-    const v = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
-    return v ? v.replace(/\/+$/, "") : "";
-  }, []);
 
   const router = useRouter();
   const navigation = useNavigation<any>();
@@ -373,21 +370,9 @@ export default function TabTwoScreen() {
         return;
       }
 
-      if (!API_URL) {
-        setDbRecipe(null);
-        setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
-        return;
-      }
-
       setLoading(true);
       try {
-        const recipeHeaders: Record<string, string> = {};
-        if (session?.access_token) {
-          recipeHeaders["Authorization"] = `Bearer ${session.access_token}`;
-        }
-        const resp = await fetch(`${API_URL}/recipes/${encodeURIComponent(ibaCode)}`, {
-          headers: recipeHeaders,
-        });
+        const resp = await apiFetch(`/recipes/${encodeURIComponent(ibaCode)}`, { session });
         if (!resp.ok) {
           const t = await resp.text();
           throw new Error(`Recipe API failed: ${resp.status} ${t}`);
@@ -704,29 +689,11 @@ export default function TabTwoScreen() {
       ingredients: ingredientsFromScan,
     });
 
-    if (!API_URL) {
-      if (prev) setRating(recipeKey, prev);
-      else clearRating(recipeKey);
-      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
-      return;
-    }
-
     try {
-      const feedbackHeaders: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        feedbackHeaders["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
-      const resp = await fetch(`${API_URL}/feedback`, {
+      const resp = await apiFetch("/feedback", {
+        session,
         method: "POST",
-        headers: feedbackHeaders,
-        body: JSON.stringify({
-          recipe_key: recipeKey,
-          rating: next,
-          recipe,
-          ingredients: ingredientsFromScan,
-          context: { app_version: "RECIPES_V1" },
-        }),
+        body: { recipe_key: recipeKey, rating: next, recipe, ingredients: ingredientsFromScan, context: { app_version: "RECIPES_V1" } },
       });
 
       if (!resp.ok) {
@@ -744,21 +711,11 @@ export default function TabTwoScreen() {
   const createShareAndGo = async () => {
     setError(null);
 
-    if (!API_URL) {
-      setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
-      return;
-    }
-
     try {
-      const shareHeaders: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        shareHeaders["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
-      const resp = await fetch(`${API_URL}/share-recipe`, {
+      const resp = await apiFetch("/share-recipe", {
+        session,
         method: "POST",
-        headers: shareHeaders,
-        body: JSON.stringify({ recipe, ingredients: ingredientsFromScan }),
+        body: { recipe, ingredients: ingredientsFromScan },
       });
 
       if (!resp.ok) {

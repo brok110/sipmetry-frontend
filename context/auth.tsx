@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // 登入後自動註冊 push token（靜默失敗，不影響主流程）
       if (session?.access_token) {
-        registerPushToken(session.access_token).catch(() => {})
+        registerPushToken(session).catch(() => {})
       }
     })
 

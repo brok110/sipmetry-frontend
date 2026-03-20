@@ -7,13 +7,13 @@ import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
+import { apiFetch } from "@/lib/api";
 
 type RadarDim = { key: string; label: string; value: number };
 type Strength = RadarDim & { representative?: { iba_code: string; name: string } | null };
 type Unexplored = RadarDim & { suggestions?: { iba_code: string; name: string }[] };
 type AffinityItem = { key: string; label: string; score: number; count: number };
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 // ── Radar Chart (pure SVG) ───────────────────────────────────────────────
 function RadarChart({ data, size = 280 }: { data: RadarDim[]; size?: number }) {
@@ -149,7 +149,6 @@ export default function TasteDNAScreen() {
   }, []);
 
   const fetchProfile = useCallback(async () => {
-    if (!API_URL) return;
     setLoading(true);
     setError(null);
     try {
@@ -166,22 +165,17 @@ export default function TasteDNAScreen() {
         else if (rating === "dislike") dislikedCodes.push(code);
       }
 
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        headers.Authorization = `Bearer ${session.access_token}`;
-      }
-
-      const resp = await fetch(`${API_URL}/taste-profile`, {
+      const resp = await apiFetch("/taste-profile", {
+        session,
         method: "POST",
-        headers,
-        body: JSON.stringify({
+        body: {
           locale: isZh ? "zh" : "en",
           user_interactions: {
             favorite_codes: favoriteCodes,
             liked_codes: likedCodes,
             disliked_codes: dislikedCodes,
           },
-        }),
+        },
       });
 
       if (!resp.ok) {

@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 
 import { useAuth } from "@/context/auth";
 import { useLowStockAlert } from "@/context/lowStockAlert";
+import { apiFetch } from "@/lib/api";
 import { checkAndNotify, scanAndNotifyAll } from "@/lib/lowStockNotifier";
 
 export type InventoryItem = {
@@ -108,8 +109,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
   const { showAlert } = useLowStockAlert();
   const accessToken = session?.access_token ?? null;
-  const apiUrl = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
-
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -120,7 +119,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     authVersionRef.current += 1;
-  }, [accessToken, apiUrl]);
+  }, [accessToken]);
 
   const refreshInventory = useCallback(
     async (options?: RefreshOptions): Promise<InventoryItem[]> => {
@@ -128,7 +127,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       const notifyLowStock = options?.notifyLowStock === true;
       const version = authVersionRef.current;
 
-      if (!accessToken || !apiUrl) {
+      if (!session?.access_token) {
         setInventory([]);
         setError(null);
         setLoading(false);
@@ -143,9 +142,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       setError(null);
 
       try {
-        const res = await fetch(`${apiUrl}/inventory`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const res = await apiFetch("/inventory", { session });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
@@ -164,7 +161,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
           await scanAndNotifyAll(items as InventoryItem[], {
             showAlert,
             session,
-            apiUrl,
           });
         }
 
@@ -183,11 +179,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [accessToken, apiUrl, session, showAlert]
+    [accessToken, session, showAlert]
   );
 
   useEffect(() => {
-    if (!accessToken || !apiUrl) {
+    if (!session?.access_token) {
       lastAuthActivationKeyRef.current = null;
       setInventory([]);
       setError(null);
@@ -197,26 +193,19 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const activationKey = `${apiUrl}::${accessToken}`;
+    const activationKey = `${accessToken}`;
     if (lastAuthActivationKeyRef.current === activationKey) return;
 
     lastAuthActivationKeyRef.current = activationKey;
     refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {});
-  }, [accessToken, apiUrl, refreshInventory]);
+  }, [accessToken, refreshInventory]);
 
   const addInventoryItem = useCallback(
     async (payload: InventoryPayload): Promise<InventoryItem> => {
-      if (!accessToken || !apiUrl) throw new Error("Please sign in first");
+      if (!session?.access_token) throw new Error("Please sign in first");
       const version = authVersionRef.current;
 
-      const res = await fetch(`${apiUrl}/inventory`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const res = await apiFetch("/inventory", { session, method: "POST", body: payload });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error ?? "Failed to add");
@@ -233,25 +222,18 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       setInventory((prev) => [item, ...prev.filter((x) => x.id !== item.id)]);
       setError(null);
 
-      await checkAndNotify(item, { showAlert, session, apiUrl });
+      await checkAndNotify(item, { showAlert, session });
       return item;
     },
-    [accessToken, apiUrl, session, showAlert]
+    [accessToken, session, showAlert]
   );
 
   const updateInventoryItem = useCallback(
     async (id: string, updates: InventoryUpdatePayload): Promise<InventoryItem> => {
-      if (!accessToken || !apiUrl) throw new Error("Please sign in first");
+      if (!session?.access_token) throw new Error("Please sign in first");
       const version = authVersionRef.current;
 
-      const res = await fetch(`${apiUrl}/inventory/${id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(updates),
-      });
+      const res = await apiFetch(`/inventory/${id}`, { session, method: "PATCH", body: updates });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err?.error ?? "Update failed");
@@ -268,21 +250,18 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       setInventory((prev) => prev.map((x) => (x.id === id ? item : x)));
       setError(null);
 
-      await checkAndNotify(item, { showAlert, session, apiUrl });
+      await checkAndNotify(item, { showAlert, session });
       return item;
     },
-    [accessToken, apiUrl, session, showAlert]
+    [accessToken, session, showAlert]
   );
 
   const deleteInventoryItem = useCallback(
     async (id: string): Promise<void> => {
-      if (!accessToken || !apiUrl) throw new Error("Please sign in first");
+      if (!session?.access_token) throw new Error("Please sign in first");
       const version = authVersionRef.current;
 
-      const res = await fetch(`${apiUrl}/inventory/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
+      const res = await apiFetch(`/inventory/${id}`, { session, method: "DELETE" });
       if (!res.ok) throw new Error("Delete failed");
 
       if (version !== authVersionRef.current) {
@@ -292,22 +271,15 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       setInventory((prev) => prev.filter((x) => x.id !== id));
       setError(null);
     },
-    [accessToken, apiUrl]
+    [accessToken, session]
   );
 
   const recordInventoryUse = useCallback(
     async (payload: InventoryUsePayload): Promise<void> => {
-      if (!accessToken || !apiUrl) throw new Error("Please sign in first");
+      if (!session?.access_token) throw new Error("Please sign in first");
       const version = authVersionRef.current;
 
-      const res = await fetch(`${apiUrl}/inventory/use`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
+      const res = await apiFetch("/inventory/use", { session, method: "POST", body: payload });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -320,7 +292,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
       await refreshInventory({ silent: true, notifyLowStock: true });
     },
-    [accessToken, apiUrl, refreshInventory]
+    [accessToken, refreshInventory]
   );
 
   const replaceInventoryItem = useCallback((item: InventoryItem) => {

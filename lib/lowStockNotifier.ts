@@ -7,7 +7,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import type { Session } from '@supabase/supabase-js'
 import type { LowStockAlertItem } from '@/context/lowStockAlert'
+import { apiFetch } from '@/lib/api'
 
 const PERMISSION_KEY = 'notifications_permission'
 export const LOW_STOCK_THRESHOLD = 5   // % — trigger below this
@@ -64,8 +66,7 @@ export async function checkAndNotify(
   item: NotifiableItem,
   options: {
     showAlert: (item: LowStockAlertItem) => void
-    session: { access_token: string } | null
-    apiUrl: string
+    session: Session | null
   }
 ): Promise<void> {
   const pct = Math.round(Number(item.remaining_pct))
@@ -98,9 +99,9 @@ export async function checkAndNotify(
   // 3. Mark notified on backend (prevents repeat notifications within cooldown)
   if (options.session?.access_token) {
     try {
-      await fetch(`${options.apiUrl}/inventory/${item.id}/notified`, {
+      await apiFetch(`/inventory/${item.id}/notified`, {
+        session: options.session,
         method: 'PATCH',
-        headers: { Authorization: `Bearer ${options.session.access_token}` },
       })
     } catch {
       // Non-critical — next check will retry
@@ -114,8 +115,7 @@ export async function scanAndNotifyAll(
   items: NotifiableItem[],
   options: {
     showAlert: (item: LowStockAlertItem) => void
-    session: { access_token: string } | null
-    apiUrl: string
+    session: Session | null
   }
 ): Promise<void> {
   for (const item of items) {

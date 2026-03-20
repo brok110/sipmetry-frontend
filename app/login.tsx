@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/auth'
+import { log } from '@/lib/logger'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
@@ -21,11 +22,11 @@ export default function LoginScreen() {
     // 先測試基本網路
     try {
       const r = await fetch('https://cuvkwqtdmzlcpidj.supabase.co/auth/v1/health')
-      console.log('[fetch test] status:', r.status)
+      log('[fetch test] status:', r.status)
       const t = await r.text()
-      console.log('[fetch test] body:', t.slice(0, 100))
+      log('[fetch test] body:', t.slice(0, 100))
     } catch (e: any) {
-      console.log('[fetch test] FAILED:', e?.message)
+      log('[fetch test] FAILED:', e?.message)
     }
 
     if (!email || !password) {

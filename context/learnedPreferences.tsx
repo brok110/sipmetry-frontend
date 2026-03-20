@@ -11,6 +11,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { useAuth } from "@/context/auth";
+import { apiFetch } from "@/lib/api";
 
 export type LearnedVector = Record<string, number>;
 
@@ -29,8 +30,6 @@ const LearnedPreferencesContext = createContext<LearnedPreferencesContextValue |
 
 export function LearnedPreferencesProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
-  const accessToken = session?.access_token ?? null;
-  const apiUrl = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
 
   const [learnedVector, setLearnedVector] = useState<LearnedVector | null>(null);
   const [eventCount, setEventCount] = useState(0);
@@ -38,7 +37,7 @@ export function LearnedPreferencesProvider({ children }: { children: React.React
   const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
-    if (!accessToken || !apiUrl) {
+    if (!session?.access_token) {
       // Logged out — clear cached vector
       setLearnedVector(null);
       setEventCount(0);
@@ -50,10 +49,7 @@ export function LearnedPreferencesProvider({ children }: { children: React.React
 
     (async () => {
       try {
-        const resp = await fetch(`${apiUrl}/preferences/learn`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const resp = await apiFetch("/preferences/learn", { session, method: "POST" });
 
         if (cancelled || !resp.ok) return;
 
@@ -72,7 +68,7 @@ export function LearnedPreferencesProvider({ children }: { children: React.React
     return () => {
       cancelled = true;
     };
-  }, [accessToken, apiUrl, refreshToken]);
+  }, [session, refreshToken]);
 
   const refresh = useCallback(() => setRefreshToken((n) => n + 1), []);
 

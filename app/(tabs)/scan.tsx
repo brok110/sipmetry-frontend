@@ -1,3 +1,5 @@
+import { apiFetch } from "@/lib/api";
+import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
 import { MissingIngredientsList } from "@/components/MissingIngredientsList";
 import { FEATURE_FLAGS } from "@/constants/Features";
@@ -617,12 +619,8 @@ export default function TabOneScreen() {
   // Ensure category map is loaded; triggers re-render when fetch completes.
   const [categoryMapReady, setCategoryMapReady] = useState(false);
   useEffect(() => {
-    if (API_URL) {
-      fetchCategoryMap(API_URL).then(() => setCategoryMapReady(true));
-    } else {
-      setCategoryMapReady(true);
-    }
-  }, [API_URL]);
+    fetchCategoryMap().then(() => setCategoryMapReady(true)).catch(() => setCategoryMapReady(true));
+  }, []);
 
   const SCAN_COUNT_KEY = "sipmetry_scan_count";
   const PHOTO_TIPS_THRESHOLD = 3;
@@ -773,13 +771,7 @@ export default function TabOneScreen() {
 
   const pingApi = async () => {
     try {
-      const base = process.env.EXPO_PUBLIC_API_URL;
-      if (!base) {
-        Alert.alert("Missing env", "EXPO_PUBLIC_API_URL is not set");
-        return;
-      }
-
-      const r = await fetch(`${base}/health`);
+      const r = await apiFetch("/health", { session });
       const j = await r.json();
 
       Alert.alert("API /health", JSON.stringify(j));
@@ -926,7 +918,7 @@ export default function TabOneScreen() {
         if (canon) {
           canonicalList.push(canon);
         } else {
-          console.warn("[recommend] failed to canonicalize scanned ingredient", {
+          warn("[recommend] failed to canonicalize scanned ingredient", {
             display,
             canonical: String(it?.canonical ?? "").trim(),
           });
@@ -959,7 +951,7 @@ export default function TabOneScreen() {
               const rawKey = String(it.ingredient_key ?? "").trim();
               const normalizedKey = canonicalizeForRecommendation(rawKey);
               if (!normalizedKey) {
-                console.warn("[recommend] failed to canonicalize inventory ingredient", {
+                warn("[recommend] failed to canonicalize inventory ingredient", {
                   ingredient_key: rawKey,
                 });
               }
@@ -971,7 +963,7 @@ export default function TabOneScreen() {
 
       for (const key of availableIngredientKeys) {
         if (!canonicalizeForRecommendation(key)) {
-          console.warn("[recommend] failed to canonicalize inventory ingredient", {
+          warn("[recommend] failed to canonicalize inventory ingredient", {
             ingredient_key: String(key ?? "").trim(),
           });
         }
@@ -989,34 +981,24 @@ export default function TabOneScreen() {
       const localeForApi = isZh ? "zh" : "en";
 
       // DEBUG: log canonicalization result before sending to backend
-      console.log("[DEBUG] canonicalDeduped:", canonicalDeduped);
-      console.log("[DEBUG] mergedIngredients:", mergedIngredients);
+      log("[DEBUG] canonicalDeduped:", canonicalDeduped);
+      log("[DEBUG] mergedIngredients:", mergedIngredients);
 
       // Stage 7: build request body with optional mood filter
       const recommendBody: Record<string, any> = {
         detected_ingredients: mergedIngredients,
         locale: localeForApi,
         user_preference_vector: resolvedVector05,
-        user_interactions: {
-          favorite_codes: Array.from(interactionSets.favoriteCodes),
-          liked_codes: Array.from(interactionSets.likedCodes),
-          disliked_codes: Array.from(interactionSets.dislikedCodes),
-        },
       };
       if (selectedMood) {
         recommendBody.mood = selectedMood;
       }
       lastRecommendMoodRef.current = selectedMood;
 
-      const classicsHeaders: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        classicsHeaders["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
-      const resp = await fetch(`${API_URL}/recommend-classics`, {
+      const resp = await apiFetch("/recommend-classics", {
+        session,
         method: "POST",
-        headers: classicsHeaders,
-        body: JSON.stringify(recommendBody),
+        body: recommendBody,
       });
 
       setLastRecommendHttpStatus(resp.status);
@@ -1137,23 +1119,13 @@ export default function TabOneScreen() {
         else if (rating === "dislike") dislikedCodes.push(code);
       }
 
-      const exploreHeaders: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        exploreHeaders["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
-      const resp = await fetch(`${API_URL}/recommend-explore`, {
+      const resp = await apiFetch("/recommend-explore", {
+        session,
         method: "POST",
-        headers: exploreHeaders,
-        body: JSON.stringify({
+        body: {
           detected_ingredients: detectedList,
           locale: isZh ? "zh" : "en",
-          user_interactions: {
-            favorite_codes: favoriteCodes,
-            liked_codes: likedCodes,
-            disliked_codes: dislikedCodes,
-          },
-        }),
+        },
       });
 
       if (!resp.ok) {
@@ -1374,12 +1346,6 @@ export default function TabOneScreen() {
     setHasRecommendedLocal(false);
 
     try {
-      // F1 Security: all /analyze-image calls must include auth header
-      const analyzeHeaders: Record<string, string> = { "Content-Type": "application/json" };
-      if (session?.access_token) {
-        analyzeHeaders["Authorization"] = `Bearer ${session.access_token}`;
-      }
-
       const pre = await preprocessImageForAnalyze(imageUri, pickedBase64, 650_000);
       setLastUploadInfo({
         stage: "preprocess",
@@ -1388,15 +1354,10 @@ export default function TabOneScreen() {
         height: pre.height,
       });
 
-      let resp = await fetch(`${API_URL}/analyze-image`, {
+      let resp = await apiFetch("/analyze-image", {
+        session,
         method: "POST",
-        headers: analyzeHeaders,
-        body: JSON.stringify({
-          image_base64: pre.base64,
-          return_raw: true,
-          return_detected_items: true,
-          return_display: true,
-        }),
+        body: { image_base64: pre.base64, return_raw: true, return_detected_items: true, return_display: true },
       });
 
       setLastHttpStatus(resp.status);
@@ -1410,15 +1371,10 @@ export default function TabOneScreen() {
           height: pre2.height,
         });
 
-        resp = await fetch(`${API_URL}/analyze-image`, {
+        resp = await apiFetch("/analyze-image", {
+          session,
           method: "POST",
-          headers: analyzeHeaders,
-          body: JSON.stringify({
-            image_base64: pre2.base64,
-            return_raw: true,
-            return_detected_items: true,
-            return_display: true,
-          }),
+          body: { image_base64: pre2.base64, return_raw: true, return_detected_items: true, return_display: true },
         });
 
         setLastHttpStatus(resp.status);
@@ -1432,15 +1388,10 @@ export default function TabOneScreen() {
             height: pre3.height,
           });
 
-          resp = await fetch(`${API_URL}/analyze-image`, {
+          resp = await apiFetch("/analyze-image", {
+            session,
             method: "POST",
-            headers: analyzeHeaders,
-            body: JSON.stringify({
-              image_base64: pre3.base64,
-              return_raw: true,
-              return_detected_items: true,
-              return_display: true,
-            }),
+            body: { image_base64: pre3.base64, return_raw: true, return_detected_items: true, return_display: true },
           });
 
           setLastHttpStatus(resp.status);
@@ -1454,15 +1405,10 @@ export default function TabOneScreen() {
               height: pre4.height,
             });
 
-            resp = await fetch(`${API_URL}/analyze-image`, {
+            resp = await apiFetch("/analyze-image", {
+              session,
               method: "POST",
-              headers: analyzeHeaders,
-              body: JSON.stringify({
-                image_base64: pre4.base64,
-                return_raw: true,
-                return_detected_items: true,
-                return_display: true,
-              }),
+              body: { image_base64: pre4.base64, return_raw: true, return_detected_items: true, return_display: true },
             });
 
             setLastHttpStatus(resp.status);
@@ -1593,24 +1539,18 @@ export default function TabOneScreen() {
     // POST /inventory also applies smartCanonicalize as a safety net.
     let canonicalKey = payload.ingredient_key;
     try {
-      if (API_URL) {
-        const canonHeaders: Record<string, string> = { "Content-Type": "application/json" };
-        if (session?.access_token) {
-          canonHeaders["Authorization"] = `Bearer ${session.access_token}`;
-        }
-        const canonResponse = await fetch(`${API_URL}/canonicalize`, {
-          method: "POST",
-          headers: canonHeaders,
-          body: JSON.stringify({ items: [payload.ingredient_key] }),
-        });
-        const canonData = await canonResponse.json();
-        canonicalKey = canonData?.canonical?.[0] || payload.ingredient_key;
-        if (canonicalKey !== payload.ingredient_key) {
-          console.log(`[handleAddToInventory] canonicalized: "${payload.ingredient_key}" → "${canonicalKey}"`);
-        }
+      const canonResponse = await apiFetch("/canonicalize", {
+        session,
+        method: "POST",
+        body: { items: [payload.ingredient_key] },
+      });
+      const canonData = await canonResponse.json();
+      canonicalKey = canonData?.canonical?.[0] || payload.ingredient_key;
+      if (canonicalKey !== payload.ingredient_key) {
+        log(`[handleAddToInventory] canonicalized: "${payload.ingredient_key}" → "${canonicalKey}"`);
       }
     } catch (err) {
-      console.warn("[handleAddToInventory] canonicalize failed, using raw key:", err);
+      warn("[handleAddToInventory] canonicalize failed, using raw key:", err);
     }
     await addInventoryItem({ ...payload, ingredient_key: canonicalKey });
   };
@@ -2224,7 +2164,7 @@ export default function TabOneScreen() {
                         {session ? (
                           (() => {
                             const alcoholic = isAlcoholicIngredient(ing.canonical);
-                            console.log(`[bar-filter] canonical="${ing.canonical}" alcoholic=${alcoholic}`);
+                            log(`[bar-filter] canonical="${ing.canonical}" alcoholic=${alcoholic}`);
                             if (alcoholic === false) return null;
 
                             return isInInventory(ing.canonical) ? (

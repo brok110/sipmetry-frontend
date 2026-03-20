@@ -2,8 +2,7 @@ import { useState, useCallback } from "react";
 import { Alert } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import { useAuth } from "@/context/auth";
-
-const API_URL = process.env.EXPO_PUBLIC_API_URL;
+import { apiFetch } from "@/lib/api";
 
 interface PurchaseIntentParams {
   ingredientKey: string;
@@ -24,18 +23,11 @@ export function usePurchaseIntent() {
       setLoading(true);
 
       try {
-        if (API_URL && session?.access_token) {
-          fetch(`${API_URL}/affiliate/click`, {
+        if (session?.access_token) {
+          apiFetch("/affiliate/click", {
+            session,
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              ingredient_key: ingredientKey,
-              source,
-              buy_url: buyUrl,
-            }),
+            body: { ingredient_key: ingredientKey, source, buy_url: buyUrl },
           }).catch(() => {});
         }
 

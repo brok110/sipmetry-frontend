@@ -1,3 +1,4 @@
+import { apiFetch } from '@/lib/api'
 import OaklandDusk from '@/constants/OaklandDusk'
 import AddToInventoryModal from '@/components/AddToInventoryModal'
 import { useAuth } from '@/context/auth'
@@ -493,8 +494,6 @@ export default function MyBarScreen() {
   // 當前排序的 label（顯示在 Filter 按鈕旁）
   const activeSortLabel = DROPDOWN_SORT_OPTIONS.find((o) => o.key === sortBy)?.label ?? 'Sort'
 
-  const apiUrl = process.env.EXPO_PUBLIC_API_URL ?? ''
-
   useFocusEffect(
     React.useCallback(() => {
       refreshInventory({ silent: true }).catch(() => {})
@@ -558,10 +557,10 @@ export default function MyBarScreen() {
       const b64 = compressed.base64
       if (!b64) throw new Error('Image compression failed.')
 
-      const res = await fetch(`${apiUrl}/identify-bottle`, {
+      const res = await apiFetch('/identify-bottle', {
+        session,
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_base64: b64 }),
+        body: { image_base64: b64 },
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))

@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAuth } from "@/context/auth";
+import { apiFetch } from "@/lib/api";
 
 export type FavoriteItem = {
   recipe_key: string;
@@ -111,8 +112,6 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   const didHydrateRef = useRef(false);
 
   const { session } = useAuth();
-  const accessToken = session?.access_token ?? null;
-  const apiUrl = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
 
   // Favorites are unlimited (token-based limits removed — invisible progression)
   const favoriteLimit = Infinity;
@@ -172,15 +171,13 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
   // When accessToken changes (login/logout), load favorites from DB.
   // DB is source of truth when logged in.
   useEffect(() => {
-    if (!accessToken || !apiUrl) return;
+    if (!session?.access_token) return;
 
     let cancelled = false;
 
     (async () => {
       try {
-        const resp = await fetch(`${apiUrl}/favorites`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        const resp = await apiFetch("/favorites", { session });
 
         if (!resp.ok || cancelled) return;
 
@@ -204,11 +201,11 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [accessToken, apiUrl]);
+  }, [session]);
 
   // ── DB helpers (fire-and-forget, local state already updated optimistically) ──
   const dbAdd = (item: FavoriteItem) => {
-    if (!accessToken || !apiUrl) return;
+    if (!session?.access_token) return;
 
     const recipe = {
       iba_code: item.iba_code,
@@ -218,24 +215,21 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       ingredients: item.ingredients,
     };
 
-    fetch(`${apiUrl}/favorites`, {
+    apiFetch("/favorites", {
+      session,
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ recipe_key: item.recipe_key, recipe }),
+      body: { recipe_key: item.recipe_key, recipe },
     }).catch(() => {
       // ignore — local state already reflects the change
     });
   };
 
   const dbRemove = (recipeKey: string) => {
-    if (!accessToken || !apiUrl) return;
+    if (!session?.access_token) return;
 
-    fetch(`${apiUrl}/favorites/${encodeURIComponent(recipeKey)}`, {
+    apiFetch(`/favorites/${encodeURIComponent(recipeKey)}`, {
+      session,
       method: "DELETE",
-      headers: { Authorization: `Bearer ${accessToken}` },
     }).catch(() => {
       // ignore — local state already reflects the change
     });

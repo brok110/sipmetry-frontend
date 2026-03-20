@@ -1,3 +1,6 @@
+import { apiFetch } from "@/lib/api";
+import { log, warn } from "@/lib/logger";
+
 export type IngredientKey = string;
 
 export type FlavorLevel = 0 | 1 | 2 | 3;
@@ -682,24 +685,24 @@ const ALCOHOLIC_CATEGORIES = new Set([
 let _categoryMap: Record<string, string> | null = null;
 let _categoryFetchPromise: Promise<void> | null = null;
 
-export async function fetchCategoryMap(apiUrl: string): Promise<void> {
+export async function fetchCategoryMap(): Promise<void> {
   if (_categoryMap) return;
   if (_categoryFetchPromise) return _categoryFetchPromise;
 
   _categoryFetchPromise = (async () => {
     try {
-      const resp = await fetch(`${apiUrl}/ontology/categories`);
+      const resp = await apiFetch("/ontology/categories");
       if (!resp.ok) {
-        console.warn("[ontology] failed to fetch categories:", resp.status);
+        warn("[ontology] failed to fetch categories:", resp.status);
         return;
       }
       const data = await resp.json();
       if (data && typeof data === "object") {
         _categoryMap = data;
-        console.log(`[ontology] category map loaded: ${Object.keys(data).length} entries`);
+        log(`[ontology] category map loaded: ${Object.keys(data).length} entries`);
       }
     } catch (err) {
-      console.warn("[ontology] category fetch error:", err);
+      warn("[ontology] category fetch error:", err);
     } finally {
       _categoryFetchPromise = null;
     }

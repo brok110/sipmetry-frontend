@@ -13,6 +13,8 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef } from "react";
 
 import { useAuth } from "@/context/auth";
+import { apiFetch } from "@/lib/api";
+import { warn } from "@/lib/logger";
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -70,19 +72,13 @@ const MAX_QUEUE = 50;
 
 export function InteractionProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
-  const accessToken = session?.access_token ?? null;
-
-  const API_URL = useMemo(() => {
-    const v = String(process.env.EXPO_PUBLIC_API_URL ?? "").trim();
-    return v ? v.replace(/\/+$/, "") : "";
-  }, []);
 
   // ── View queue for batch flushing ────────────────────────────────────
   const viewQueue = useRef<TrackParams[]>([]);
   const flushTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const doFlush = useCallback(() => {
-    if (!API_URL || !accessToken || viewQueue.current.length === 0) return;
+    if (!session?.access_token || viewQueue.current.length === 0) return;
 
     const events = viewQueue.current.splice(0); // drain queue
     if (flushTimer.current) {
@@ -90,17 +86,10 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
       flushTimer.current = null;
     }
 
-    fetch(`${API_URL}/interactions/batch`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify({ events }),
-    }).catch((err) => {
-      console.warn("[interactions/batch] flush failed:", err?.message || err);
+    apiFetch("/interactions/batch", { session, method: "POST", body: { events } }).catch((err) => {
+      warn("[interactions/batch] flush failed:", err?.message || err);
     });
-  }, [API_URL, accessToken]);
+  }, [session]);
 
   const scheduleFlush = useCallback(() => {
     if (flushTimer.current) return; // already scheduled
@@ -114,28 +103,21 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
 
   const track = useCallback(
     (params: TrackParams) => {
-      if (!API_URL || !accessToken) return;
+      if (!session?.access_token) return;
       if (!params.interaction_type) return;
       if (!params.recipe_key && !params.ingredient_key) return;
 
       // Fire-and-forget single event
-      fetch(`${API_URL}/interactions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify(params),
-      }).catch((err) => {
-        console.warn("[interactions] track failed:", err?.message || err);
+      apiFetch("/interactions", { session, method: "POST", body: params }).catch((err) => {
+        warn("[interactions] track failed:", err?.message || err);
       });
     },
-    [API_URL, accessToken],
+    [session],
   );
 
   const queueView = useCallback(
     (params: Omit<TrackParams, "interaction_type">) => {
-      if (!accessToken) return;
+      if (!session?.access_token) return;
       if (!params.recipe_key && !params.ingredient_key) return;
 
       viewQueue.current.push({ ...params, interaction_type: "view" });
@@ -147,7 +129,7 @@ export function InteractionProvider({ children }: { children: React.ReactNode })
         scheduleFlush();
       }
     },
-    [accessToken, doFlush, scheduleFlush],
+    [session, doFlush, scheduleFlush],
   );
 
   const flushViews = useCallback(() => {
