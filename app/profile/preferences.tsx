@@ -25,6 +25,12 @@ const LEARNED_DISPLAY_DIMS: { key: string; label: string }[] = [
   { key: "smoky",          label: "Smoky" },
 ];
 
+const SLIDER_DIM_MAP: Record<string, "sweetness" | "bitterness" | "alcoholStrength"> = {
+  sweetness: "sweetness",
+  bitterness: "bitterness",
+  alcoholStrength: "alcoholStrength",
+};
+
 function LearnedDimRow({ label, value }: { label: string; value: number }) {
   const pct = Math.round((value / 5) * 100);
   return (
@@ -255,6 +261,34 @@ export default function TabZeroPreferencesScreen() {
     preferences.safetyMode.avoidAllergens,
     preferences.safetyMode.avoidCaffeineAlcohol,
   ]);
+
+  const draftSliderValues: Record<string, number> = useMemo(
+    () => ({
+      sweetness: Number(draftSweetness),
+      bitterness: Number(draftBitterness),
+      alcoholStrength: Number(draftAlcohol),
+    }),
+    [draftSweetness, draftBitterness, draftAlcohol]
+  );
+
+  const mergedLearnedVector = useMemo(() => {
+    if (!learnedVector) return null;
+
+    const merged: Record<string, number> = {};
+
+    for (const { key } of LEARNED_DISPLAY_DIMS) {
+      const learnedVal = Number(learnedVector[key] ?? 2.5);
+
+      if (key in SLIDER_DIM_MAP) {
+        const sliderNorm = (draftSliderValues[key] / 3) * 5;
+        merged[key] = Math.max(0, Math.min(5, sliderNorm * 0.6 + learnedVal * 0.4));
+      } else {
+        merged[key] = learnedVal;
+      }
+    }
+
+    return merged;
+  }, [learnedVector, draftSliderValues]);
 
   const disabled = !hydrated;
 
@@ -489,7 +523,7 @@ export default function TabZeroPreferencesScreen() {
                 </Text>
                 <View style={{ gap: 10 }}>
                   {LEARNED_DISPLAY_DIMS.map(({ key, label }) => {
-                    const val = learnedVector[key];
+                    const val = mergedLearnedVector?.[key];
                     if (val === undefined || val === null) return null;
                     return <LearnedDimRow key={key} label={label} value={Number(val)} />;
                   })}
