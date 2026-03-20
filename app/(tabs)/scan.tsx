@@ -1,21 +1,21 @@
-import OaklandDusk from "@/constants/OaklandDusk";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
+import { MissingIngredientsList } from "@/components/MissingIngredientsList";
+import { FEATURE_FLAGS } from "@/constants/Features";
+import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
+import { useInteractions } from "@/context/interactions";
 import { useInventory } from "@/context/inventory";
 import { useLearnedPreferences } from "@/context/learnedPreferences";
 import {
   aggregateIngredientVectors,
-  getUnknownIngredients,
-  normalizeIngredientKey,
-  isAlcoholicIngredient,
   fetchCategoryMap,
+  getUnknownIngredients,
+  isAlcoholicIngredient,
+  normalizeIngredientKey,
 } from "@/context/ontology";
-import { useInteractions } from "@/context/interactions";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
-import { FEATURE_FLAGS } from "@/constants/Features";
-import { MissingIngredientsList } from "@/components/MissingIngredientsList";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
@@ -875,20 +875,10 @@ export default function TabOneScreen() {
     const v = String(display || "").trim();
     if (!v) return "";
 
-    if (!API_URL) return String(normalizeIngredientKey(v) || "").trim();
-
-    try {
-      const url = `${API_URL}/debug/canonicalize?q=${encodeURIComponent(v)}`;
-      const r = await fetch(url);
-      if (!r.ok) return String(normalizeIngredientKey(v) || "").trim();
-
-      const j = (await r.json()) as CanonicalizeResponse;
-      const c = String(j?.canonical || "").trim();
-      const norm = String(normalizeIngredientKey(c) || "").trim();
-      return norm || String(normalizeIngredientKey(v) || "").trim();
-    } catch {
-      return String(normalizeIngredientKey(v) || "").trim();
-    }
+    // F3 Security: removed /debug/canonicalize call (requires admin auth).
+    // Use local normalizeIngredientKey instead — backend /inventory POST
+    // also applies smartCanonicalize as a safety net.
+    return String(normalizeIngredientKey(v) || "").trim();
   };
 
   const regenerateRecipes = async (overrideIngredients?: ActiveIngredient[]) => {
@@ -1384,6 +1374,12 @@ export default function TabOneScreen() {
     setHasRecommendedLocal(false);
 
     try {
+      // F1 Security: all /analyze-image calls must include auth header
+      const analyzeHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        analyzeHeaders["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const pre = await preprocessImageForAnalyze(imageUri, pickedBase64, 650_000);
       setLastUploadInfo({
         stage: "preprocess",
@@ -1394,7 +1390,7 @@ export default function TabOneScreen() {
 
       let resp = await fetch(`${API_URL}/analyze-image`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: analyzeHeaders,
         body: JSON.stringify({
           image_base64: pre.base64,
           return_raw: true,
@@ -1416,7 +1412,7 @@ export default function TabOneScreen() {
 
         resp = await fetch(`${API_URL}/analyze-image`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: analyzeHeaders,
           body: JSON.stringify({
             image_base64: pre2.base64,
             return_raw: true,
@@ -1438,7 +1434,7 @@ export default function TabOneScreen() {
 
           resp = await fetch(`${API_URL}/analyze-image`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: analyzeHeaders,
             body: JSON.stringify({
               image_base64: pre3.base64,
               return_raw: true,
@@ -1460,7 +1456,7 @@ export default function TabOneScreen() {
 
             resp = await fetch(`${API_URL}/analyze-image`, {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: analyzeHeaders,
               body: JSON.stringify({
                 image_base64: pre4.base64,
                 return_raw: true,
@@ -1598,9 +1594,13 @@ export default function TabOneScreen() {
     let canonicalKey = payload.ingredient_key;
     try {
       if (API_URL) {
+        const canonHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        if (session?.access_token) {
+          canonHeaders["Authorization"] = `Bearer ${session.access_token}`;
+        }
         const canonResponse = await fetch(`${API_URL}/canonicalize`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: canonHeaders,
           body: JSON.stringify({ items: [payload.ingredient_key] }),
         });
         const canonData = await canonResponse.json();
