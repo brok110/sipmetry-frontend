@@ -28,7 +28,6 @@ type SortBy =
   | 'family'
   | 'last_used_at'
   | 'brand_name'
-  | 'flavor_profile'
 type SortOrder = 'asc' | 'desc'
 
 // All 6 sort options shown in the dropdown
@@ -38,7 +37,6 @@ const DROPDOWN_SORT_OPTIONS: { key: SortBy; label: string }[] = [
   { key: 'family',           label: 'Family' },
   { key: 'last_used_at',     label: 'Last Used' },
   { key: 'brand_name',       label: 'Brand Name' },
-  { key: 'flavor_profile',   label: 'Flavor Profile' },
 ]
 
 
@@ -70,14 +68,6 @@ function sortInventory(items: InventoryItem[], by: SortBy, order: SortOrder): In
       }
       case 'brand_name': {
         return a.display_name.localeCompare(b.display_name) * dir
-      }
-      case 'flavor_profile': {
-        const fa = Array.isArray(a.flavor_profile) ? (a.flavor_profile[0] ?? '') : ''
-        const fb = Array.isArray(b.flavor_profile) ? (b.flavor_profile[0] ?? '') : ''
-        if (!fa && !fb) return 0
-        if (!fa) return 1
-        if (!fb) return -1
-        return fa.localeCompare(fb) * dir
       }
       default:
         return 0
@@ -391,8 +381,6 @@ function InventoryCard({
               ? `${formatAddedDate(item.updated_at)} · `
               : sortBy === 'last_used_at'
               ? `${formatRelativeTime(item.last_used_at)} · `
-              : sortBy === 'flavor_profile' && item.flavor_profile.length > 0
-              ? `${item.flavor_profile.join(', ')} · `
               : ''}
             {remainingMl}ml left ({parsedPct}%)
           </Text>
