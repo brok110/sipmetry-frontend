@@ -32,6 +32,7 @@ import {
   Dimensions,
   Image,
   Keyboard,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -1793,9 +1794,11 @@ export default function TabOneScreen() {
               }}
             >
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <Text style={{ fontWeight: "800", flex: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
-                  {name}
-                </Text>
+                <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + " cocktail")}`)}>
+                  <Text style={{ fontWeight: "800", color: OaklandDusk.brand.gold, textDecorationLine: "underline" }} numberOfLines={1}>
+                    {name}
+                  </Text>
+                </Pressable>
 
                 {rated ? (
                   <View
@@ -2468,9 +2471,11 @@ export default function TabOneScreen() {
                   }}
                 >
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <Text style={{ fontWeight: "800", flex: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
-                      {name}
-                    </Text>
+                    <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + " cocktail")}`)}>
+                      <Text style={{ fontWeight: "800", color: OaklandDusk.brand.gold, textDecorationLine: "underline" }} numberOfLines={1}>
+                        {name}
+                      </Text>
+                    </Pressable>
                     <Pressable
                       onPress={() => openRecipeInTab2(r as any, idx)}
                       style={{
