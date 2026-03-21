@@ -1,7 +1,9 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
-import React, { useMemo } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+
+import { apiFetch } from "@/lib/api";
 
 import { useAuth } from "@/context/auth";
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -49,6 +51,60 @@ export default function ProfileScreen() {
       return false;
     }
   }, []);
+
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = useCallback(() => {
+    Alert.alert(
+      isZh ? "刪除帳號" : "Delete Account",
+      isZh
+        ? "此操作不可逆。你的所有資料（庫存、收藏、偏好、互動紀錄）將被永久刪除。確定要繼續嗎？"
+        : "This action is irreversible. All your data (inventory, favorites, preferences, interactions) will be permanently deleted. Are you sure?",
+      [
+        { text: isZh ? "取消" : "Cancel", style: "cancel" },
+        {
+          text: isZh ? "永久刪除" : "Delete Permanently",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert(
+              isZh ? "最後確認" : "Final Confirmation",
+              isZh ? "真的要刪除帳號嗎？這無法復原。" : "Really delete your account? This cannot be undone.",
+              [
+                { text: isZh ? "取消" : "Cancel", style: "cancel" },
+                {
+                  text: isZh ? "確認刪除" : "Confirm Delete",
+                  style: "destructive",
+                  onPress: async () => {
+                    setDeleting(true);
+                    try {
+                      const resp = await apiFetch("/account", {
+                        session,
+                        method: "DELETE",
+                      });
+                      if (!resp.ok) {
+                        const body = await resp.json().catch(() => ({}));
+                        throw new Error(body?.error || `HTTP ${resp.status}`);
+                      }
+                      await signOut();
+                    } catch (e: any) {
+                      setDeleting(false);
+                      Alert.alert(
+                        "Error",
+                        isZh
+                          ? `刪除失敗：${e?.message || "未知錯誤"}`
+                          : `Deletion failed: ${e?.message || "Unknown error"}`
+                      );
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  }, [isZh, session, signOut]);
+
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
       {/* User info */}
@@ -177,20 +233,41 @@ export default function ProfileScreen() {
         </Pressable>
       </View>
 
-      {/* Sign out */}
+      {/* Sign out + Delete account */}
       {userEmail && (
-        <Pressable
-          onPress={signOut}
-          style={{
-            borderWidth: 1,
-            borderRadius: 12,
-            paddingVertical: 12,
-            alignItems: "center",
-            backgroundColor: "white",
-          }}
-        >
-          <Text style={{ fontWeight: "800", color: "#E11D48" }}>Sign Out</Text>
-        </Pressable>
+        <View style={{ gap: 10 }}>
+          <Pressable
+            onPress={signOut}
+            style={{
+              borderWidth: 1,
+              borderRadius: 12,
+              paddingVertical: 12,
+              alignItems: "center",
+              backgroundColor: "white",
+            }}
+          >
+            <Text style={{ fontWeight: "800", color: "#E11D48" }}>Sign Out</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleDeleteAccount}
+            disabled={deleting}
+            style={{
+              borderRadius: 12,
+              paddingVertical: 12,
+              alignItems: "center",
+              opacity: deleting ? 0.5 : 1,
+            }}
+          >
+            {deleting ? (
+              <ActivityIndicator size="small" color="#999" />
+            ) : (
+              <Text style={{ fontSize: 13, color: "#999" }}>
+                {isZh ? "刪除帳號" : "Delete Account"}
+              </Text>
+            )}
+          </Pressable>
+        </View>
       )}
     </ScrollView>
   );
