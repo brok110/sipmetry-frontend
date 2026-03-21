@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import { router } from "expo-router";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
@@ -229,8 +230,9 @@ export default function CartScreen() {
               {/* Recipe pills */}
               <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
                 {s.recipes.slice(0, 4).map((r) => (
-                  <View
+                  <Pressable
                     key={r.iba_code}
+                    onPress={() => router.push({ pathname: "/recipe", params: { iba_code: r.iba_code } })}
                     style={isTopPick ? {
                       backgroundColor: OaklandDusk.brand.tagBg,
                       borderRadius: 8,
@@ -250,7 +252,7 @@ export default function CartScreen() {
                     <Text style={{ fontSize: 11, color: isTopPick ? OaklandDusk.brand.gold : OaklandDusk.text.secondary }}>
                       {r.name}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
                 {s.recipes.length > 4 && (
                   <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, alignSelf: "center" }}>
@@ -284,7 +286,7 @@ export default function CartScreen() {
               >
                 <FontAwesome name="external-link" size={14} color={isTopPick ? OaklandDusk.bg.void : OaklandDusk.brand.gold} />
                 <Text style={{ color: isTopPick ? OaklandDusk.bg.void : OaklandDusk.brand.gold, fontWeight: "800", fontSize: 14 }}>
-                  Find {s.display_name}
+                  Where to buy
                 </Text>
               </Pressable>
             </View>

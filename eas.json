@@ -19,7 +19,12 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://sipmetry-backend.onrender.com",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://cuvkwqtdmzlcpidjzrgy.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1dmt3cXRkbXpsY3BpZGp6cmd5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg5NjU0MTcsImV4cCI6MjA4NDU0MTQxN30.NKSAPbYh_d-XeDFBvicR7r-OkVJUEm6pWb2YjsL6lXA"
+      }
     }
   },
   "submit": {
