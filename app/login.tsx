@@ -9,7 +9,7 @@ import {
 } from 'react-native'
 
 export default function LoginScreen() {
-  const { signInWithEmail, signUpWithEmail, signInWithApple, signInWithGoogle } = useAuth()
+  const { signInWithEmail, signUpWithEmail, signInWithApple } = useAuth()
   const router = useRouter()
 
   const [email, setEmail] = useState('')
@@ -41,15 +41,6 @@ export default function LoginScreen() {
     setLoading(true)
     setError(null)
     const { error } = await signInWithApple()
-    setLoading(false)
-    if (error) setError(error)
-    else router.replace('/(tabs)/scan')
-  }
-
-  const handleGoogle = async () => {
-    setLoading(true)
-    setError(null)
-    const { error } = await signInWithGoogle()
     setLoading(false)
     if (error) setError(error)
     else router.replace('/(tabs)/scan')
@@ -153,20 +144,6 @@ export default function LoginScreen() {
         </View>
       ) : null}
 
-      {/* 3. Continue with Google */}
-      <Pressable
-        onPress={handleGoogle}
-        disabled={loading}
-        style={{
-          borderWidth: 1,
-          borderColor: OaklandDusk.bg.border,
-          borderRadius: 12,
-          paddingVertical: 14,
-          alignItems: 'center',
-        }}
-      >
-        <Text style={{ fontWeight: '800', color: OaklandDusk.text.primary }}>Continue with Google</Text>
-      </Pressable>
     </ScrollView>
   )
 }
