@@ -18,7 +18,9 @@
       "bundleIdentifier": "com.sipmetry.app",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSCameraUsageDescription": "Sipmetry uses your camera to scan and identify bottles in your bar.",
+        "NSPhotoLibraryUsageDescription": "Sipmetry accesses your photo library so you can scan bottle photos you have already taken."
       }
     },
     "android": {
