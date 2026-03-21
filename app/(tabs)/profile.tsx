@@ -1,7 +1,7 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
 
 import { apiFetch } from "@/lib/api";
 
@@ -228,6 +228,48 @@ export default function ProfileScreen() {
           <Text style={{ fontSize: 14 }}>📸</Text>
           <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
             {isZh ? "拍照小技巧" : "Photo tips"}
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => Linking.openURL("https://brok110.github.io/sipmetry-frontend/privacy")}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderWidth: 0.5,
+            borderRadius: 10,
+            borderColor: OaklandDusk.bg.border,
+            backgroundColor: OaklandDusk.bg.card,
+          }}
+        >
+          <Text style={{ fontSize: 14 }}>🔒</Text>
+          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            {isZh ? "隱私政策" : "Privacy Policy"}
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => Linking.openURL("https://brok110.github.io/sipmetry-frontend/terms")}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderWidth: 0.5,
+            borderRadius: 10,
+            borderColor: OaklandDusk.bg.border,
+            backgroundColor: OaklandDusk.bg.card,
+          }}
+        >
+          <Text style={{ fontSize: 14 }}>📄</Text>
+          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            {isZh ? "服務條款" : "Terms of Service"}
           </Text>
           <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
         </Pressable>
