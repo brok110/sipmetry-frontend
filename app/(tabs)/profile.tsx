@@ -233,6 +233,27 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Pressable
+          onPress={() => router.push("/profile/feedback" as any)}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            paddingVertical: 12,
+            paddingHorizontal: 16,
+            borderWidth: 0.5,
+            borderRadius: 10,
+            borderColor: OaklandDusk.bg.border,
+            backgroundColor: OaklandDusk.bg.card,
+          }}
+        >
+          <Text style={{ fontSize: 14 }}>💬</Text>
+          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            {isZh ? "意見回饋" : "Send Feedback"}
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+        </Pressable>
+
+        <Pressable
           onPress={() => Linking.openURL("https://brok110.github.io/sipmetry-frontend/privacy")}
           style={{
             flexDirection: "row",
