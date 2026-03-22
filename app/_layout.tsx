@@ -1,12 +1,12 @@
-import 'react-native-gesture-handler'
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
-import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { Pressable, Text } from 'react-native';
+import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import OaklandDusk from '@/constants/OaklandDusk';
@@ -18,6 +18,26 @@ import { InventoryProvider } from '@/context/inventory';
 import { LearnedPreferencesProvider } from '@/context/learnedPreferences';
 import { LowStockAlertProvider } from '@/context/lowStockAlert';
 import { PreferencesProvider } from '@/context/preferences';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://5746e03e9e4fd90e2a91437ead4be5a9@o4511090479792128.ingest.us.sentry.io/4511090491981824',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 export {
   ErrorBoundary
@@ -29,7 +49,7 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
@@ -70,7 +90,7 @@ export default function RootLayout() {
     </AuthProvider>
     </GestureHandlerRootView>
   );
-}
+});
 
 function RootLayoutNav() {
   const { user, hydrated } = useAuth();

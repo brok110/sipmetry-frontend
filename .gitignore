@@ -45,3 +45,5 @@ yarn-error.*
 
 .vscode/
 app/.vscode/
+
+.env.local

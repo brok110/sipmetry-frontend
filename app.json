@@ -46,6 +46,14 @@
           "icon": "./assets/images/icon.png",
           "color": "#D4A017"
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "sipmetry"
+        }
       ]
     ],
     "experiments": {
