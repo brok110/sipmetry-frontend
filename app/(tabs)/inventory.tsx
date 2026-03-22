@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -398,9 +399,11 @@ function InventoryCard({
       {/* Header */}
       <View style={styles.cardHeader}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={styles.cardName} numberOfLines={1}>
-            {item.display_name}
-          </Text>
+          <Pressable onPress={() => Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(item.display_name + " bottle")}`)}>
+            <Text style={[styles.cardName, { color: OaklandDusk.brand.gold, textDecorationLine: "underline" }]} numberOfLines={1}>
+              {item.display_name}
+            </Text>
+          </Pressable>
           <Text style={styles.cardMeta}>
             {sortBy === 'date_added'
               ? `${formatAddedDate(item.updated_at)} · `
