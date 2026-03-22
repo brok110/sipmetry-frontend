@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import type { Session } from "@supabase/supabase-js";
 import { log, warn } from "@/lib/logger";
 
 export type IngredientKey = string;
@@ -685,7 +686,7 @@ const ALCOHOLIC_CATEGORIES = new Set([
 let _categoryMap: Record<string, string> | null = null;
 let _categoryFetchPromise: Promise<void> | null = null;
 
-export async function fetchCategoryMap(session?: { access_token: string } | null): Promise<void> {
+export async function fetchCategoryMap(session?: Session | null): Promise<void> {
   if (_categoryMap) return;
   if (_categoryFetchPromise) return _categoryFetchPromise;
 

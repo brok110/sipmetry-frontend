@@ -210,20 +210,42 @@ export default function CartScreen() {
             )}
 
             <View style={{ padding: 14, gap: 10 }}>
-              {/* Bottle name + unlock count */}
+              {/* Bottle name + unlock count + buy icon */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Text style={{ fontSize: 17, fontWeight: "900", color: OaklandDusk.text.primary, flex: 1 }}>
                   {s.display_name}
                 </Text>
-                <View style={{
-                  borderRadius: 12,
-                  paddingHorizontal: 10,
-                  paddingVertical: 3,
-                  backgroundColor: "rgba(107,143,107,0.12)",
-                }}>
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: "#6B8F6B" }}>
-                    +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
-                  </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{
+                    borderRadius: 12,
+                    paddingHorizontal: 10,
+                    paddingVertical: 3,
+                    backgroundColor: "rgba(107,143,107,0.12)",
+                  }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#6B8F6B" }}>
+                      +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => handleBuy(s)}
+                    hitSlop={10}
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: isTopPick ? OaklandDusk.brand.gold : "transparent",
+                      borderWidth: isTopPick ? 0 : 1,
+                      borderColor: OaklandDusk.brand.gold,
+                    }}
+                  >
+                    <FontAwesome
+                      name="shopping-cart"
+                      size={14}
+                      color={isTopPick ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
+                    />
+                  </Pressable>
                 </View>
               </View>
 
@@ -261,34 +283,6 @@ export default function CartScreen() {
                 )}
               </View>
 
-              {/* Find button — solid gold for TOP PICK, outline gold for regular */}
-              <Pressable
-                onPress={() => handleBuy(s)}
-                style={isTopPick ? {
-                  backgroundColor: OaklandDusk.brand.gold,
-                  borderRadius: 10,
-                  paddingVertical: 12,
-                  alignItems: "center",
-                  flexDirection: "row",
-                  justifyContent: "center",
-                  gap: 8,
-                } : {
-                  backgroundColor: "transparent",
-                  borderWidth: 1,
-                  borderColor: OaklandDusk.brand.gold,
-                  borderRadius: 10,
-                  paddingVertical: 12,
-                  alignItems: "center",
-                  flexDirection: "row",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-              >
-                <FontAwesome name="external-link" size={14} color={isTopPick ? OaklandDusk.bg.void : OaklandDusk.brand.gold} />
-                <Text style={{ color: isTopPick ? OaklandDusk.bg.void : OaklandDusk.brand.gold, fontWeight: "800", fontSize: 14 }}>
-                  Where to buy
-                </Text>
-              </Pressable>
             </View>
           </View>
         );

@@ -1,8 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet, Pressable } from "react-native";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { PurchaseButton } from "./PurchaseButton";
 import { FEATURE_FLAGS } from "@/constants/Features";
 import OaklandDusk from "@/constants/OaklandDusk";
+import { usePurchaseIntent } from "@/hooks/usePurchaseIntent";
 
 interface Ingredient {
   key: string;
@@ -22,6 +24,8 @@ export function MissingIngredientsList({
   recipeTitle,
   source = "missing_ingredients",
 }: MissingIngredientsListProps) {
+  const { trackAndOpenPurchaseLink } = usePurchaseIntent();
+
   if (missingIngredients.length === 0) {
     return null;
   }
@@ -33,9 +37,37 @@ export function MissingIngredientsList({
       ? ingredient.display_name.charAt(0).toUpperCase() + ingredient.display_name.slice(1)
       : ingredient.key.replace(/_/g, " ");
 
+    const handleFind = () => {
+      trackAndOpenPurchaseLink({
+        ingredientKey: ingredient.key,
+        displayName: name,
+        source,
+        recipeId,
+      });
+    };
+
     return (
       <View style={styles.singleCard}>
-        <Text style={styles.singleCardHeader}>🔓 1 ingredient away!</Text>
+        {/* Header row: "1 ingredient away!" + shopping cart icon */}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <Text style={styles.singleCardHeader}>🔓 1 ingredient away!</Text>
+          {FEATURE_FLAGS.ENABLE_PURCHASE_INTENT && (
+            <Pressable
+              onPress={handleFind}
+              hitSlop={10}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: OaklandDusk.brand.gold,
+              }}
+            >
+              <FontAwesome name="shopping-cart" size={14} color={OaklandDusk.bg.void} />
+            </Pressable>
+          )}
+        </View>
 
         {recipeTitle ? (
           <Text style={styles.singleCardBody}>
@@ -45,19 +77,6 @@ export function MissingIngredientsList({
           <Text style={styles.singleCardBody}>
             Just <Text style={{ fontWeight: "700" }}>{name}</Text> away from this cocktail
           </Text>
-        )}
-
-        {FEATURE_FLAGS.ENABLE_PURCHASE_INTENT && (
-          <View style={styles.singleCardButton}>
-            <PurchaseButton
-              ingredientKey={ingredient.key}
-              displayName={name}
-              source={source}
-              recipeId={recipeId}
-              variant="primary"
-              size="medium"
-            />
-          </View>
         )}
       </View>
     );
@@ -106,6 +125,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800",
     color: OaklandDusk.brand.gold,
+    flex: 1,
   },
   singleCardBody: {
     fontSize: 14,
