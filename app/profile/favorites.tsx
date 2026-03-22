@@ -1,8 +1,10 @@
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
 
+import Card from "@/components/ui/Card";
+import Pill from "@/components/ui/Pill";
+import SwipeRow from "@/components/ui/SwipeRow";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useFeedback } from "@/context/feedback";
 import { aggregateIngredientVectors, buildFourWordDescriptor } from "@/context/ontology";
@@ -80,7 +82,6 @@ export default function TabThreeScreen() {
     return arr.sort((a: any, b: any) => (b.saved_at ?? 0) - (a.saved_at ?? 0));
   }, [favoritesByKey]);
 
-  // Build inventory key set for availability checks
   const invKeySet = useMemo(() => {
     if (!inventoryInitialized) return null;
     const s = new Set<string>();
@@ -175,112 +176,67 @@ export default function TabThreeScreen() {
   return (
     <ScrollView
       style={{ backgroundColor: OaklandDusk.bg.void }}
-      contentContainerStyle={{ padding: 16, gap: 12 }}
+      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
     >
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <FontAwesome name="heart" size={20} color="#E11D48" />
-        <Text style={{ fontSize: 20, fontWeight: "900", color: OaklandDusk.text.primary }}>My Favorites</Text>
-      </View>
+      <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary, marginBottom: 16 }}>
+        Favorites
+      </Text>
 
       {favoritesList.length === 0 ? (
         <Text style={{ color: OaklandDusk.text.tertiary }}>(No favorites yet)</Text>
       ) : (
-        <View style={{ gap: 10 }}>
+        <View>
           {favoritesList.map((fav: any) => {
             const key = String(fav.recipe_key || "");
             const title = String(fav.title ?? "Recipe").trim() || "Recipe";
             const subtitle = getSubtitleForFavorite(fav);
             const avail = getAvailability(fav);
+            const tags = asStringList(fav?.tags);
 
             return (
-              <View
+              <SwipeRow
                 key={key}
-                style={{
-                  borderWidth: 1,
-                  borderColor: OaklandDusk.bg.border,
-                  borderRadius: 12,
-                  padding: 12,
-                  gap: 8,
-                  backgroundColor: OaklandDusk.bg.card,
-                }}
+                deleteLabel="Unfavorite"
+                onDelete={() => onRemoveWithConfirm(key)}
               >
-                {/* Header: title + ⋯ options */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <Text style={{ fontWeight: "800", flex: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
-                    {title}
-                  </Text>
-
-                  <Pressable
-                    onPress={() =>
-                      Alert.alert(title, undefined, [
-                        { text: "View recipe", onPress: () => openFavorite(key) },
-                        {
-                          text: "Remove from Favorites",
-                          style: "destructive",
-                          onPress: () => onRemoveWithConfirm(key),
-                        },
-                        { text: "Cancel", style: "cancel" },
-                      ])
-                    }
-                    hitSlop={12}
-                    style={{ paddingHorizontal: 8, paddingVertical: 4 }}
-                  >
-                    <Text style={{ fontSize: 18, color: OaklandDusk.text.tertiary }}>⋯</Text>
-                  </Pressable>
-                </View>
-
-                {/* Subtitle */}
-                {subtitle ? (
-                  <Text style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>{subtitle}</Text>
-                ) : null}
-
-                {/* Availability badge */}
-                {avail !== null ? (
-                  avail.ready ? (
-                    <Text style={{ fontSize: 12, color: "#22C55E", fontWeight: "600" }}>
-                      ✓ Ready to make
-                    </Text>
-                  ) : (
-                    <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }}>
-                      ✗ Missing {avail.missingCount} ingredient{avail.missingCount !== 1 ? "s" : ""}
-                    </Text>
-                  )
-                ) : null}
-
-                {/* Contextual primary CTA */}
-                <Pressable
-                  onPress={() => openFavorite(key)}
-                  style={{
-                    borderRadius: 10,
-                    paddingVertical: 10,
-                    alignItems: "center",
-                    ...(avail?.ready
-                      ? { backgroundColor: "#D4A030" }
-                      : {
-                          backgroundColor: "transparent",
-                          borderWidth: 1,
-                          borderColor: OaklandDusk.bg.border,
-                        }),
-                  }}
-                >
-                  <Text
-                    style={{
-                      fontWeight: "800",
-                      fontSize: 14,
-                      color: avail?.ready ? "#1A1A2E" : OaklandDusk.text.secondary,
-                    }}
-                  >
-                    {avail?.ready
-                      ? "Make it →"
-                      : avail !== null
-                      ? "See what's missing →"
-                      : "View recipe →"}
-                  </Text>
-                </Pressable>
-              </View>
+                <Card>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(title + " cocktail")}`)}>
+                      <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
+                        {title}
+                      </Text>
+                      {subtitle ? (
+                        <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                          {subtitle}
+                        </Text>
+                      ) : null}
+                      <View style={{ flexDirection: "row", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                        {tags.slice(0, 3).map((t) => (
+                          <Pill key={t} label={t} />
+                        ))}
+                        {avail && avail.missingCount > 0 && (
+                          <Pill label={`Missing ${avail.missingCount}`} variant="missing" />
+                        )}
+                        {avail?.ready && (
+                          <Pill label="Ready" variant="ready" />
+                        )}
+                      </View>
+                    </Pressable>
+                    <Pressable onPress={() => openFavorite(key)} hitSlop={12} style={{ paddingLeft: 12 }}>
+                      <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 18 }}>›</Text>
+                    </Pressable>
+                  </View>
+                </Card>
+              </SwipeRow>
             );
           })}
         </View>
+      )}
+
+      {favoritesList.length > 0 && (
+        <Text style={{ fontSize: 11, color: OaklandDusk.text.disabled, textAlign: "center", marginTop: 16 }}>
+          Swipe left to unfavorite
+        </Text>
       )}
     </ScrollView>
   );

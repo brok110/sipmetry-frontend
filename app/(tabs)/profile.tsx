@@ -9,7 +9,7 @@ import { useAuth } from "@/context/auth";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useUnitPreference } from "@/hooks/useUnitPreference";
 
-function ProfileMenuItem({
+function ProfileRow({
   icon,
   label,
   onPress,
@@ -26,14 +26,13 @@ function ProfileMenuItem({
         alignItems: "center",
         gap: 12,
         padding: 14,
-        borderWidth: 1,
         borderRadius: 12,
-        backgroundColor: "white",
+        backgroundColor: OaklandDusk.bg.card,
       }}
     >
-      <FontAwesome name={icon} size={18} color="#555" />
-      <Text style={{ fontWeight: "800", flex: 1 }}>{label}</Text>
-      <FontAwesome name="chevron-right" size={14} color="#999" />
+      <FontAwesome name={icon} size={18} color={OaklandDusk.text.secondary} />
+      <Text style={{ fontWeight: "600", flex: 1, color: OaklandDusk.text.primary }}>{label}</Text>
+      <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
     </Pressable>
   );
 }
@@ -106,51 +105,51 @@ export default function ProfileScreen() {
   }, [isZh, session, signOut]);
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
-      {/* User info */}
-      <View style={{ padding: 16, borderWidth: 1, borderRadius: 12, gap: 10, backgroundColor: "white" }}>
-        <FontAwesome name="user-circle" size={40} color="#333" style={{ alignSelf: "center" }} />
+    <ScrollView
+      style={{ backgroundColor: OaklandDusk.bg.void }}
+      contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+    >
+      {/* Avatar / email card */}
+      <View style={{
+        padding: 20,
+        borderRadius: 14,
+        backgroundColor: OaklandDusk.bg.card,
+        alignItems: "center",
+        gap: 10,
+      }}>
+        <FontAwesome name="user-circle" size={40} color={OaklandDusk.brand.gold} />
         {userEmail ? (
-          <Text style={{ textAlign: "center", fontWeight: "700", color: "#333" }}>{userEmail}</Text>
+          <Text style={{ textAlign: "center", fontWeight: "600", color: OaklandDusk.text.primary }}>{userEmail}</Text>
         ) : (
           <>
-            <Text style={{ textAlign: "center", color: "#888" }}>Not signed in</Text>
+            <Text style={{ textAlign: "center", color: OaklandDusk.text.secondary }}>Not signed in</Text>
             <Pressable
               onPress={() => router.push("/login")}
               style={{
-                alignSelf: "center",
-                borderWidth: 1,
                 borderRadius: 999,
                 paddingHorizontal: 20,
                 paddingVertical: 10,
-                backgroundColor: "#111",
+                backgroundColor: OaklandDusk.brand.gold,
               }}
             >
-              <Text style={{ fontWeight: "800", color: "white" }}>Sign In</Text>
+              <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>Sign In</Text>
             </Pressable>
           </>
         )}
       </View>
 
       {/* Menu items */}
-      <View style={{ gap: 10 }}>
-        <ProfileMenuItem
+      <View style={{ gap: 8 }}>
+        <ProfileRow
           icon="sliders"
           label="Preferences"
           onPress={() => router.push("/profile/preferences")}
         />
-        <ProfileMenuItem
+        <ProfileRow
           icon="heart"
           label="Favorites"
           onPress={() => router.push("/profile/favorites")}
         />
-        {/* Stage 12: Taste DNA — hidden during development
-        <ProfileMenuItem
-          icon="pie-chart"
-          label="Taste DNA"
-          onPress={() => router.push("/profile/taste-dna" as any)}
-        />
-        */}
 
         {/* Recipe unit toggle */}
         <View style={{
@@ -158,9 +157,11 @@ export default function ProfileScreen() {
           alignItems: "center",
           justifyContent: "space-between",
           paddingVertical: 12,
-          paddingHorizontal: 4,
+          paddingHorizontal: 14,
+          borderRadius: 12,
+          backgroundColor: OaklandDusk.bg.card,
         }}>
-          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>
+          <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
             Recipe Units
           </Text>
           <View style={{ flexDirection: "row", gap: 0 }}>
@@ -173,11 +174,11 @@ export default function ProfileScreen() {
                 borderBottomLeftRadius: 10,
                 borderWidth: 1,
                 borderColor: OaklandDusk.bg.border,
-                backgroundColor: displayUnit === "oz" ? OaklandDusk.brand.gold : "transparent",
+                backgroundColor: displayUnit === "oz" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
               }}
             >
               <Text style={{
-                fontWeight: "800",
+                fontWeight: "700",
                 fontSize: 13,
                 color: displayUnit === "oz" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
               }}>oz</Text>
@@ -192,11 +193,11 @@ export default function ProfileScreen() {
                 borderWidth: 1,
                 borderLeftWidth: 0,
                 borderColor: OaklandDusk.bg.border,
-                backgroundColor: displayUnit === "ml" ? OaklandDusk.brand.gold : "transparent",
+                backgroundColor: displayUnit === "ml" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
               }}
             >
               <Text style={{
-                fontWeight: "800",
+                fontWeight: "700",
                 fontSize: 13,
                 color: displayUnit === "ml" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
               }}>ml</Text>
@@ -207,7 +208,7 @@ export default function ProfileScreen() {
         <Pressable
           onPress={() => {
             Alert.alert(
-              isZh ? "📸 拍照小技巧" : "📸 Photo Tips",
+              isZh ? "📸 拍照小技巧" : "Photo Tips",
               isZh
                 ? "🏷️ 讓酒瓶標籤正面朝向鏡頭，距離約 30-50cm\n\n💡 確保光線充足，標籤文字清晰可見\n\n🍾 一次拍 1-4 瓶，標籤之間不要互相遮擋\n\n🔍 如果某瓶辨識失敗，可以單獨拍那瓶的標籤特寫"
                 : "🏷️ Face bottle labels toward the camera, about 30-50cm away\n\n💡 Make sure lighting is good and label text is clearly visible\n\n🍾 Capture 1-4 bottles at a time, don't let labels overlap\n\n🔍 If a bottle isn't recognized, try a close-up of just that label"
@@ -218,18 +219,16 @@ export default function ProfileScreen() {
             alignItems: "center",
             gap: 10,
             paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderWidth: 0.5,
-            borderRadius: 10,
-            borderColor: OaklandDusk.bg.border,
+            paddingHorizontal: 14,
+            borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
           }}
         >
-          <Text style={{ fontSize: 14 }}>📸</Text>
+          <FontAwesome name="camera" size={16} color={OaklandDusk.text.secondary} />
           <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
             {isZh ? "拍照小技巧" : "Photo tips"}
           </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
         </Pressable>
 
         <Pressable
@@ -239,18 +238,16 @@ export default function ProfileScreen() {
             alignItems: "center",
             gap: 10,
             paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderWidth: 0.5,
-            borderRadius: 10,
-            borderColor: OaklandDusk.bg.border,
+            paddingHorizontal: 14,
+            borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
           }}
         >
-          <Text style={{ fontSize: 14 }}>💬</Text>
+          <FontAwesome name="comment" size={16} color={OaklandDusk.text.secondary} />
           <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
             {isZh ? "意見回饋" : "Send Feedback"}
           </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
         </Pressable>
 
         <Pressable
@@ -260,18 +257,16 @@ export default function ProfileScreen() {
             alignItems: "center",
             gap: 10,
             paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderWidth: 0.5,
-            borderRadius: 10,
-            borderColor: OaklandDusk.bg.border,
+            paddingHorizontal: 14,
+            borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
           }}
         >
-          <Text style={{ fontSize: 14 }}>🔒</Text>
+          <FontAwesome name="lock" size={16} color={OaklandDusk.text.secondary} />
           <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
             {isZh ? "隱私政策" : "Privacy Policy"}
           </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
         </Pressable>
 
         <Pressable
@@ -281,18 +276,16 @@ export default function ProfileScreen() {
             alignItems: "center",
             gap: 10,
             paddingVertical: 12,
-            paddingHorizontal: 16,
-            borderWidth: 0.5,
-            borderRadius: 10,
-            borderColor: OaklandDusk.bg.border,
+            paddingHorizontal: 14,
+            borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
           }}
         >
-          <Text style={{ fontSize: 14 }}>📄</Text>
+          <FontAwesome name="file-text-o" size={16} color={OaklandDusk.text.secondary} />
           <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
             {isZh ? "服務條款" : "Terms of Service"}
           </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>›</Text>
+          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
         </Pressable>
       </View>
 
@@ -306,10 +299,11 @@ export default function ProfileScreen() {
               borderRadius: 12,
               paddingVertical: 12,
               alignItems: "center",
-              backgroundColor: "white",
+              borderColor: OaklandDusk.bg.border,
+              backgroundColor: OaklandDusk.bg.card,
             }}
           >
-            <Text style={{ fontWeight: "800", color: "#E11D48" }}>Sign Out</Text>
+            <Text style={{ fontWeight: "700", color: OaklandDusk.accent.crimson }}>Sign Out</Text>
           </Pressable>
 
           <Pressable
@@ -323,9 +317,9 @@ export default function ProfileScreen() {
             }}
           >
             {deleting ? (
-              <ActivityIndicator size="small" color="#999" />
+              <ActivityIndicator size="small" color={OaklandDusk.text.tertiary} />
             ) : (
-              <Text style={{ fontSize: 13, color: "#999" }}>
+              <Text style={{ fontSize: 13, color: OaklandDusk.text.disabled }}>
                 {isZh ? "刪除帳號" : "Delete Account"}
               </Text>
             )}

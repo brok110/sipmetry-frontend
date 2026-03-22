@@ -1,6 +1,8 @@
 import { apiFetch } from '@/lib/api'
 import OaklandDusk from '@/constants/OaklandDusk'
 import AddToInventoryModal from '@/components/AddToInventoryModal'
+import LevelRing from '@/components/ui/LevelRing'
+import SwipeRow from '@/components/ui/SwipeRow'
 import { useAuth } from '@/context/auth'
 import { InventoryItem, useInventory } from '@/context/inventory'
 import { usePurchaseIntent } from '@/hooks/usePurchaseIntent'
@@ -392,69 +394,37 @@ function InventoryCard({
 }) {
   const parsedPct = Math.round(Number(item.remaining_pct))
   const remainingMl = Math.round(Number(item.remaining_ml))
-  const isLow = parsedPct <= 15
+  const isLow = parsedPct < 20
 
   return (
-    <View style={styles.card}>
-      {/* Header */}
-      <View style={styles.cardHeader}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Pressable onPress={() => Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(item.display_name + " bottle")}`)}>
-            <Text style={[styles.cardName, { color: OaklandDusk.brand.gold, textDecorationLine: "underline" }]} numberOfLines={1}>
-              {item.display_name}
+    <SwipeRow
+      onEdit={() => onEdit(item)}
+      onDelete={() => onDelete(item.id, item.display_name)}
+    >
+      <View style={[styles.card, isLow && { backgroundColor: 'rgba(192,72,88,0.08)' }]}>
+        <View style={styles.cardHeader}>
+          {/* Info */}
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Pressable onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.display_name + ' bottle')}`)}>
+              <Text style={styles.cardName} numberOfLines={1}>
+                {item.display_name}
+              </Text>
+            </Pressable>
+            <Text style={styles.cardMeta}>
+              {sortBy === 'date_added'
+                ? `${formatAddedDate(item.updated_at)} · `
+                : sortBy === 'last_used_at'
+                ? `${formatRelativeTime(item.last_used_at)} · `
+                : ''}
+              {remainingMl}ml left
             </Text>
-          </Pressable>
-          <Text style={styles.cardMeta}>
-            {sortBy === 'date_added'
-              ? `${formatAddedDate(item.updated_at)} · `
-              : sortBy === 'last_used_at'
-              ? `${formatRelativeTime(item.last_used_at)} · `
-              : ''}
-            {remainingMl}ml left ({parsedPct}%)
-          </Text>
-        </View>
+          </View>
 
-        {/* Action buttons */}
-        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
-          <Pressable
-            onPress={() => onEdit(item)}
-            style={styles.editBtn}
-            hitSlop={8}
-          >
-            <Text style={styles.editBtnText}>Edit</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => onDelete(item.id, item.display_name)}
-            style={styles.deleteBtn}
-            hitSlop={8}
-          >
-            <Text style={styles.deleteBtnText}>✕</Text>
-          </Pressable>
+          {/* Level ring */}
+          <LevelRing percent={parsedPct} size={40} />
         </View>
       </View>
-
-      {/* Fill bar */}
-      <View style={styles.fillBarBg}>
-        <View
-          style={[
-            styles.fillBarFill,
-            {
-              width: `${Math.max(0, Math.min(100, parsedPct))}%` as any,
-              backgroundColor: isLow ? '#E53935' : '#D4A017',
-            },
-          ]}
-        />
-      </View>
-
-      {/* Low-stock restock nudge */}
-      {isLow && onRestock ? (
-        <Pressable onPress={onRestock} hitSlop={8} style={{ alignSelf: 'flex-start', marginTop: 2 }}>
-          <Text style={{ fontSize: 12, color: OaklandDusk.brand.gold, fontWeight: '600' }}>
-            Running low — Restock →
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
+    </SwipeRow>
   )
 }
 
@@ -801,50 +771,55 @@ export default function MyBarScreen() {
           </Text>
         </View>
       ) : (
-        <View style={styles.list}>
-          {sortBy === 'family'
-            ? (() => {
-                let lastGroup = ''
-                return sortedInventory.map((item) => {
-                  const group = formatFamilyKey(item.family_key)
-                  const showHeader = group !== lastGroup
-                  lastGroup = group
-                  return (
-                    <React.Fragment key={item.id}>
-                      {showHeader ? (
-                        <Text style={styles.sectionHeader}>{group}</Text>
-                      ) : null}
-                      <InventoryCard
-                        item={item}
-                        sortBy={sortBy}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        onRestock={() => trackAndOpenPurchaseLink({
-                        ingredientKey: item.ingredient_key,
-                        displayName: item.display_name,
-                        source: "my_bar",
-                      })}
-                      />
-                    </React.Fragment>
-                  )
-                })
-              })()
-            : sortedInventory.map((item) => (
-                <InventoryCard
-                  key={item.id}
-                  item={item}
-                  sortBy={sortBy}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onRestock={() => trackAndOpenPurchaseLink({
-                        ingredientKey: item.ingredient_key,
-                        displayName: item.display_name,
-                        source: "my_bar",
-                      })}
-                />
-              ))
-          }
-        </View>
+        <>
+          <View style={styles.list}>
+            {sortBy === 'family'
+              ? (() => {
+                  let lastGroup = ''
+                  return sortedInventory.map((item) => {
+                    const group = formatFamilyKey(item.family_key)
+                    const showHeader = group !== lastGroup
+                    lastGroup = group
+                    return (
+                      <React.Fragment key={item.id}>
+                        {showHeader ? (
+                          <Text style={styles.sectionHeader}>{group}</Text>
+                        ) : null}
+                        <InventoryCard
+                          item={item}
+                          sortBy={sortBy}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          onRestock={() => trackAndOpenPurchaseLink({
+                          ingredientKey: item.ingredient_key,
+                          displayName: item.display_name,
+                          source: "my_bar",
+                        })}
+                        />
+                      </React.Fragment>
+                    )
+                  })
+                })()
+              : sortedInventory.map((item) => (
+                  <InventoryCard
+                    key={item.id}
+                    item={item}
+                    sortBy={sortBy}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onRestock={() => trackAndOpenPurchaseLink({
+                          ingredientKey: item.ingredient_key,
+                          displayName: item.display_name,
+                          source: "my_bar",
+                        })}
+                  />
+                ))
+            }
+          </View>
+          <Text style={{ fontSize: 11, color: OaklandDusk.text.disabled, textAlign: 'center', marginTop: 16 }}>
+            Swipe left to edit or remove
+          </Text>
+        </>
       )}
     </ScrollView>
   )
@@ -871,8 +846,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   heading: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 28,
+    fontWeight: '600',
     marginBottom: 2,
     color: OaklandDusk.text.primary,
   },

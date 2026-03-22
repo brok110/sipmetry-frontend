@@ -139,7 +139,7 @@ export default function CartScreen() {
     >
       {/* Header */}
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 20, fontWeight: "900", color: OaklandDusk.brand.gold }}>Smart Restock</Text>
+        <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary }}>Smart Restock</Text>
         <Text style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>
           Buy one bottle, unlock multiple cocktails. Based on your bar inventory and taste.
         </Text>
@@ -190,99 +190,49 @@ export default function CartScreen() {
 
       {/* Suggestion cards */}
       {suggestions.map((s, i) => {
-        const isTopPick = i === 0;
+        const isFirst = i === 0;
         return (
           <View
             key={s.ingredient_key}
             style={{
-              borderWidth: isTopPick ? 1 : 0.5,
               borderRadius: 12,
-              borderColor: isTopPick ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
+              borderWidth: 0.5,
+              borderLeftWidth: isFirst ? 3 : 0.5,
+              borderColor: OaklandDusk.bg.border,
+              borderLeftColor: isFirst ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
               backgroundColor: OaklandDusk.bg.card,
               overflow: "hidden",
             }}
           >
-            {/* TOP PICK banner */}
-            {isTopPick && (
-              <View style={{ backgroundColor: OaklandDusk.brand.gold, paddingVertical: 4, paddingHorizontal: 12 }}>
-                <Text style={{ color: OaklandDusk.bg.void, fontWeight: "800", fontSize: 11 }}>TOP PICK</Text>
-              </View>
-            )}
-
-            <View style={{ padding: 14, gap: 10 }}>
-              {/* Bottle name + unlock count + buy icon */}
+            <View style={{ padding: 14, gap: 8 }}>
+              {/* Bottle name + shopping icon */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 17, fontWeight: "900", color: OaklandDusk.text.primary, flex: 1 }}>
+                <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary, flex: 1 }}>
                   {s.display_name}
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginLeft: 8 }}>
                   <View style={{
-                    borderRadius: 12,
-                    paddingHorizontal: 10,
+                    borderRadius: 10,
+                    paddingHorizontal: 8,
                     paddingVertical: 3,
                     backgroundColor: "rgba(107,143,107,0.12)",
                   }}>
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: "#6B8F6B" }}>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B8F6B" }}>
                       +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
                     </Text>
                   </View>
-                  <Pressable
-                    onPress={() => handleBuy(s)}
-                    hitSlop={10}
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 18,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: isTopPick ? OaklandDusk.brand.gold : "transparent",
-                      borderWidth: isTopPick ? 0 : 1,
-                      borderColor: OaklandDusk.brand.gold,
-                    }}
-                  >
-                    <FontAwesome
-                      name="shopping-cart"
-                      size={14}
-                      color={isTopPick ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
-                    />
+                  <Pressable onPress={() => handleBuy(s)} hitSlop={10}>
+                    <FontAwesome name="shopping-cart" size={16} color={OaklandDusk.brand.gold} />
                   </Pressable>
                 </View>
               </View>
 
-              {/* Recipe pills */}
-              <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                {s.recipes.slice(0, 4).map((r) => (
-                  <Pressable
-                    key={r.iba_code}
-                    onPress={() => router.push({ pathname: "/recipe", params: { iba_code: r.iba_code } })}
-                    style={isTopPick ? {
-                      backgroundColor: OaklandDusk.brand.tagBg,
-                      borderRadius: 8,
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderWidth: 0.5,
-                      borderColor: "rgba(201,164,88,.2)",
-                    } : {
-                      backgroundColor: "#160F28",
-                      borderRadius: 8,
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderWidth: 0.5,
-                      borderColor: OaklandDusk.bg.border,
-                    }}
-                  >
-                    <Text style={{ fontSize: 11, color: isTopPick ? OaklandDusk.brand.gold : OaklandDusk.text.secondary }}>
-                      {r.name}
-                    </Text>
-                  </Pressable>
-                ))}
-                {s.recipes.length > 4 && (
-                  <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, alignSelf: "center" }}>
-                    +{s.recipes.length - 4} more
-                  </Text>
-                )}
-              </View>
-
+              {/* Reason */}
+              {s.reason ? (
+                <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }} numberOfLines={2}>
+                  {s.reason}
+                </Text>
+              ) : null}
             </View>
           </View>
         );

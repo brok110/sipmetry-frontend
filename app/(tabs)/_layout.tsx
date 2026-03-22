@@ -5,7 +5,7 @@ import { AppState, AppStateStatus } from "react-native";
 
 import LowStockBanner from "@/components/LowStockBanner";
 import { useClientOnlyValue } from "@/components/useClientOnlyValue";
-import Colors from "@/constants/Colors";
+import OaklandDusk from "@/constants/OaklandDusk";
 import { useInventory } from "@/context/inventory";
 
 
@@ -49,11 +49,11 @@ export default function TabLayout() {
       <Tabs
         initialRouteName="scan"
         screenOptions={{
-          tabBarActiveTintColor: Colors['dark'].tint,
-          tabBarInactiveTintColor: Colors['dark'].tabIconDefault,
+          tabBarActiveTintColor: OaklandDusk.brand.gold,
+          tabBarInactiveTintColor: OaklandDusk.text.tertiary,
           tabBarStyle: {
-            backgroundColor: '#100C18',
-            borderTopColor: '#251810',
+            backgroundColor: OaklandDusk.bg.card,
+            borderTopColor: OaklandDusk.bg.border,
             borderTopWidth: 1,
           },
           tabBarLabelStyle: {
@@ -62,11 +62,11 @@ export default function TabLayout() {
           },
           headerShown: useClientOnlyValue(false, true),
           headerStyle: {
-            backgroundColor: '#08070C',
+            backgroundColor: OaklandDusk.bg.void,
           },
-          headerTintColor: '#F0E4C8',
+          headerTintColor: OaklandDusk.text.primary,
           headerTitleStyle: {
-            color: '#F0E4C8',
+            color: OaklandDusk.text.primary,
           },
         }}
       >

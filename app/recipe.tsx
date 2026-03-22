@@ -806,7 +806,7 @@ export default function TabTwoScreen() {
       // 3. 確認 dialog
       const lines = toDeduct.map((x) => `• ${x.display_name}: −${x.amount_ml}ml`)
       Alert.alert(
-        servings > 1 ? `I made this! 🍹 ×${servings}` : 'I made this! 🍹',
+        servings > 1 ? `I made this! ×${servings}` : 'I made this!',
         `Deduct from My Bar:\n\n${lines.join('\n')}`,
         [
           { text: 'Cancel', style: 'cancel' },
@@ -951,20 +951,6 @@ export default function TabTwoScreen() {
           </View>
         ) : null}
 
-        <Pressable
-          onPress={() => router.back()}
-          style={{
-            alignSelf: "flex-start",
-            borderWidth: 1,
-            borderColor: OaklandDusk.bg.border,
-            borderRadius: 999,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            marginTop: 8,
-          }}
-        >
-          <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Back</Text>
-        </Pressable>
       </ScrollView>
     );
   }
@@ -979,40 +965,13 @@ export default function TabTwoScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Pressable onPress={() => router.back()} hitSlop={12} style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
-            <FontAwesome name="arrow-left" color={OaklandDusk.text.tertiary} size={18} />
-          </Pressable>
-
-          <Text style={{ fontSize: 22, fontWeight: "900", flex: 1, color: OaklandDusk.text.primary }}>
+          <Text style={{ fontSize: 22, fontWeight: "700", flex: 1, color: OaklandDusk.text.primary }}>
             {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
           </Text>
 
           <Pressable onPress={onToggleFavorite} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-            <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? "#E11D48" : OaklandDusk.text.tertiary} size={20} />
+            <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />
           </Pressable>
-
-          {false && (
-            <Pressable onPress={createShareAndGo} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-              <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
-            </Pressable>
-          )}
-
-          {__DEV__ ? (
-            <Pressable
-              onPress={copyDebug}
-              hitSlop={10}
-              style={{
-                borderWidth: 1,
-                borderColor: OaklandDusk.bg.border,
-                borderRadius: 999,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                marginLeft: 8,
-              }}
-            >
-              <Text style={{ fontWeight: "800", color: OaklandDusk.text.tertiary }}>Copy Debug</Text>
-            </Pressable>
-          ) : null}
         </View>
 
         {headerLine ? (
@@ -1171,7 +1130,7 @@ export default function TabTwoScreen() {
               ? <ActivityIndicator size="small" color={madeDrinkState === 'done' ? '#FFF' : '#1A1A2E'} />
               : null}
             <Text style={{ fontWeight: '900', color: madeDrinkState === 'done' ? '#FFF' : '#1A1A2E', fontSize: 18 }}>
-              {madeDrinkState === 'done' ? 'Logged! 🍹' : 'Make this cocktail 🍹'}
+              {madeDrinkState === 'done' ? 'Logged!' : 'I made this'}
             </Text>
           </Pressable>
         ) : null}

@@ -2,7 +2,10 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
-import { MissingIngredientsList } from "@/components/MissingIngredientsList";
+import Card from "@/components/ui/Card";
+import Pill from "@/components/ui/Pill";
+import SectionLabel from "@/components/ui/SectionLabel";
+import SwipeRow from "@/components/ui/SwipeRow";
 import { FEATURE_FLAGS } from "@/constants/Features";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
@@ -1705,208 +1708,66 @@ export default function TabOneScreen() {
     const t = toneStyles(tone);
 
     return (
-      <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <View
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: 999,
-              backgroundColor: t.bar,
-            }}
-          />
-          <View
-            style={{
-              borderWidth: 1,
-              borderRadius: 999,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              backgroundColor: t.bg,
-              borderColor: t.border,
-            }}
-          >
-            <Text style={{ fontWeight: "900", color: t.text }}>
-              {title} ({items.length})
-            </Text>
-          </View>
-        </View>
+      <View style={{ gap: 4 }}>
+        <SectionLabel>{`${title} (${items.length})`}</SectionLabel>
 
         {items.map((r, idx) => {
           const name = String(r?.name ?? "").trim() || "Recipe";
-
           const code = String(r?.iba_code || "").trim();
           const ratedKeyStable = code ? `${code}-${name}` : name;
           const ratedKeyLegacy = `${idx + 1}-${name}`;
           const rated = Boolean(ratingsByKey?.[ratedKeyStable] || ratingsByKey?.[ratedKeyLegacy]);
-
           const miss = Array.isArray(r.missing_items)
             ? r.missing_items.map((s) => String(s).trim()).filter(Boolean)
             : [];
-
           const safetyBadges = [
             r.alcohol_warning ? "High Proof" : null,
             r.allergen_warning ? "Allergen" : null,
-            r.caffeine_warning ? "Caffeine + Alcohol" : null,
+            r.caffeine_warning ? "Caffeine+Alc" : null,
           ].filter(Boolean) as string[];
 
-          const showSafetyBadgeInfo = (badge: string) => {
-            if (badge === "High Proof") {
-              Alert.alert("High Proof", "This cocktail has very high alcohol strength.");
-              return;
-            }
-
-            if (badge === "Allergen") {
-              const allergens = Array.isArray(r.allergen_types)
-                ? r.allergen_types.map((x) => String(x ?? "").trim()).filter(Boolean)
-                : [];
-              Alert.alert(
-                "Allergen",
-                allergens.length > 0
-                  ? `This cocktail may contain these allergens: ${allergens.join(", ")}.`
-                  : "This cocktail may contain allergen ingredients."
-              );
-              return;
-            }
-
-            if (badge === "Caffeine + Alcohol") {
-              const sources = Array.isArray(r.caffeine_sources)
-                ? r.caffeine_sources.map((x) => String(x ?? "").trim()).filter(Boolean)
-                : [];
-              Alert.alert(
-                "Caffeine + Alcohol",
-                sources.length > 0
-                  ? `This cocktail combines alcohol with these caffeine sources: ${sources.join(", ")}.`
-                  : "This cocktail combines caffeine with alcohol."
-              );
-            }
-          };
-
           return (
-            <View
-              key={`${r.iba_code}-${idx}`}
-              style={{
-                borderWidth: 1,
-                borderRadius: 12,
-                padding: 12,
-                gap: 8,
-                borderColor: OaklandDusk.bg.border,
-                backgroundColor: OaklandDusk.bg.card,
-              }}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Card key={`${r.iba_code}-${idx}`}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + " cocktail")}`)}>
-                  <Text style={{ fontWeight: "800", color: OaklandDusk.brand.gold, textDecorationLine: "underline" }} numberOfLines={1}>
+                  <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
                     {name}
                   </Text>
-                </Pressable>
-
-                {rated ? (
-                  <View
-                    style={{
-                      borderWidth: 1,
-                      borderRadius: 999,
-                      paddingHorizontal: 10,
-                      paddingVertical: 4,
-                      borderColor: OaklandDusk.bg.border,
-                    }}
-                  >
-                    <Text style={{ fontWeight: "400", color: OaklandDusk.text.tertiary }}>Rated</Text>
+                  {r.iba_category ? (
+                    <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                      {r.iba_category}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    {tone === "ready" && <Pill label="Ready" variant="ready" />}
+                    {miss.length > 0 && <Pill label={`Missing ${miss.length}`} variant="missing" />}
+                    {rated && <Pill label="Rated" />}
+                    {safetyBadges.map((badge) => (
+                      <Pill key={badge} label={badge} />
+                    ))}
                   </View>
-                ) : null}
-
-                <Pressable
-                  onPress={() => openRecipeInTab2(r, idx)}
-                  style={{
-                    borderWidth: 1,
-                    borderRadius: 999,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderColor: OaklandDusk.bg.border,
-                  }}
-                >
-                  <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>View</Text>
+                </Pressable>
+                <Pressable onPress={() => openRecipeInTab2(r, idx)} hitSlop={12} style={{ paddingLeft: 12 }}>
+                  <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 18 }}>›</Text>
                 </Pressable>
               </View>
-
-              {safetyBadges.length > 0 ? (
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                  {safetyBadges.map((badge) => (
-                    <Pressable
-                      key={badge}
-                      onPress={() => showSafetyBadgeInfo(badge)}
-                      style={{
-                        borderWidth: 1,
-                        borderRadius: 999,
-                        paddingHorizontal: 8,
-                        paddingVertical: 3,
-                        backgroundColor: OaklandDusk.accent.indigoBg,
-                        borderColor: OaklandDusk.accent.indigo,
-                      }}
-                    >
-                      <Text style={{ fontSize: 11, fontWeight: "800", color: OaklandDusk.accent.indigo }}>
-                        {badge}
-                      </Text>
-                    </Pressable>
+              {miss.length > 0 && (
+                <View style={{ marginTop: 8, gap: 4 }}>
+                  {miss.map((m) => (
+                    <View key={m} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, flex: 1 }}>{m}</Text>
+                      <Pressable
+                        onPress={() => Linking.openURL(`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(m + " bottle")}`)}
+                        hitSlop={10}
+                        style={{ padding: 4 }}
+                      >
+                        <FontAwesome name="shopping-cart" size={13} color={OaklandDusk.brand.gold} />
+                      </Pressable>
+                    </View>
                   ))}
                 </View>
-              ) : null}
-
-              {Array.isArray((r as any)?.reasons) && (r as any).reasons.length > 0 ? (
-                (() => {
-                  const reasons = ((r as any).reasons as any[])
-                    .map((x) => String(x ?? "").trim())
-                    .filter(Boolean);
-
-                  const missingLine =
-                    reasons.find((s) => s.startsWith("Missing ") || s.startsWith("還缺 ")) ||
-                    reasons.find((s) => s === "No missing ingredients." || s === "不缺材料。") ||
-                    "";
-
-                  // Stage 3: Show taste profile match reason
-                  const tasteLine =
-                    reasons.find((s) => s.startsWith("Matches your taste") || s.startsWith("符合你的口味")) ||
-                    "";
-
-                  if (!missingLine && !tasteLine) return null;
-                  if (tone === "two_missing") return null;
-
-                  return (
-                    <View style={{ gap: 2 }}>
-                      {missingLine ? (
-                        <Text style={{ color: OaklandDusk.text.secondary }} numberOfLines={2}>
-                          {missingLine}
-                        </Text>
-                      ) : null}
-                      {tasteLine ? (
-                        <Text style={{ color: OaklandDusk.accent.indigo, fontSize: 12 }} numberOfLines={1}>
-                          {tasteLine}
-                        </Text>
-                      ) : null}
-                    </View>
-                  );
-                })()
-              ) : miss.length > 0 && tone !== "two_missing" ? (
-                <Text style={{ color: OaklandDusk.text.secondary }} numberOfLines={2}>
-                  {isZh ? "缺少：" : "Missing: "}
-                  {miss.join(" • ")}
-                </Text>
-              ) : (
-                <Text style={{ color: OaklandDusk.text.tertiary }}>{isZh ? "（不缺材料）" : "(No missing items)"}</Text>
               )}
-
-              {/* Show missing ingredient card(s) — prominent "1 ingredient away" for single miss */}
-              {miss.length > 0 && (
-                <MissingIngredientsList
-                  missingIngredients={miss.map((m) => ({
-                    key: m,
-                    display_name: m.replace(/_/g, " "),
-                  }))}
-                  recipeId={r.iba_code}
-                  recipeTitle={name}
-                  source="recommendation"
-                />
-              )}
-            </View>
+            </Card>
           );
         })}
       </View>
@@ -2088,108 +1949,72 @@ export default function TabOneScreen() {
               const isEditing = editingId === ing.id;
 
               return (
-                <View
+                <SwipeRow
                   key={ing.id}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 10,
-                    paddingVertical: 4,
-                  }}
+                  onEdit={() => startEditIngredient(ing.id, ing.display)}
+                  onDelete={() => removeIngredient(idx)}
                 >
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    {isEditing ? (
-                      <TextInput
-                        autoFocus
-                        value={editingValue}
-                        onChangeText={setEditingValue}
-                        autoCapitalize="none"
-                        maxLength={80}
-                        placeholderTextColor={OaklandDusk.text.tertiary}
-                        onFocus={(e) => {
-                          scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
-                            e.target as any,
-                            120,
-                            true
-                          );
-                        }}
-                        style={{
-                          borderWidth: 1,
-                          borderRadius: 12,
-                          paddingHorizontal: 12,
-                          paddingVertical: 10,
-                          borderColor: OaklandDusk.brand.gold,
-                          backgroundColor: OaklandDusk.bg.surface,
-                          color: OaklandDusk.text.primary,
-                        }}
-                      />
-                    ) : (
-                      <View style={{ flex: 1, flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 6, paddingRight: 8 }}>
-                        <Text style={{ flexShrink: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
-                          • {ing.display}
-                        </Text>
-                        {ing.confidence === "low" && !ing.isUserAdded ? (
-                          <Pressable
-                            onPress={() => startEditIngredient(ing.id, ing.display)}
-                            hitSlop={8}
-                          >
-                            <Text style={{ fontSize: 12, color: OaklandDusk.brand.gold }}>
-                              ⚠️
-                            </Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    )}
-                  </View>
-
-                  <View style={{ flexDirection: "row", gap: 8, flexShrink: 0, alignItems: "center" }}>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      paddingVertical: 8,
+                      paddingHorizontal: 4,
+                      backgroundColor: OaklandDusk.bg.card,
+                      borderRadius: 10,
+                      marginBottom: 4,
+                    }}
+                  >
                     {isEditing ? (
                       <>
-                        <Pressable
-                          onPress={() => {
-                            setEditingId(null);
-                            setEditingValue("");
+                        <TextInput
+                          autoFocus
+                          value={editingValue}
+                          onChangeText={setEditingValue}
+                          autoCapitalize="none"
+                          maxLength={80}
+                          placeholderTextColor={OaklandDusk.text.tertiary}
+                          onFocus={(e) => {
+                            scrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(
+                              e.target as any,
+                              120,
+                              true
+                            );
                           }}
                           style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
+                            flex: 1,
                             borderWidth: 1,
                             borderRadius: 10,
-                            borderColor: OaklandDusk.bg.border,
+                            paddingHorizontal: 12,
+                            paddingVertical: 8,
+                            borderColor: OaklandDusk.brand.gold,
+                            backgroundColor: OaklandDusk.bg.surface,
+                            color: OaklandDusk.text.primary,
                           }}
+                        />
+                        <Pressable
+                          onPress={() => { setEditingId(null); setEditingValue(""); }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderRadius: 10, borderColor: OaklandDusk.bg.border }}
                         >
                           <Text style={{ fontWeight: "800", color: OaklandDusk.text.secondary }}>Cancel</Text>
                         </Pressable>
-
                         <Pressable
                           onPress={saveEditIngredient}
-                          style={{
-                            paddingHorizontal: 10,
-                            paddingVertical: 6,
-                            borderWidth: 1,
-                            borderRadius: 10,
-                            borderColor: OaklandDusk.brand.gold,
-                            backgroundColor: OaklandDusk.brand.gold,
-                          }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: OaklandDusk.brand.gold }}
                         >
                           <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>Save</Text>
                         </Pressable>
                       </>
                     ) : (
                       <>
-                        <Pressable
-                          onPress={() =>
-                            Alert.alert(ing.display, undefined, [
-                              { text: "Edit", onPress: () => startEditIngredient(ing.id, ing.display) },
-                              { text: "Delete", style: "destructive", onPress: () => removeIngredient(idx) },
-                              { text: "Cancel", style: "cancel" },
-                            ])
-                          }
-                          hitSlop={12}
-                          style={{ paddingHorizontal: 8, paddingVertical: 6 }}
-                        >
-                          <Text style={{ fontSize: 18, color: OaklandDusk.text.tertiary }}>⋯</Text>
-                        </Pressable>
+                        {/* Gold dot */}
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: OaklandDusk.brand.gold, flexShrink: 0 }} />
+
+                        <Text style={{ flex: 1, color: OaklandDusk.text.primary }} numberOfLines={1}>
+                          {ing.display}
+                          {ing.confidence === "low" && !ing.isUserAdded ? " ⚠️" : ""}
+                        </Text>
 
                         {session ? (
                           (() => {
@@ -2198,29 +2023,15 @@ export default function TabOneScreen() {
                             if (alcoholic === false) return null;
 
                             return isInInventory(ing.canonical) ? (
-                              <View
-                                style={{
-                                  paddingHorizontal: 10,
-                                  paddingVertical: 6,
-                                  backgroundColor: OaklandDusk.bg.surface,
-                                  borderRadius: 10,
-                                  borderWidth: 1,
-                                  borderColor: "#7AB89A",
-                                }}
-                              >
-                                <Text style={{ fontWeight: "800", color: "#7AB89A", fontSize: 12 }}>In My Bar ✓</Text>
+                              <View style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: OaklandDusk.bg.surface, borderRadius: 8, borderWidth: 1, borderColor: "#7AB89A" }}>
+                                <Text style={{ fontWeight: "700", color: "#7AB89A", fontSize: 12 }}>In Bar ✓</Text>
                               </View>
                             ) : (
                               <Pressable
                                 onPress={() => setInventoryModalTarget(ing)}
-                                style={{
-                                  paddingHorizontal: 10,
-                                  paddingVertical: 6,
-                                  backgroundColor: OaklandDusk.brand.gold,
-                                  borderRadius: 10,
-                                }}
+                                style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: OaklandDusk.brand.gold, borderRadius: 8 }}
                               >
-                                <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>+ Bar</Text>
+                                <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void, fontSize: 12 }}>+ Bar</Text>
                               </Pressable>
                             );
                           })()
@@ -2228,7 +2039,7 @@ export default function TabOneScreen() {
                       </>
                     )}
                   </View>
-                </View>
+                </SwipeRow>
               );
             })}
           </View>
@@ -2367,14 +2178,14 @@ export default function TabOneScreen() {
             }}
           >
             <Text style={{
-              color: loading || activeIngredients.length === 0 ? OaklandDusk.text.tertiary : '#1A1A2E',
+              color: loading || activeIngredients.length === 0 ? OaklandDusk.text.tertiary : OaklandDusk.bg.void,
               fontSize: 18,
               fontWeight: '700',
             }}>
-              {loading ? "Finding cocktails..." : hasRecommended ? "Refresh results" : "Find matching cocktails"}
+              {loading ? "Finding cocktails..." : "Recommend cocktails"}
             </Text>
             {!loading && activeIngredients.length > 0 ? (
-              <Text style={{ color: '#1A1A2E', fontSize: 13, opacity: 0.7, marginTop: 2 }}>
+              <Text style={{ color: OaklandDusk.bg.void, fontSize: 13, opacity: 0.7, marginTop: 2 }}>
                 Based on {activeIngredients.length} ingredient{activeIngredients.length !== 1 ? 's' : ''}
               </Text>
             ) : null}
