@@ -133,6 +133,24 @@ type ActiveIngredient = {
   confidence?: "high" | "low";
 };
 
+function getTasteTags(vec: Record<string, any> | null | undefined, max = 4): string[] {
+  if (!vec) return [];
+  const tags: string[] = [];
+  const v = (k: string) => Number(vec[k] ?? 0);
+  if (v("alcoholStrength") >= 2.0) tags.push("Strong");
+  else if (v("alcoholStrength") >= 1.0) tags.push("Medium");
+  else if (v("alcoholStrength") > 0) tags.push("Light");
+  if (v("sweetness") >= 0.5) tags.push("Sweet");
+  if (v("sourness") >= 0.5) tags.push("Sour");
+  if (v("bitterness") >= 0.5) tags.push("Bitter");
+  if (v("fruity") >= 0.5) tags.push("Fruity");
+  if (v("herbal") >= 0.3) tags.push("Herbal");
+  if (v("smoky") >= 0.5) tags.push("Smoky");
+  if (v("fizz") >= 0.5) tags.push("Fizzy");
+  if (v("body") >= 1.0) tags.push("Full-bodied");
+  return tags.slice(0, max);
+}
+
 function dedupeCaseInsensitive(list: string[]) {
   const seen = new Set<string>();
   const out: string[] = [];
@@ -1733,11 +1751,25 @@ export default function TabOneScreen() {
                   <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
                     {name}
                   </Text>
-                  {r.iba_category ? (
-                    <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
-                      {r.iba_category}
-                    </Text>
-                  ) : null}
+                  {(() => {
+                    const tags = getTasteTags(r.recipe_vec);
+                    return tags.length > 0 ? (
+                      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+                        {tags.map((tag) => (
+                          <View key={tag} style={{
+                            backgroundColor: OaklandDusk.brand.tagBg,
+                            paddingHorizontal: 8,
+                            paddingVertical: 2,
+                            borderRadius: 6,
+                            borderWidth: 0.5,
+                            borderColor: "rgba(201,164,88,.2)",
+                          }}>
+                            <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{tag}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null;
+                  })()}
                   <View style={{ flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                     {tone === "ready" && <Pill label="Ready" variant="ready" />}
                     {miss.length > 0 && <Pill label={`Missing ${miss.length}`} variant="missing" />}

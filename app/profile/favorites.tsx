@@ -11,6 +11,24 @@ import { aggregateIngredientVectors, buildFourWordDescriptor } from "@/context/o
 import { useFavorites } from "@/context/favorites";
 import { useInventory } from "@/context/inventory";
 
+function getTasteTags(vec: Record<string, any> | null | undefined, max = 4): string[] {
+  if (!vec) return [];
+  const tags: string[] = [];
+  const v = (k: string) => Number(vec[k] ?? 0);
+  if (v("alcoholStrength") >= 2.0) tags.push("Strong");
+  else if (v("alcoholStrength") >= 1.0) tags.push("Medium");
+  else if (v("alcoholStrength") > 0) tags.push("Light");
+  if (v("sweetness") >= 0.5) tags.push("Sweet");
+  if (v("sourness") >= 0.5) tags.push("Sour");
+  if (v("bitterness") >= 0.5) tags.push("Bitter");
+  if (v("fruity") >= 0.5) tags.push("Fruity");
+  if (v("herbal") >= 0.3) tags.push("Herbal");
+  if (v("smoky") >= 0.5) tags.push("Smoky");
+  if (v("fizz") >= 0.5) tags.push("Fizzy");
+  if (v("body") >= 1.0) tags.push("Full-bodied");
+  return tags.slice(0, max);
+}
+
 function asStringList(v: any): string[] {
   if (!Array.isArray(v)) return [];
   return v.map((x) => String(x ?? "").trim()).filter(Boolean);
@@ -205,11 +223,29 @@ export default function TabThreeScreen() {
                       <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
                         {title}
                       </Text>
-                      {subtitle ? (
-                        <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
-                          {subtitle}
-                        </Text>
-                      ) : null}
+                      {(() => {
+                        const recipeTasteTags = getTasteTags((fav as any)?.recipe?.recipe_vec);
+                        if (recipeTasteTags.length > 0) {
+                          return (
+                            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                              {recipeTasteTags.map((tag) => (
+                                <View
+                                  key={tag}
+                                  style={{
+                                    backgroundColor: OaklandDusk.brand.tagBg,
+                                    paddingHorizontal: 8,
+                                    paddingVertical: 3,
+                                    borderRadius: 6,
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.brand.gold }}>{tag}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          );
+                        }
+                        return null;
+                      })()}
                       <View style={{ flexDirection: "row", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
                         {tags.slice(0, 3).map((t) => (
                           <Pill key={t} label={t} />

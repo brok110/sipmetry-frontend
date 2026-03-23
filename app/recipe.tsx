@@ -47,6 +47,24 @@ type DbRecipe = {
   recipe_vec?: Record<string, any> | null;
 };
 
+function getTasteTags(vec: Record<string, any> | null | undefined, max = 4): string[] {
+  if (!vec) return [];
+  const tags: string[] = [];
+  const v = (k: string) => Number(vec[k] ?? 0);
+  if (v("alcoholStrength") >= 2.0) tags.push("Strong");
+  else if (v("alcoholStrength") >= 1.0) tags.push("Medium");
+  else if (v("alcoholStrength") > 0) tags.push("Light");
+  if (v("sweetness") >= 0.5) tags.push("Sweet");
+  if (v("sourness") >= 0.5) tags.push("Sour");
+  if (v("bitterness") >= 0.5) tags.push("Bitter");
+  if (v("fruity") >= 0.5) tags.push("Fruity");
+  if (v("herbal") >= 0.3) tags.push("Herbal");
+  if (v("smoky") >= 0.5) tags.push("Smoky");
+  if (v("fizz") >= 0.5) tags.push("Fizzy");
+  if (v("body") >= 1.0) tags.push("Full-bodied");
+  return tags.slice(0, max);
+}
+
 export default function TabTwoScreen() {
 
   const router = useRouter();
@@ -575,6 +593,8 @@ export default function TabTwoScreen() {
 
   const headerLine = [stylePartRaw].filter(Boolean).join(" • ");
 
+  const tasteTags = useMemo(() => getTasteTags((dbRecipe as any)?.recipe_vec), [dbRecipe]);
+
   const subtitleTokensForFavorite = useMemo(() => {
     const tokens: string[] = [];
     if (stylePartRaw) tokens.push(stylePartRaw);
@@ -974,16 +994,22 @@ export default function TabTwoScreen() {
           </Pressable>
         </View>
 
-        {headerLine ? (
+        {tasteTags.length > 0 ? (
           <Pressable onLongPress={__DEV__ ? copyDebug : undefined} delayLongPress={450}>
-            <View style={{
-              alignSelf: "flex-start",
-              backgroundColor: OaklandDusk.brand.tagBg,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 8,
-            }}>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: OaklandDusk.brand.gold }}>{headerLine}</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {tasteTags.map((tag) => (
+                <View
+                  key={tag}
+                  style={{
+                    backgroundColor: OaklandDusk.brand.tagBg,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: OaklandDusk.brand.gold }}>{tag}</Text>
+                </View>
+              ))}
             </View>
           </Pressable>
         ) : null}
