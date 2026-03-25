@@ -1,6 +1,7 @@
 import { apiFetch } from '@/lib/api'
 import OaklandDusk from '@/constants/OaklandDusk'
 import AddToInventoryModal from '@/components/AddToInventoryModal'
+import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
 import SwipeRow from '@/components/ui/SwipeRow'
 import { useAuth } from '@/context/auth'
@@ -152,9 +153,11 @@ function snapTo5(pct: number): number {
 function HorizontalPctSlider({
   value,
   onChange,
+  onTouchStart,
 }: {
   value: number
   onChange: (pct: number) => void
+  onTouchStart?: () => void
 }) {
   const trackWidth = useSharedValue(0)
   const fillPct = useSharedValue(value)
@@ -167,9 +170,14 @@ function HorizontalPctSlider({
     onChange(v)
   }, [onChange])
 
+  const stableOnTouchStart = useCallback(() => {
+    if (onTouchStart) onTouchStart()
+  }, [onTouchStart])
+
   const gesture = Gesture.Pan()
     .onBegin((e) => {
       'worklet'
+      if (onTouchStart) runOnJS(stableOnTouchStart)()
       if (trackWidth.value <= 0) return
       const pct = Math.max(0, Math.min(100, (e.x / trackWidth.value) * 100))
       fillPct.value = pct
@@ -283,6 +291,7 @@ function EditBottleModal({
   const [totalMl, setTotalMl] = useState(700)
   const [pct, setPct] = useState(100)
   const [saving, setSaving] = useState(false)
+  const [guideEditBottleVisible, setGuideEditBottleVisible] = useState(false)
 
   // Sync fields when modal opens for a different item
   useEffect(() => {
@@ -290,6 +299,7 @@ function EditBottleModal({
       setName(item.display_name)
       setTotalMl(BOTTLE_SIZES.includes(Number(item.total_ml)) ? Number(item.total_ml) : 700)
       setPct(Math.round(Number(item.remaining_pct)))
+      isGuideDismissed(GUIDE_KEYS.EDIT_BOTTLE).then((d) => setGuideEditBottleVisible(!d))
     }
   }, [item])
 
@@ -354,7 +364,24 @@ function EditBottleModal({
           <Text style={modalStyles.fieldLabel}>
             Remaining — {previewMl}ml ({pct}%)
           </Text>
-          <HorizontalPctSlider value={pct} onChange={setPct} />
+          <View style={{ position: "relative" }}>
+            <GuideBubble
+              storageKey={GUIDE_KEYS.EDIT_BOTTLE}
+              text="Drag to set remaining level!"
+              visible={guideEditBottleVisible}
+              onDismiss={() => setGuideEditBottleVisible(false)}
+              position="above"
+              align="center"
+            />
+            <HorizontalPctSlider
+              value={pct}
+              onChange={setPct}
+              onTouchStart={() => {
+                dismissGuide(GUIDE_KEYS.EDIT_BOTTLE)
+                setGuideEditBottleVisible(false)
+              }}
+            />
+          </View>
 
           {/* Actions */}
           <View style={modalStyles.actions}>
@@ -385,12 +412,16 @@ function InventoryCard({
   onEdit,
   onDelete,
   onRestock,
+  isFirstCard,
+  onSwipeOpen,
 }: {
   item: InventoryItem
   sortBy: SortBy
   onEdit: (item: InventoryItem) => void
   onDelete: (id: string, name: string) => void
   onRestock?: () => void
+  isFirstCard?: boolean
+  onSwipeOpen?: () => void
 }) {
   const parsedPct = Math.round(Number(item.remaining_pct))
   const remainingMl = Math.round(Number(item.remaining_ml))
@@ -400,6 +431,7 @@ function InventoryCard({
     <SwipeRow
       onEdit={() => onEdit(item)}
       onDelete={() => onDelete(item.id, item.display_name)}
+      onSwipeOpen={isFirstCard ? onSwipeOpen : undefined}
     >
       <View style={[styles.card, isLow && { backgroundColor: 'rgba(192,72,88,0.08)' }]}>
         <View style={styles.cardHeader}>
@@ -428,6 +460,51 @@ function InventoryCard({
   )
 }
 
+// ── Inventory card with swipe guide ──────────────────────────────────────────
+function InventoryCardWithGuide({
+  item,
+  sortBy,
+  onEdit,
+  onDelete,
+  onRestock,
+  isFirstCard,
+  guideSwipeDismissed,
+  onSwipeOpen,
+}: {
+  item: InventoryItem
+  sortBy: SortBy
+  onEdit: (item: InventoryItem) => void
+  onDelete: (id: string, name: string) => void
+  onRestock?: () => void
+  isFirstCard: boolean
+  guideSwipeDismissed: boolean
+  onSwipeOpen: () => void
+}) {
+  return (
+    <View style={{ position: "relative" }}>
+      {isFirstCard && !guideSwipeDismissed && (
+        <GuideBubble
+          storageKey={GUIDE_KEYS.MYBAR_SWIPE}
+          text="Swipe left to edit or remove!"
+          visible={!guideSwipeDismissed}
+          onDismiss={onSwipeOpen}
+          align="right"
+          position="below"
+        />
+      )}
+      <InventoryCard
+        item={item}
+        sortBy={sortBy}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onRestock={onRestock}
+        isFirstCard={isFirstCard}
+        onSwipeOpen={onSwipeOpen}
+      />
+    </View>
+  )
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function MyBarScreen() {
   const { session } = useAuth()
@@ -449,6 +526,17 @@ export default function MyBarScreen() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [editItem, setEditItem] = useState<InventoryItem | null>(null)
+
+  // ── Guide bubble state (Stage 5) ──────────────────────────────────────────
+  const [guideMyBarEmptyVisible, setGuideMyBarEmptyVisible] = useState(false)
+  const [guideMyBarCtaVisible, setGuideMyBarCtaVisible] = useState(false)
+  const [guideSwipeDismissed, setGuideSwipeDismissed] = useState(true)
+
+  useEffect(() => {
+    isGuideDismissed(GUIDE_KEYS.MYBAR_EMPTY).then((d) => setGuideMyBarEmptyVisible(!d))
+    isGuideDismissed(GUIDE_KEYS.MYBAR_CTA).then((d) => setGuideMyBarCtaVisible(!d))
+    isGuideDismissed(GUIDE_KEYS.MYBAR_SWIPE).then((d) => setGuideSwipeDismissed(d))
+  }, [])
 
   // ── Bottle scan state ──────────────────────────────────────────────────────
   const [bottleScanLoading, setBottleScanLoading] = useState(false)
@@ -578,7 +666,15 @@ export default function MyBarScreen() {
     await addInventoryItem(payload)
   }
 
+  const dismissSwipeGuide = () => {
+    if (!guideSwipeDismissed) {
+      setGuideSwipeDismissed(true)
+      dismissGuide(GUIDE_KEYS.MYBAR_SWIPE)
+    }
+  }
+
   const handleEdit = (item: InventoryItem) => {
+    dismissSwipeGuide()
     setEditItem(item)
   }
 
@@ -591,6 +687,7 @@ export default function MyBarScreen() {
   }
 
   const handleDelete = (id: string, name: string) => {
+    dismissSwipeGuide()
     Alert.alert(
       'Remove from My Bar',
       `Remove "${name}"?`,
@@ -674,26 +771,38 @@ export default function MyBarScreen() {
         </View>
       </View>
 
-      {/* CTA: See your cocktails */}
+      {/* CTA: See your cocktails (guide #6) */}
       {inventory.length > 0 ? (
-        <Pressable
-          onPress={() => router.push('/(tabs)/scan')}
-          style={{
-            borderWidth: 1,
-            borderColor: OaklandDusk.brand.gold,
-            borderRadius: 12,
-            padding: 14,
-            backgroundColor: OaklandDusk.brand.tagBg,
-            gap: 4,
-          }}
-        >
-          <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary }}>
-            You have {inventory.length} bottle{inventory.length !== 1 ? 's' : ''}
-          </Text>
-          <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
-            See your cocktails →
-          </Text>
-        </Pressable>
+        <View style={{ position: "relative" }}>
+          <GuideBubble
+            storageKey={GUIDE_KEYS.MYBAR_CTA}
+            text="See what you can make!"
+            visible={guideMyBarCtaVisible}
+            onDismiss={() => setGuideMyBarCtaVisible(false)}
+          />
+          <Pressable
+            onPress={() => {
+              dismissGuide(GUIDE_KEYS.MYBAR_CTA)
+              setGuideMyBarCtaVisible(false)
+              router.push('/(tabs)/scan')
+            }}
+            style={{
+              borderWidth: 1,
+              borderColor: OaklandDusk.brand.gold,
+              borderRadius: 12,
+              padding: 14,
+              backgroundColor: OaklandDusk.brand.tagBg,
+              gap: 4,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary }}>
+              You have {inventory.length} bottle{inventory.length !== 1 ? 's' : ''}
+            </Text>
+            <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
+              See your cocktails →
+            </Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {/* Sort Dropdown Modal */}
@@ -766,9 +875,34 @@ export default function MyBarScreen() {
         <View style={styles.emptyBox}>
           <Text style={styles.emptyTitle}>Your bar is empty</Text>
           <Text style={styles.emptySubtitle}>
-            Go to the Scan tab, identify ingredients, and tap{' '}
-            <Text style={{ fontWeight: '800' }}>+ Bar</Text> to add bottles here.
+            Scan your bottles to start building your bar.
           </Text>
+          <View style={{ position: 'relative', width: '100%', marginTop: 12 }}>
+            <GuideBubble
+              storageKey={GUIDE_KEYS.MYBAR_EMPTY}
+              text="Go scan your first bottle!"
+              visible={guideMyBarEmptyVisible}
+              onDismiss={() => setGuideMyBarEmptyVisible(false)}
+            />
+            <Pressable
+              onPress={() => {
+                dismissGuide(GUIDE_KEYS.MYBAR_EMPTY)
+                setGuideMyBarEmptyVisible(false)
+                router.push('/(tabs)/scan')
+              }}
+              style={{
+                borderWidth: 1.5,
+                borderColor: OaklandDusk.brand.gold,
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ fontWeight: '700', color: OaklandDusk.brand.gold }}>
+                Go to Scan tab
+              </Text>
+            </Pressable>
+          </View>
         </View>
       ) : (
         <>
@@ -800,25 +934,45 @@ export default function MyBarScreen() {
                     )
                   })
                 })()
-              : sortedInventory.map((item) => (
-                  <InventoryCard
-                    key={item.id}
-                    item={item}
-                    sortBy={sortBy}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onRestock={() => trackAndOpenPurchaseLink({
-                          ingredientKey: item.ingredient_key,
-                          displayName: item.display_name,
-                          source: "my_bar",
-                        })}
-                  />
-                ))
+              : sortedInventory.map((item, idx) =>
+                  idx === 0 ? (
+                    <InventoryCardWithGuide
+                      key={item.id}
+                      item={item}
+                      sortBy={sortBy}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onRestock={() => trackAndOpenPurchaseLink({
+                            ingredientKey: item.ingredient_key,
+                            displayName: item.display_name,
+                            source: "my_bar",
+                          })}
+                      isFirstCard
+                      guideSwipeDismissed={guideSwipeDismissed}
+                      onSwipeOpen={dismissSwipeGuide}
+                    />
+                  ) : (
+                    <InventoryCard
+                      key={item.id}
+                      item={item}
+                      sortBy={sortBy}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onRestock={() => trackAndOpenPurchaseLink({
+                            ingredientKey: item.ingredient_key,
+                            displayName: item.display_name,
+                            source: "my_bar",
+                          })}
+                    />
+                  )
+                )
             }
           </View>
-          <Text style={{ fontSize: 11, color: OaklandDusk.text.disabled, textAlign: 'center', marginTop: 16 }}>
-            Swipe left to edit or remove
-          </Text>
+          {!guideSwipeDismissed && (
+            <Text style={{ fontSize: 11, color: OaklandDusk.text.disabled, textAlign: 'center', marginTop: 16 }}>
+              ← Swipe left on a bottle to edit or remove
+            </Text>
+          )}
         </>
       )}
     </ScrollView>

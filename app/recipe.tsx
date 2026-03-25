@@ -1,6 +1,6 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useNavigation } from "@react-navigation/native";
-import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Text, View } from "react-native";
 
@@ -975,8 +975,18 @@ export default function TabTwoScreen() {
     );
   }
 
+  // Fix 7: dynamic back title based on navigation source
+  const fromParam = String((params as any).from ?? "").trim();
+
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
+      <Stack.Screen options={{
+        title: "",
+        headerStyle: { backgroundColor: OaklandDusk.bg.void },
+        headerTintColor: OaklandDusk.brand.gold,
+        headerBackTitle: fromParam === "recommendations" ? "Cocktails" : "Scan",
+        headerShadowVisible: false,
+      }} />
       <ScrollView
         contentContainerStyle={{
           padding: 16,

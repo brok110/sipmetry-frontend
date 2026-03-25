@@ -1,7 +1,8 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
 
 import { apiFetch } from "@/lib/api";
 
@@ -52,6 +53,13 @@ export default function ProfileScreen() {
   }, []);
 
   const [deleting, setDeleting] = useState(false);
+
+  // Guide bubble state (Stage 7)
+  const [guideProfilePrefsVisible, setGuideProfilePrefsVisible] = useState(false);
+
+  useEffect(() => {
+    isGuideDismissed(GUIDE_KEYS.PROFILE_PREFS).then((d) => setGuideProfilePrefsVisible(!d));
+  }, []);
 
   const handleDeleteAccount = useCallback(() => {
     Alert.alert(
@@ -140,11 +148,23 @@ export default function ProfileScreen() {
 
       {/* Menu items */}
       <View style={{ gap: 8 }}>
-        <ProfileRow
-          icon="sliders"
-          label="Preferences"
-          onPress={() => router.push("/profile/preferences")}
-        />
+        <View style={{ position: "relative" }}>
+          <GuideBubble
+            storageKey={GUIDE_KEYS.PROFILE_PREFS}
+            text="Set your taste here!"
+            visible={guideProfilePrefsVisible}
+            onDismiss={() => setGuideProfilePrefsVisible(false)}
+          />
+          <ProfileRow
+            icon="sliders"
+            label="Preferences"
+            onPress={() => {
+              dismissGuide(GUIDE_KEYS.PROFILE_PREFS);
+              setGuideProfilePrefsVisible(false);
+              router.push("/profile/preferences");
+            }}
+          />
+        </View>
         <ProfileRow
           icon="heart"
           label="Favorites"
@@ -325,6 +345,26 @@ export default function ProfileScreen() {
             )}
           </Pressable>
         </View>
+      )}
+      {__DEV__ && (
+        <Pressable
+          onPress={async () => {
+            await resetAllGuides();
+            Alert.alert("Done", "All guide bubbles reset. Restart the app to see them.");
+          }}
+          style={{
+            borderRadius: 12,
+            paddingVertical: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: OaklandDusk.bg.border,
+            backgroundColor: OaklandDusk.bg.card,
+          }}
+        >
+          <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>
+            Reset Guide Bubbles (DEV)
+          </Text>
+        </Pressable>
       )}
     </ScrollView>
   );

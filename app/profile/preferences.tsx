@@ -3,6 +3,7 @@ import Slider from "@react-native-community/slider";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
+import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import { useAuth } from "@/context/auth";
@@ -87,15 +88,15 @@ function StyleChip({
       disabled={disabled}
       style={{
         borderWidth: 1,
-        borderRadius: 999,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
+        borderRadius: 16,
+        paddingHorizontal: 10,
+        paddingVertical: 5,
         borderColor: active ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
-        backgroundColor: active ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
+        backgroundColor: active ? OaklandDusk.brand.tagBg : "transparent",
         opacity: disabled ? 0.45 : 1,
       }}
     >
-      <Text style={{ fontWeight: "700", color: active ? OaklandDusk.bg.void : OaklandDusk.text.secondary }}>
+      <Text style={{ fontWeight: "700", fontSize: 12, color: active ? OaklandDusk.brand.gold : OaklandDusk.text.secondary }}>
         {active ? `• ${label}` : label}
       </Text>
     </Pressable>
@@ -212,6 +213,13 @@ export default function TabZeroPreferencesScreen() {
     preferences.safetyMode.avoidCaffeineAlcohol
   );
 
+  // Guide bubble state (Stage 7 — guide #11)
+  const [guidePrefsStyleVisible, setGuidePrefsStyleVisible] = useState(false);
+
+  useEffect(() => {
+    isGuideDismissed(GUIDE_KEYS.PREFS_STYLE).then((d) => setGuidePrefsStyleVisible(!d));
+  }, []);
+
   useEffect(() => {
     if (!hydrated) return;
     setDraftStyle(preferences.stylePreset);
@@ -321,61 +329,74 @@ export default function TabZeroPreferencesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 40 }}>
-        <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary }}>Taste profile</Text>
+      <ScrollView contentContainerStyle={{ padding: 14, gap: 8, paddingBottom: 30 }}>
+        <Text style={{ fontSize: 20, fontWeight: "700", color: OaklandDusk.text.primary }}>Taste profile</Text>
 
-        <View
-          style={{
-            padding: 12,
-            borderWidth: 1,
-            borderColor: OaklandDusk.bg.border,
-            borderRadius: 12,
-            backgroundColor: OaklandDusk.bg.card,
-            gap: 10,
-            opacity: disabled ? 0.7 : 1,
-          }}
-        >
-          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Style</Text>
-          <Text style={{ color: OaklandDusk.text.secondary }}>Pick a style you like (you can change it anytime).</Text>
+        {/* Style card */}
+        <View style={{ position: "relative" }}>
+          <GuideBubble
+            storageKey={GUIDE_KEYS.PREFS_STYLE}
+            text="Pick your style!"
+            visible={guidePrefsStyleVisible}
+            onDismiss={() => setGuidePrefsStyleVisible(false)}
+          />
+          <View
+            style={{
+              padding: 10,
+              borderWidth: 1,
+              borderColor: OaklandDusk.bg.border,
+              borderRadius: 12,
+              backgroundColor: OaklandDusk.bg.card,
+              gap: 6,
+              opacity: disabled ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Style</Text>
+            <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Pick a style you like (you can change it anytime).</Text>
 
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {STYLE_PRESETS.map((x) => (
-              <StyleChip
-                key={x.key}
-                label={x.label}
-                active={x.key === draftStyle}
-                onPress={() => setDraftStyle(x.key)}
-                disabled={disabled}
-              />
-            ))}
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {STYLE_PRESETS.map((x) => (
+                <StyleChip
+                  key={x.key}
+                  label={x.label}
+                  active={x.key === draftStyle}
+                  onPress={() => {
+                    dismissGuide(GUIDE_KEYS.PREFS_STYLE);
+                    setGuidePrefsStyleVisible(false);
+                    setDraftStyle(x.key);
+                  }}
+                  disabled={disabled}
+                />
+              ))}
+            </View>
           </View>
         </View>
 
+        {/* Taste card */}
         <View
           style={{
-            padding: 12,
+            padding: 10,
             borderWidth: 1,
             borderColor: OaklandDusk.bg.border,
             borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
-            gap: 12,
+            gap: 6,
             opacity: disabled ? 0.7 : 1,
           }}
         >
-          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Taste</Text>
-          <Text style={{ color: OaklandDusk.text.secondary }}>Slide to adjust intensity (0–3).</Text>
+          <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Taste</Text>
+          <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Slide to adjust intensity (0–3).</Text>
 
-          <View style={{ gap: 14 }}>
-            <View style={{ gap: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <FontAwesome name="glass" size={16} color={OaklandDusk.text.secondary} />
+          <View style={{ gap: 8 }}>
+            <View style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <FontAwesome name="glass" size={14} color={OaklandDusk.text.secondary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>Alcohol Strength</Text>
-                  <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>{alcoholWord}</Text>
+                  <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.primary }}>Alcohol Strength</Text>
+                  <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{alcoholWord}</Text>
                 </View>
                 <Text style={{ color: OaklandDusk.text.tertiary, fontWeight: "700" }}>{Number(draftAlcohol)}</Text>
               </View>
-
               <Slider
                 value={Number(draftAlcohol)}
                 minimumValue={0}
@@ -388,16 +409,15 @@ export default function TabZeroPreferencesScreen() {
               />
             </View>
 
-            <View style={{ gap: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <FontAwesome name="cube" size={16} color={OaklandDusk.text.secondary} />
+            <View style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <FontAwesome name="cube" size={14} color={OaklandDusk.text.secondary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>Sweetness</Text>
-                  <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>{sweetnessWord}</Text>
+                  <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.primary }}>Sweetness</Text>
+                  <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{sweetnessWord}</Text>
                 </View>
                 <Text style={{ color: OaklandDusk.text.tertiary, fontWeight: "700" }}>{Number(draftSweetness)}</Text>
               </View>
-
               <Slider
                 value={Number(draftSweetness)}
                 minimumValue={0}
@@ -410,16 +430,15 @@ export default function TabZeroPreferencesScreen() {
               />
             </View>
 
-            <View style={{ gap: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <FontAwesome name="leaf" size={16} color={OaklandDusk.text.secondary} />
+            <View style={{ gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <FontAwesome name="leaf" size={14} color={OaklandDusk.text.secondary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>Bitterness</Text>
-                  <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>{bitternessWord}</Text>
+                  <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.primary }}>Bitterness</Text>
+                  <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{bitternessWord}</Text>
                 </View>
                 <Text style={{ color: OaklandDusk.text.tertiary, fontWeight: "700" }}>{Number(draftBitterness)}</Text>
               </View>
-
               <Slider
                 value={Number(draftBitterness)}
                 minimumValue={0}
@@ -434,21 +453,22 @@ export default function TabZeroPreferencesScreen() {
           </View>
         </View>
 
+        {/* Safety Mode card */}
         <View
           style={{
-            padding: 12,
+            padding: 10,
             borderWidth: 1,
             borderColor: OaklandDusk.bg.border,
             borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
-            gap: 10,
+            gap: 6,
             opacity: disabled ? 0.7 : 1,
           }}
         >
-          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Safety Mode</Text>
-          <Text style={{ color: OaklandDusk.text.secondary }}>Filter out recommendations that match your safety preferences.</Text>
+          <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Safety Mode</Text>
+          <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Filter out recommendations based on safety preferences.</Text>
 
-          <View style={{ gap: 8 }}>
+          <View style={{ gap: 4 }}>
             <SafetyToggleRow
               label="Avoid High Proof"
               value={draftAvoidHighProof}
@@ -470,20 +490,21 @@ export default function TabZeroPreferencesScreen() {
           </View>
         </View>
 
+        {/* Save / Reset */}
         <View style={{ flexDirection: "row", gap: 10 }}>
           <Pressable
             onPress={save}
             disabled={disabled || !hasChanges || saving}
             style={{
               flex: 1,
-              borderRadius: 12,
-              paddingVertical: 12,
+              borderRadius: 10,
+              paddingVertical: 10,
               alignItems: "center",
               backgroundColor: OaklandDusk.brand.gold,
               opacity: saving ? 0.4 : disabled || !hasChanges ? 0.35 : 1,
             }}
           >
-            <Text style={{ fontWeight: "700", color: OaklandDusk.bg.void }}>
+            <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.bg.void }}>
               {saving ? "Saved ✓" : "Save preferences"}
             </Text>
           </Pressable>
@@ -494,27 +515,23 @@ export default function TabZeroPreferencesScreen() {
             style={{
               borderWidth: 1,
               borderColor: OaklandDusk.bg.border,
-              borderRadius: 12,
-              paddingVertical: 12,
+              borderRadius: 10,
+              paddingVertical: 10,
               paddingHorizontal: 14,
               alignItems: "center",
               backgroundColor: OaklandDusk.bg.card,
               opacity: disabled ? 0.55 : 0.9,
             }}
           >
-            <Text style={{ fontWeight: "600", color: OaklandDusk.text.secondary }}>Reset</Text>
+            <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.secondary }}>Reset</Text>
           </Pressable>
         </View>
 
         {!hydrated ? (
           <Text style={{ color: OaklandDusk.text.tertiary }}>Loading saved preferences…</Text>
-        ) : (
-          <Text style={{ color: OaklandDusk.text.tertiary }}>
-            These settings will shape your recommendations and matching.
-          </Text>
-        )}
+        ) : null}
 
-        {isLoggedIn && (
+        {false && isLoggedIn && (
           <View
             style={{
               padding: 12,

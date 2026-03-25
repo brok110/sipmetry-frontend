@@ -2,6 +2,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
+import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import Card from "@/components/ui/Card";
 import Pill from "@/components/ui/Pill";
 import SectionLabel from "@/components/ui/SectionLabel";
@@ -30,12 +31,15 @@ import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
+  ActivityIndicator,
   Alert,
-  Button,
   Dimensions,
   Image,
   Keyboard,
+  KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -617,6 +621,19 @@ export default function TabOneScreen() {
 
   // Inventory Modal state
   const [inventoryModalTarget, setInventoryModalTarget] = useState<ActiveIngredient | null>(null);
+
+  // Guide bubble state (Stages 2-4)
+  const [guideScanVisible, setGuideScanVisible] = useState(false);
+  const [autoAnalyze, setAutoAnalyze] = useState(false);
+
+  // Add-to-bar state (Stage 3)
+  const [showAddToBar, setShowAddToBar] = useState(false);
+  const [addedToBar, setAddedToBar] = useState<Set<string>>(new Set());
+  const [newIngredients, setNewIngredients] = useState<ActiveIngredient[]>([]);
+  const [guideAddBarVisible, setGuideAddBarVisible] = useState(false);
+
+  // Guide #4
+  const [guideCocktailsVisible, setGuideCocktailsVisible] = useState(false);
   const { session } = useAuth();
   const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem } = useInventory();
 
@@ -655,6 +672,27 @@ export default function TabOneScreen() {
       }
     });
   }, []);
+
+  // Initialize guide bubble visibility from AsyncStorage
+  useEffect(() => {
+    isGuideDismissed(GUIDE_KEYS.SCAN).then((dismissed) => {
+      setGuideScanVisible(!dismissed);
+    });
+    isGuideDismissed(GUIDE_KEYS.ADD_BAR).then((dismissed) => {
+      setGuideAddBarVisible(!dismissed);
+    });
+    isGuideDismissed(GUIDE_KEYS.COCKTAILS).then((dismissed) => {
+      setGuideCocktailsVisible(!dismissed);
+    });
+  }, []);
+
+  // Auto-analyze when image is ready
+  useEffect(() => {
+    if (autoAnalyze && imageUri) {
+      setAutoAnalyze(false);
+      analyze();
+    }
+  }, [autoAnalyze, imageUri]);
 
   const [hasRecommended, setHasRecommended] = useState(false);
   const [hasRecommendedLocal, setHasRecommendedLocal] = useState(false);
@@ -1098,6 +1136,23 @@ export default function TabOneScreen() {
       lastRecommendPrefsKeyRef.current = prefsKey;
       setStage("idle");
 
+      // Stage 4: navigate to dedicated recommendations page
+      router.push({
+        pathname: "/recommendations",
+        params: {
+          recipes: JSON.stringify(flattened),
+          ingredientCount: String(sourceIngredients.length),
+          activeCanonical: JSON.stringify(canonicalDeduped),
+          scanItems: JSON.stringify(
+            (overrideIngredients ?? activeIngredients).map((x) => ({
+              canonical: String(normalizeIngredientKey(String(x?.canonical ?? "")) || "").trim(),
+              display: String(x?.display ?? "").trim(),
+            }))
+          ),
+        },
+      });
+      // Note: recipe_vec is embedded in each recipe item in the flattened array
+
       // Stage 1: batch-track "view" for all returned recommendations
       for (let i = 0; i < flattened.length; i++) {
         const r = flattened[i];
@@ -1297,6 +1352,7 @@ export default function TabOneScreen() {
 
     setImageUri(uri);
     setPickedBase64(b64);
+    setAutoAnalyze(true);
 
     setActiveIngredients([]);
     setRecipes([]);
@@ -1306,6 +1362,9 @@ export default function TabOneScreen() {
     setRecipesStaleReason(null);
     setHasRecommended(false);
     setHasRecommendedLocal(false);
+    setShowAddToBar(false);
+    setAddedToBar(new Set());
+    setNewIngredients([]);
     setStage("idle");
   };
 
@@ -1330,6 +1389,7 @@ export default function TabOneScreen() {
 
     setImageUri(uri);
     setPickedBase64(b64);
+    setAutoAnalyze(true);
 
     setActiveIngredients([]);
     setRecipes([]);
@@ -1339,6 +1399,9 @@ export default function TabOneScreen() {
     setRecipesStaleReason(null);
     setHasRecommended(false);
     setHasRecommendedLocal(false);
+    setShowAddToBar(false);
+    setAddedToBar(new Set());
+    setNewIngredients([]);
     setStage("idle");
   };
 
@@ -1479,6 +1542,19 @@ export default function TabOneScreen() {
       setImageUri(pre.uri);
       setPickedBase64(null);
 
+      // Stage 3: detect new ingredients not yet in My Bar (spirits/liqueurs only)
+      const detected = nextWithCanonicalNormalized.filter(
+        (ing) =>
+          ing.canonical &&
+          !inventoryByIngredientKey[ing.canonical] &&
+          isAlcoholicIngredient(ing.canonical) !== false
+      );
+      if (detected.length > 0) {
+        setNewIngredients(detected);
+        setAddedToBar(new Set());
+        setShowAddToBar(true);
+      }
+
       setError(null);
 
       AsyncStorage.getItem(SCAN_COUNT_KEY).then((val) => {
@@ -1537,6 +1613,31 @@ export default function TabOneScreen() {
     }
   };
 
+  // ── Guide: Scan bottles action sheet ─────────────────────────────────────
+  const handleScanBottles = () => {
+    dismissGuide(GUIDE_KEYS.SCAN);
+    setGuideScanVisible(false);
+
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", "Take a photo", "Choose from library"],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) takePhoto();
+          else if (buttonIndex === 2) pickImage();
+        }
+      );
+    } else {
+      Alert.alert("Scan bottles", "Choose an option", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Take a photo", onPress: takePhoto },
+        { text: "Choose from library", onPress: pickImage },
+      ]);
+    }
+  };
+
   const removeIngredient = (idx: number) => {
     if (recipes.length > 0) invalidateRecipes("ingredients");
     setActiveIngredients((prev) => prev.filter((_, i) => i !== idx));
@@ -1575,6 +1676,40 @@ export default function TabOneScreen() {
       warn("[handleAddToInventory] canonicalize failed, using raw key:", err);
     }
     await addInventoryItem({ ...payload, ingredient_key: canonicalKey });
+  };
+
+  // ── Add to My Bar helpers (Stage 3) ──────────────────────────────────────
+  const handleQuickAddToBar = async (ing: ActiveIngredient) => {
+    try {
+      await handleAddToInventory({
+        ingredient_key: ing.canonical,
+        display_name: ing.display,
+        total_ml: 750,
+        remaining_pct: 100,
+      });
+      setAddedToBar((prev) => new Set(prev).add(ing.canonical));
+    } catch {
+      // best-effort
+    }
+  };
+
+  const handleAddAllToBar = async () => {
+    dismissGuide(GUIDE_KEYS.ADD_BAR);
+    setGuideAddBarVisible(false);
+    for (const ing of newIngredients) {
+      if (!addedToBar.has(ing.canonical)) {
+        await handleQuickAddToBar(ing);
+      }
+    }
+    setShowAddToBar(false);
+    // Don't auto-regenerate — user taps sticky footer to see cocktails
+  };
+
+  const handleSkipAddToBar = () => {
+    dismissGuide(GUIDE_KEYS.ADD_BAR);
+    setGuideAddBarVisible(false);
+    setShowAddToBar(false);
+    // Don't auto-regenerate — user taps sticky footer to see cocktails
   };
 
   const saveEditIngredient = async () => {
@@ -1808,9 +1943,14 @@ export default function TabOneScreen() {
 
   return (
     <>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 120 : 0}
+    >
     <ScrollView
       ref={scrollRef}
-      contentContainerStyle={{ padding: 16, gap: 12 }}
+      contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 88 }}
       keyboardShouldPersistTaps="handled"
     >
       <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -1818,11 +1958,16 @@ export default function TabOneScreen() {
       </View>
 
 
-      <View style={{ flexDirection: "row", gap: 12 }}>
+      <View style={{ position: "relative" }}>
+        <GuideBubble
+          storageKey={GUIDE_KEYS.SCAN}
+          text={isZh ? "點這裡開始！" : "Tap here to start!"}
+          visible={guideScanVisible}
+          onDismiss={() => setGuideScanVisible(false)}
+        />
         <Pressable
-          onPress={takePhoto}
+          onPress={handleScanBottles}
           style={{
-            flex: 1,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
@@ -1834,28 +1979,7 @@ export default function TabOneScreen() {
         >
           <FontAwesome name="camera" size={18} color={OaklandDusk.bg.void} />
           <Text style={{ fontSize: 16, fontWeight: "800", color: OaklandDusk.bg.void }}>
-            Take Photo
-          </Text>
-        </Pressable>
-
-        <Pressable
-          onPress={pickImage}
-          style={{
-            flex: 1,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-            height: 56,
-            borderRadius: 16,
-            backgroundColor: OaklandDusk.bg.card,
-            borderWidth: 1,
-            borderColor: OaklandDusk.bg.border,
-          }}
-        >
-          <FontAwesome name="image" size={18} color={OaklandDusk.text.primary} />
-          <Text style={{ fontSize: 16, fontWeight: "800", color: OaklandDusk.text.primary }}>
-            Choose Photo
+            Scan bottles
           </Text>
         </Pressable>
       </View>
@@ -1869,28 +1993,26 @@ export default function TabOneScreen() {
             resizeMode="cover"
           />
 
-          <Pressable
-            onPress={analyze}
-            disabled={loading}
-            style={{
-              alignSelf: "flex-end",
-              paddingHorizontal: 16,
-              paddingVertical: 9,
-              borderWidth: 1,
-              borderRadius: 20,
-              borderColor: OaklandDusk.bg.border,
+          {loading && (
+            <View style={{
+              alignSelf: "stretch",
+              padding: 20,
+              borderRadius: 12,
               backgroundColor: OaklandDusk.bg.card,
-              opacity: loading ? 0.5 : 1,
-            }}
-          >
-            <Text style={{ fontSize: 14, color: OaklandDusk.text.secondary, fontWeight: "600" }}>
-              {loading
-                ? "Scanning..."
-                : activeIngredients.length > 0
-                ? "↺ Re-scan"
-                : "Identify ingredients"}
-            </Text>
-          </Pressable>
+              borderWidth: 1,
+              borderColor: "rgba(200,120,40,.2)",
+              alignItems: "center",
+              gap: 12,
+            }}>
+              <ActivityIndicator size="large" color={OaklandDusk.brand.gold} />
+              <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+                {isZh ? "正在辨識你的酒瓶..." : "Identifying your bottles..."}
+              </Text>
+              <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
+                {isZh ? "這通常需要幾秒鐘" : "This usually takes a few seconds"}
+              </Text>
+            </View>
+          )}
         </View>
       ) : (
         <View style={{ gap: 12 }}>
@@ -2112,28 +2234,41 @@ export default function TabOneScreen() {
         <View style={{ marginTop: 12, gap: 8 }}>
           <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>Add ingredient</Text>
 
-          <TextInput
-            value={newIngredient}
-            onChangeText={setNewIngredient}
-            placeholder='e.g., "simple syrup"'
-            placeholderTextColor={OaklandDusk.text.tertiary}
-            autoCapitalize="none"
-            maxLength={80}
-            style={{
-              borderWidth: 1,
-              borderRadius: 12,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderColor: OaklandDusk.bg.border,
-              backgroundColor: OaklandDusk.bg.surface,
-              color: OaklandDusk.text.primary,
-            }}
-          />
-
-          <View style={{ flexDirection: "row", gap: 12 }}>
-            <View style={{ flex: 1 }}>
-              <Button title="Add" onPress={addIngredient} disabled={loading} />
-            </View>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <TextInput
+              value={newIngredient}
+              onChangeText={setNewIngredient}
+              placeholder='e.g., "simple syrup"'
+              placeholderTextColor={OaklandDusk.text.tertiary}
+              autoCapitalize="none"
+              maxLength={80}
+              style={{
+                flex: 1,
+                borderWidth: 1,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderColor: OaklandDusk.bg.border,
+                backgroundColor: OaklandDusk.bg.surface,
+                color: OaklandDusk.text.primary,
+                fontSize: 13,
+              }}
+            />
+            <Pressable
+              onPress={addIngredient}
+              disabled={loading || !newIngredient.trim()}
+              style={{
+                backgroundColor: OaklandDusk.brand.gold,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8,
+                opacity: loading || !newIngredient.trim() ? 0.4 : 1,
+              }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: "700", color: OaklandDusk.bg.void }}>
+                {isZh ? "加入" : "Add"}
+              </Text>
+            </Pressable>
           </View>
 
           {/* Stage 7 + 9b: Mood selector — hidden behind feature flag (Phase 1) */}
@@ -2197,31 +2332,9 @@ export default function TabOneScreen() {
 
           {/* Stage 10: Flavor Explorer — future feature, not yet implemented */}
 
-          <Pressable
-            onPress={() => regenerateRecipes()}
-            disabled={loading || activeIngredients.length === 0}
-            style={{
-              marginTop: 8,
-              backgroundColor: loading || activeIngredients.length === 0 ? OaklandDusk.bg.border : '#D4A030',
-              paddingVertical: 16,
-              borderRadius: 12,
-              alignItems: 'center',
-              opacity: loading ? 0.7 : 1,
-            }}
-          >
-            <Text style={{
-              color: loading || activeIngredients.length === 0 ? OaklandDusk.text.tertiary : OaklandDusk.bg.void,
-              fontSize: 18,
-              fontWeight: '700',
-            }}>
-              {loading ? "Finding cocktails..." : "Recommend cocktails"}
-            </Text>
-            {!loading && activeIngredients.length > 0 ? (
-              <Text style={{ color: OaklandDusk.bg.void, fontSize: 13, opacity: 0.7, marginTop: 2 }}>
-                Based on {activeIngredients.length} ingredient{activeIngredients.length !== 1 ? 's' : ''}
-              </Text>
-            ) : null}
-          </Pressable>
+          {/* Stage 3: Add to My Bar — rendered as bottom sheet Modal below */}
+
+          {/* Stage 4: Show me cocktails — moved to sticky footer below ScrollView */}
         </View>
       </View>
 
@@ -2239,37 +2352,7 @@ export default function TabOneScreen() {
         </View>
       ) : null}
 
-      {hasRecommended ? (
-        <View style={{ gap: 12 }}>
-          {recipesStale ? (
-            <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
-              <Text style={{ fontWeight: "800" }}>Results out of date</Text>
-              <Text style={{ color: OaklandDusk.text.tertiary }}>
-                {recipesStaleReason === "preferences"
-                  ? "Preferences changed. Refresh Classics to see updated recommendations."
-                  : recipesStaleReason === "mood"
-                  ? "Mood changed. Refresh Classics to see updated recommendations."
-                  : "Ingredients changed. Refresh Classics to see updated recommendations."}
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Section title="Ready" items={ready} tone="ready" />
-              <Section title="1 missing" items={oneMissing} tone="one_missing" />
-              <Section title="2 missing" items={twoMissing} tone="two_missing" />
-
-              {visibleRecipeCount === 0 ? (
-                <View style={{ padding: 12, borderWidth: 1, borderRadius: 12 }}>
-                  <Text style={{ fontWeight: "800" }}>No matches</Text>
-                  <Text style={{ color: OaklandDusk.text.tertiary }}>
-                    No suitable classic cocktails match your current ingredients. Please add more ingredients and try again.
-                  </Text>
-                </View>
-              ) : null}
-            </>
-          )}
-        </View>
-      ) : null}
+      {/* Recommendations are shown on the dedicated /recommendations page (Stage 4) */}
 
       {/* Stage 10: Flavor Explorer results — hidden during development */}
       {false && showExplore && exploreResults.length > 0 ? (
@@ -2357,6 +2440,44 @@ export default function TabOneScreen() {
       ) : null}
     </ScrollView>
 
+    {/* Fix 1: Sticky "Show me cocktails" footer */}
+    {activeIngredients.length > 0 && !loading && !showAddToBar && (
+      <View style={{
+        position: "absolute", bottom: 0, left: 0, right: 0,
+        paddingHorizontal: 16, paddingTop: 12,
+        paddingBottom: Platform.OS === "ios" ? 16 : 12,
+        backgroundColor: OaklandDusk.bg.void,
+        borderTopWidth: 0.5, borderTopColor: OaklandDusk.bg.border,
+      }}>
+        <View style={{ position: "relative" }}>
+          <GuideBubble
+            storageKey={GUIDE_KEYS.COCKTAILS}
+            text={isZh ? "看你的雞尾酒！" : "See your cocktails!"}
+            visible={guideCocktailsVisible && activeIngredients.length > 0}
+            onDismiss={() => setGuideCocktailsVisible(false)}
+          />
+          <Pressable
+            onPress={() => {
+              dismissGuide(GUIDE_KEYS.COCKTAILS);
+              setGuideCocktailsVisible(false);
+              regenerateRecipes();
+            }}
+            style={{ backgroundColor: OaklandDusk.brand.gold, paddingVertical: 14, borderRadius: 12, alignItems: "center" }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
+              {isZh ? "看我能做什麼雞尾酒" : "Show me cocktails I can make"}
+            </Text>
+            <Text style={{ fontSize: 12, color: OaklandDusk.bg.void, opacity: 0.7, marginTop: 2 }}>
+              {isZh
+                ? `根據 ${activeIngredients.length} 種材料`
+                : `Based on ${activeIngredients.length} ingredient${activeIngredients.length !== 1 ? "s" : ""}`}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    )}
+    </KeyboardAvoidingView>
+
     {inventoryModalTarget ? (
       <AddToInventoryModal
         visible={true}
@@ -2366,6 +2487,123 @@ export default function TabOneScreen() {
         onConfirm={handleAddToInventory}
       />
     ) : null}
+
+    {/* Fix 1: Add to My Bar — bottom sheet */}
+    <Modal
+      visible={showAddToBar && newIngredients.length > 0}
+      transparent
+      animationType="slide"
+      onRequestClose={handleSkipAddToBar}
+    >
+      <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" }}>
+        <Pressable style={{ flex: 1 }} onPress={handleSkipAddToBar} />
+        <View style={{
+          backgroundColor: OaklandDusk.bg.card,
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          paddingTop: 12,
+          paddingHorizontal: 16,
+          paddingBottom: 36,
+          maxHeight: "70%",
+        }}>
+          {/* Handle bar */}
+          <View style={{
+            width: 36, height: 4, borderRadius: 2,
+            backgroundColor: OaklandDusk.bg.border,
+            alignSelf: "center", marginBottom: 16,
+          }} />
+
+          {/* Header */}
+          <View style={{
+            flexDirection: "row", alignItems: "center", gap: 8,
+            padding: 8, borderRadius: 8,
+            backgroundColor: "rgba(200,120,40,.08)",
+            marginBottom: 10,
+          }}>
+            <View style={{
+              width: 20, height: 20, borderRadius: 10,
+              backgroundColor: OaklandDusk.brand.gold,
+              alignItems: "center", justifyContent: "center",
+            }}>
+              <Text style={{ fontSize: 12, fontWeight: "800", color: OaklandDusk.bg.void }}>
+                {newIngredients.length}
+              </Text>
+            </View>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+              {isZh ? "偵測到新食材！" : "New ingredients detected!"}
+            </Text>
+          </View>
+
+          {/* Ingredient list */}
+          <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+            {newIngredients.map((ing) => {
+              const isAdded = addedToBar.has(ing.canonical);
+              return (
+                <View key={ing.id ?? ing.canonical} style={{
+                  flexDirection: "row", alignItems: "center",
+                  paddingVertical: 10,
+                  borderBottomWidth: 0.5,
+                  borderBottomColor: OaklandDusk.bg.border,
+                }}>
+                  <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+                    {ing.display}
+                  </Text>
+                  {isAdded ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <FontAwesome name="check" size={12} color="#6B8F6B" />
+                      <Text style={{ fontSize: 12, color: "#6B8F6B" }}>Added</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => handleQuickAddToBar(ing)}
+                      style={{
+                        backgroundColor: OaklandDusk.brand.gold,
+                        paddingHorizontal: 12, paddingVertical: 5,
+                        borderRadius: 8,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: "700", color: OaklandDusk.bg.void }}>
+                        {isZh ? "加入" : "Add"}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              );
+            })}
+          </ScrollView>
+
+          {/* Bottom buttons */}
+          <View style={{ gap: 8, marginTop: 14 }}>
+            <View style={{ position: "relative" }}>
+              <GuideBubble
+                storageKey={GUIDE_KEYS.ADD_BAR}
+                text={isZh ? "儲存你的瓶子！" : "Save your bottles!"}
+                visible={guideAddBarVisible}
+                onDismiss={() => setGuideAddBarVisible(false)}
+              />
+              <Pressable onPress={handleAddAllToBar} style={{
+                backgroundColor: OaklandDusk.brand.gold,
+                paddingVertical: 14, borderRadius: 12, alignItems: "center",
+              }}>
+                <Text style={{ fontSize: 14, fontWeight: "800", color: OaklandDusk.bg.void }}>
+                  {isZh ? "全部加入 My Bar" : "Add all to My Bar"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <Pressable onPress={handleSkipAddToBar}>
+              <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
+                {isZh ? "跳過 — 直接看雞尾酒" : "Skip — just show cocktails"}
+              </Text>
+            </Pressable>
+
+            <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
+              {addedToBar.size} of {newIngredients.length} saved
+            </Text>
+          </View>
+        </View>
+      </View>
+    </Modal>
     </>
   );
 }

@@ -8,6 +8,7 @@ interface SwipeRowProps {
   onEdit?: () => void
   onDelete?: () => void
   deleteLabel?: string
+  onSwipeOpen?: () => void
 }
 
 export default function SwipeRow({
@@ -15,6 +16,7 @@ export default function SwipeRow({
   onEdit,
   onDelete,
   deleteLabel = 'Delete',
+  onSwipeOpen,
 }: SwipeRowProps) {
   const swipeableRef = useRef<Swipeable>(null)
 
@@ -55,6 +57,7 @@ export default function SwipeRow({
       renderRightActions={renderRightActions}
       rightThreshold={40}
       overshootRight={false}
+      onSwipeableOpen={() => { if (onSwipeOpen) onSwipeOpen() }}
     >
       {children}
     </Swipeable>

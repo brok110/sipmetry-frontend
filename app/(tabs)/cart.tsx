@@ -1,5 +1,5 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
@@ -12,6 +12,7 @@ import {
 
 import { router } from "expo-router";
 import { useAuth } from "@/context/auth";
+import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
@@ -53,6 +54,15 @@ export default function CartScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
+
+  // Guide bubble state (Stage 6)
+  const [guideCartVisible, setGuideCartVisible] = useState(false);
+  const [guideCartBuyVisible, setGuideCartBuyVisible] = useState(false);
+
+  useEffect(() => {
+    isGuideDismissed(GUIDE_KEYS.CART).then((d) => setGuideCartVisible(!d));
+    isGuideDismissed(GUIDE_KEYS.CART_BUY).then((d) => setGuideCartBuyVisible(!d));
+  }, []);
 
   // Build user interactions payload for preference-aware scoring
   const userInteractions = useMemo(() => {
@@ -145,21 +155,34 @@ export default function CartScreen() {
         </Text>
       </View>
 
-      {/* Load button (first time) */}
+      {/* Load button (first time) — guide #8 */}
       {!hasFetched && !loading && (
-        <Pressable
-          onPress={fetchSuggestions}
-          style={{
-            backgroundColor: OaklandDusk.brand.gold,
-            borderRadius: 12,
-            paddingVertical: 14,
-            alignItems: "center",
-          }}
-        >
-          <Text style={{ color: OaklandDusk.bg.void, fontWeight: "800", fontSize: 15 }}>
-            Get Recommendations
-          </Text>
-        </Pressable>
+        <View style={{ position: "relative", zIndex: 20, overflow: "visible" }}>
+          <GuideBubble
+            storageKey={GUIDE_KEYS.CART}
+            text="Tap to see suggestions!"
+            visible={guideCartVisible}
+            onDismiss={() => setGuideCartVisible(false)}
+            position="below"
+          />
+          <Pressable
+            onPress={() => {
+              dismissGuide(GUIDE_KEYS.CART);
+              setGuideCartVisible(false);
+              fetchSuggestions();
+            }}
+            style={{
+              backgroundColor: OaklandDusk.brand.gold,
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: OaklandDusk.bg.void, fontWeight: "800", fontSize: 15 }}>
+              Get Recommendations
+            </Text>
+          </Pressable>
+        </View>
       )}
 
       {/* Loading */}
@@ -194,45 +217,68 @@ export default function CartScreen() {
         return (
           <View
             key={s.ingredient_key}
-            style={{
-              borderRadius: 12,
-              borderWidth: 0.5,
-              borderLeftWidth: isFirst ? 3 : 0.5,
-              borderColor: OaklandDusk.bg.border,
-              borderLeftColor: isFirst ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
-              backgroundColor: OaklandDusk.bg.card,
-              overflow: "hidden",
-            }}
+            style={{ position: "relative", overflow: "visible", zIndex: isFirst ? 20 : 0 }}
           >
-            <View style={{ padding: 14, gap: 8 }}>
-              {/* Bottle name + shopping icon */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary, flex: 1 }}>
-                  {s.display_name}
-                </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginLeft: 8 }}>
-                  <View style={{
-                    borderRadius: 10,
-                    paddingHorizontal: 8,
-                    paddingVertical: 3,
-                    backgroundColor: "rgba(107,143,107,0.12)",
-                  }}>
-                    <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B8F6B" }}>
-                      +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
-                    </Text>
+            {isFirst && (
+              <GuideBubble
+                storageKey={GUIDE_KEYS.CART_BUY}
+                text="Tap the cart to buy!"
+                visible={guideCartBuyVisible}
+                onDismiss={() => setGuideCartBuyVisible(false)}
+                position="above"
+                align="center"
+              />
+            )}
+            <View
+              style={{
+                borderRadius: 12,
+                borderWidth: 0.5,
+                borderLeftWidth: isFirst ? 3 : 0.5,
+                borderColor: OaklandDusk.bg.border,
+                borderLeftColor: isFirst ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
+                backgroundColor: OaklandDusk.bg.card,
+                overflow: "hidden",
+              }}
+            >
+              <View style={{ padding: 14, gap: 8 }}>
+                {/* Bottle name + shopping icon */}
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary, flex: 1 }}>
+                    {s.display_name}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginLeft: 8 }}>
+                    <View style={{
+                      borderRadius: 10,
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      backgroundColor: "rgba(107,143,107,0.12)",
+                    }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B8F6B" }}>
+                        +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
+                      </Text>
+                    </View>
+                    <Pressable
+                      onPress={() => {
+                        if (isFirst) {
+                          dismissGuide(GUIDE_KEYS.CART_BUY);
+                          setGuideCartBuyVisible(false);
+                        }
+                        handleBuy(s);
+                      }}
+                      hitSlop={10}
+                    >
+                      <FontAwesome name="shopping-cart" size={16} color={OaklandDusk.brand.gold} />
+                    </Pressable>
                   </View>
-                  <Pressable onPress={() => handleBuy(s)} hitSlop={10}>
-                    <FontAwesome name="shopping-cart" size={16} color={OaklandDusk.brand.gold} />
-                  </Pressable>
                 </View>
-              </View>
 
-              {/* Reason */}
-              {s.reason ? (
-                <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }} numberOfLines={2}>
-                  {s.reason}
-                </Text>
-              ) : null}
+                {/* Reason */}
+                {s.reason ? (
+                  <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }} numberOfLines={2}>
+                    {s.reason}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </View>
         );
