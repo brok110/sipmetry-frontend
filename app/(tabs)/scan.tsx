@@ -24,6 +24,7 @@ import {
 } from "@/context/ontology";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
 
+import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -1540,6 +1541,16 @@ export default function TabOneScreen() {
       setActiveIngredients(nextWithCanonicalNormalized);
       setSafety(data.safety ?? null);
       setImageUri(pre.uri);
+
+      try {
+        Sentry.addBreadcrumb({
+          category: "scan",
+          message: "scan_complete",
+          data: { detected_count: nextWithCanonicalNormalized.length },
+          level: "info",
+        });
+      } catch {}
+
       setPickedBase64(null);
 
       // Stage 3: detect new ingredients not yet in My Bar (spirits/liqueurs only)

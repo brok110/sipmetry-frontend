@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 
+import * as Sentry from "@sentry/react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/context/auth";
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
@@ -97,6 +98,14 @@ export default function CartScreen() {
       const data = await resp.json();
       setSuggestions(data.suggestions ?? []);
       setHasFetched(true);
+
+      try {
+        Sentry.addBreadcrumb({
+          category: "restock",
+          message: "restock_view",
+          level: "info",
+        });
+      } catch {}
     } catch (e: any) {
       setError(e?.message ?? "Failed to load suggestions");
     } finally {

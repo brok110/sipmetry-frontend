@@ -2,8 +2,9 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useNavigation } from "@react-navigation/native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Share, Text, View } from "react-native";
 
+import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/context/auth";
 import { apiFetch } from "@/lib/api";
@@ -454,6 +455,15 @@ export default function TabTwoScreen() {
         };
 
         setDbRecipe(normalized);
+
+        try {
+          Sentry.addBreadcrumb({
+            category: "recipe",
+            message: "recipe_view",
+            data: { recipe_name: normalized.name },
+            level: "info",
+          });
+        } catch {}
       } catch (e: any) {
         if (!alive) return;
         setDbRecipe(null);
@@ -764,6 +774,39 @@ export default function TabTwoScreen() {
     }
   };
 
+  const handleNativeShare = async () => {
+    try {
+      const ingredientsList = dbRecipe?.ingredients
+        ?.slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        .map((it) => {
+          const name = String(it?.item ?? "").trim().replace(/_/g, " ");
+          const ml = it?.amount_ml !== null && it?.amount_ml !== undefined ? Number(it.amount_ml) : null;
+          return Number.isFinite(ml) ? `• ${name} — ${ml}ml` : `• ${name}`;
+        })
+        .join("\n") ?? "";
+
+      const title = recipeTitle || "Cocktail Recipe";
+      const message = `${title}\n\n${ingredientsList}\n\nMade with Sipmetry`;
+
+      try {
+        Sentry.addBreadcrumb({
+          category: "recipe",
+          message: "share_recipe",
+          data: { recipe_name: title },
+          level: "info",
+        });
+      } catch {}
+
+      const result = await Share.share({ message, title });
+
+      if (result.action === Share.dismissedAction) return;
+    } catch (e: any) {
+      if (String(e?.message ?? "").includes("cancel")) return;
+      showFeedbackToast("Couldn't share this recipe");
+    }
+  };
+
   // Stage 9: 確認製作，扣除 My Bar 庫存
   const handleMadeDrink = async () => {
     if (!session?.access_token) {
@@ -843,6 +886,14 @@ export default function TabTwoScreen() {
                     amount_ml: x.amount_ml,
                   })),
                 })
+                try {
+                  Sentry.addBreadcrumb({
+                    category: "recipe",
+                    message: "made_drink",
+                    data: { recipe_name: recipeTitle, servings },
+                    level: "info",
+                  });
+                } catch {}
                 setMadeDrinkState('done');
                 // 3 秒後完全隱藏按鈕
                 if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);
@@ -998,6 +1049,12 @@ export default function TabTwoScreen() {
           <Text style={{ fontSize: 22, fontWeight: "700", flex: 1, color: OaklandDusk.text.primary }}>
             {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
           </Text>
+
+          {dbRecipe && (
+            <Pressable onPress={handleNativeShare} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+              <FontAwesome name="share-alt" color={OaklandDusk.text.tertiary} size={18} />
+            </Pressable>
+          )}
 
           <Pressable onPress={onToggleFavorite} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
             <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />

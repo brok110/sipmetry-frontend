@@ -1,4 +1,5 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Linking, Pressable, ScrollView, Text, View } from "react-native";
@@ -337,6 +338,37 @@ export default function RecommendationsScreen() {
             {ready.map((r, i) => (
               <RecipeCard key={`ready-${i}`} r={r} idx={i} isFirstCard={false} />
             ))}
+
+            {(oneMissing.length > 0 || twoMissing.length > 0) && (
+              <Pressable
+                onPress={() => {
+                  try {
+                    Sentry.addBreadcrumb({
+                      category: "restock",
+                      message: "restock_cta_tap",
+                      level: "info",
+                    });
+                  } catch {}
+                  try {
+                    router.push("/(tabs)/cart" as any);
+                  } catch {}
+                }}
+                style={{
+                  marginTop: 12,
+                  marginBottom: 4,
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  backgroundColor: OaklandDusk.bg.card,
+                  borderWidth: 1,
+                  borderColor: OaklandDusk.brand.gold,
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+                  See what to buy next →
+                </Text>
+              </Pressable>
+            )}
 
             <SectionHeader title="1 ingredient away" count={oneMissing.length} />
             {oneMissing.map((r, i) => (
