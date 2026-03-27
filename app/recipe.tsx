@@ -780,9 +780,25 @@ export default function TabTwoScreen() {
         ?.slice()
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
         .map((it) => {
-          const name = String(it?.item ?? "").trim().replace(/_/g, " ");
+          const key = String(it?.item ?? "").trim();
+          const name = key.replace(/_/g, " ");
           const ml = it?.amount_ml !== null && it?.amount_ml !== undefined ? Number(it.amount_ml) : null;
-          return Number.isFinite(ml) ? `• ${name} — ${ml}ml` : `• ${name}`;
+          const unit = it?.unit ? String(it.unit).trim() : "";
+
+          let amount = "";
+          if (Number.isFinite(ml)) {
+            const scaled = ml! * servings;
+            if (displayUnit === "oz") {
+              const oz = scaled * 0.033814;
+              amount = `${oz < 0.1 ? oz.toFixed(2) : oz.toFixed(1)} oz`;
+            } else {
+              amount = `${scaled} ml`;
+            }
+          } else if (it?.amount_text && String(it.amount_text).trim()) {
+            amount = unit ? `${String(it.amount_text).trim()} ${unit}` : String(it.amount_text).trim();
+          }
+
+          return amount ? `• ${name} — ${amount}` : `• ${name}`;
         })
         .join("\n") ?? "";
 
