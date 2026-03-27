@@ -817,6 +817,7 @@ export default function TabTwoScreen() {
       const result = await Share.share({ message, title });
 
       if (result.action === Share.dismissedAction) return;
+      showFeedbackToast("Shared!");
     } catch (e: any) {
       if (String(e?.message ?? "").includes("cancel")) return;
       showFeedbackToast("Couldn't share this recipe");
@@ -1067,8 +1068,8 @@ export default function TabTwoScreen() {
           </Text>
 
           {dbRecipe && (
-            <Pressable onPress={handleNativeShare} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-              <FontAwesome name="share-alt" color={OaklandDusk.text.tertiary} size={18} />
+            <Pressable onPress={handleNativeShare} hitSlop={14} accessibilityLabel="Share recipe" accessibilityRole="button" style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+              <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
             </Pressable>
           )}
 

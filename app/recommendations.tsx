@@ -353,18 +353,18 @@ export default function RecommendationsScreen() {
                     router.push("/(tabs)/cart" as any);
                   } catch {}
                 }}
+                accessibilityLabel="See what to buy next"
+                accessibilityRole="button"
                 style={{
                   marginTop: 12,
                   marginBottom: 4,
                   borderRadius: 12,
                   paddingVertical: 14,
                   alignItems: "center",
-                  backgroundColor: OaklandDusk.bg.card,
-                  borderWidth: 1,
-                  borderColor: OaklandDusk.brand.gold,
+                  backgroundColor: OaklandDusk.brand.gold,
                 }}
               >
-                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
                   See what to buy next →
                 </Text>
               </Pressable>
