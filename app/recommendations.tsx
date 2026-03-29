@@ -189,8 +189,9 @@ export default function RecommendationsScreen() {
     const miss = missRaw.map((s: any) => String(s ?? "").trim()).filter(Boolean);
 
     return (
-      <View
-        style={{
+      <Pressable
+        onPress={() => openRecipe(r, idx)}
+        style={({ pressed }) => ({
           borderWidth: 0.5,
           borderLeftWidth: 3,
           borderRadius: 12,
@@ -199,7 +200,8 @@ export default function RecommendationsScreen() {
           backgroundColor: OaklandDusk.bg.card,
           overflow: "hidden",
           padding: 14,
-        }}
+          opacity: pressed ? 0.85 : 1,
+        })}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
 
@@ -300,7 +302,7 @@ export default function RecommendationsScreen() {
           </View>
 
         </View>
-      </View>
+      </Pressable>
     );
   };
 
@@ -482,9 +484,14 @@ export default function RecommendationsScreen() {
               backgroundColor: OaklandDusk.brand.gold,
             }}
           >
-            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-              See what to buy next →
-            </Text>
+            <>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
+                See what to buy next
+              </Text>
+              <Text style={{ fontSize: 12, color: OaklandDusk.bg.void, opacity: 0.7, marginTop: 2 }}>
+                Smart Restock →
+              </Text>
+            </>
           </Pressable>
         </View>
       )}
