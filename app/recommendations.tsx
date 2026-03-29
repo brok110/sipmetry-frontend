@@ -2,7 +2,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import OaklandDusk from "@/constants/OaklandDusk";
 import { normalizeIngredientKey } from "@/context/ontology";
@@ -368,7 +368,7 @@ export default function RecommendationsScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 140 }}>
         {recipes.length === 0 ? (
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
             <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>No matches found</Text>
@@ -404,36 +404,6 @@ export default function RecommendationsScreen() {
               </View>
             ) : null}
 
-            {(oneMissing.length > 0 || twoMissing.length > 0) && (
-              <Pressable
-                onPress={() => {
-                  try {
-                    Sentry.addBreadcrumb({
-                      category: "restock",
-                      message: "restock_cta_tap",
-                      level: "info",
-                    });
-                  } catch {}
-                  try {
-                    router.push("/(tabs)/cart" as any);
-                  } catch {}
-                }}
-                accessibilityLabel="See what to buy next"
-                accessibilityRole="button"
-                style={{
-                  marginTop: 12,
-                  marginBottom: 4,
-                  borderRadius: 12,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                  backgroundColor: OaklandDusk.brand.gold,
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                  See what to buy next →
-                </Text>
-              </Pressable>
-            )}
 
             {/* 1 missing / 2 missing — only shown in quick_look mode (or no mode) */}
             {!isInventoryMode && (
@@ -460,34 +430,64 @@ export default function RecommendationsScreen() {
               </>
             )}
 
-            {/* Stage 3: "Unlock more" — only in inventory mode (My Bar), hidden in quick_look */}
-            {topMissing.length > 0 && (
-              <View style={{
-                marginTop: 24,
-                paddingTop: 16,
-                borderTopWidth: 0.5,
-                borderTopColor: OaklandDusk.bg.border,
-              }}>
-                <Text style={{ fontSize: 13, fontWeight: "600", color: OaklandDusk.text.secondary, marginBottom: 8 }}>
-                  Unlock more recipes
-                </Text>
-                {topMissing.map(([ingredient, count]) => (
-                  <Text key={ingredient} style={{ fontSize: 13, color: OaklandDusk.text.secondary, marginBottom: 4 }}>
-                    {formatIngredientName(ingredient)} would unlock {count} more cocktail{count !== 1 ? "s" : ""}
-                  </Text>
-                ))}
-                <Pressable onPress={() => {
-                  try { router.push("/(tabs)/cart" as any); } catch {}
-                }}>
-                  <Text style={{ fontSize: 13, color: OaklandDusk.brand.gold, marginTop: 8 }}>
-                    See all suggestions →
-                  </Text>
-                </Pressable>
-              </View>
-            )}
           </>
         )}
       </ScrollView>
+
+      {/* Sticky footer: Smart Restock CTA + Unlock insight */}
+      {recipes.length > 0 && (oneMissing.length > 0 || twoMissing.length > 0) && (
+        <View style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          paddingHorizontal: 16,
+          paddingTop: 12,
+          paddingBottom: Platform.OS === "ios" ? 16 : 12,
+          backgroundColor: OaklandDusk.bg.void,
+          borderTopWidth: 0.5,
+          borderTopColor: OaklandDusk.bg.border,
+        }}>
+          {/* Unlock insight — inventory mode only */}
+          {topMissing.length > 0 && (
+            <View style={{ marginBottom: 10 }}>
+              {topMissing.map(([ingredient, count]) => (
+                <Text key={ingredient} style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginBottom: 2 }}>
+                  {formatIngredientName(ingredient)} would unlock {count} more cocktail{count !== 1 ? "s" : ""}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {/* CTA button */}
+          <Pressable
+            onPress={() => {
+              try {
+                Sentry.addBreadcrumb({
+                  category: "restock",
+                  message: "restock_cta_tap",
+                  level: "info",
+                });
+              } catch {}
+              try {
+                router.push("/(tabs)/cart" as any);
+              } catch {}
+            }}
+            accessibilityLabel="See what to buy next"
+            accessibilityRole="button"
+            style={{
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: "center",
+              backgroundColor: OaklandDusk.brand.gold,
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
+              See what to buy next →
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

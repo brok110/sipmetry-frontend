@@ -17,6 +17,7 @@ import {
   Alert,
   Linking,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -112,32 +113,30 @@ function formatAddedDate(dateStr: string): string {
 }
 
 // ── Filter icon (3 horizontal lines, pyramid style) ───────────────────────────
-function FilterIcon({ color = OaklandDusk.text.secondary }: { color?: string }) {
+function FilterIcon({ color = OaklandDusk.brand.gold }: { color?: string }) {
   return (
     <View style={{ gap: 4, alignItems: 'flex-end' }}>
-      <View style={{ width: 18, height: 2, borderRadius: 1, backgroundColor: color }} />
-      <View style={{ width: 13, height: 2, borderRadius: 1, backgroundColor: color }} />
-      <View style={{ width: 8,  height: 2, borderRadius: 1, backgroundColor: color }} />
+      <View style={{ width: 20, height: 2.5, borderRadius: 1, backgroundColor: color }} />
+      <View style={{ width: 15, height: 2.5, borderRadius: 1, backgroundColor: color }} />
+      <View style={{ width: 10, height: 2.5, borderRadius: 1, backgroundColor: color }} />
     </View>
   )
 }
 
 // ── Camera icon (minimal, view-based) ─────────────────────────────────────────
-function CameraIcon({ color = OaklandDusk.text.secondary }: { color?: string }) {
+function CameraIcon({ color = OaklandDusk.brand.gold, size = 20 }: { color?: string; size?: number }) {
+  const scale = size / 22
   return (
-    <View style={{ width: 22, height: 18, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Viewfinder body */}
-      <View style={{ width: 22, height: 14, borderRadius: 3, borderWidth: 2, borderColor: color }} />
-      {/* Lens circle */}
+    <View style={{ width: size, height: size * 0.82, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: size, height: size * 0.64, borderRadius: 3 * scale, borderWidth: 2, borderColor: color }} />
       <View style={{
-        position: 'absolute', bottom: 2,
-        width: 7, height: 7, borderRadius: 4, borderWidth: 2, borderColor: color,
+        position: 'absolute', bottom: 2 * scale,
+        width: 7 * scale, height: 7 * scale, borderRadius: 4 * scale, borderWidth: 2, borderColor: color,
       }} />
-      {/* Top bump */}
       <View style={{
-        position: 'absolute', top: 0, left: 7,
-        width: 8, height: 4,
-        borderTopLeftRadius: 2, borderTopRightRadius: 2,
+        position: 'absolute', top: 0, left: 7 * scale,
+        width: 8 * scale, height: 4 * scale,
+        borderTopLeftRadius: 2 * scale, borderTopRightRadius: 2 * scale,
         borderWidth: 2, borderBottomWidth: 0, borderColor: color,
       }} />
     </View>
@@ -793,7 +792,7 @@ export default function MyBarScreen() {
   }
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
     <ScrollView
       contentContainerStyle={styles.container}
       refreshControl={
@@ -811,76 +810,61 @@ export default function MyBarScreen() {
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-          {/* Scan Bottle button — always visible */}
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+          {/* Scan Bottle button */}
           <Pressable
             onPress={handleScanBottle}
-            style={[styles.filterBtn, { marginTop: 4 }]}
             hitSlop={8}
             disabled={bottleScanLoading}
+            style={{
+              alignItems: 'center',
+              gap: 2,
+            }}
           >
-            {bottleScanLoading
-              ? <ActivityIndicator size="small" color="#111" />
-              : <CameraIcon />
-            }
+            <View style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              borderWidth: 1,
+              borderColor: 'rgba(200,120,40,0.3)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              {bottleScanLoading
+                ? <ActivityIndicator size="small" color={OaklandDusk.brand.gold} />
+                : <CameraIcon size={18} />
+              }
+            </View>
+            <Text style={{ fontSize: 10, color: OaklandDusk.brand.gold }}>Scan</Text>
           </Pressable>
 
+          {/* Sort button */}
           {inventory.length > 0 ? (
             <Pressable
               onPress={() => setShowSortDropdown(true)}
-              style={styles.filterBtn}
               hitSlop={8}
+              style={{
+                alignItems: 'center',
+                gap: 2,
+              }}
             >
-              <FilterIcon />
+              <View style={{
+                width: 38,
+                height: 38,
+                borderRadius: 10,
+                borderWidth: 1,
+                borderColor: 'rgba(200,120,40,0.3)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <FilterIcon />
+              </View>
+              <Text style={{ fontSize: 10, color: OaklandDusk.brand.gold }}>Sort</Text>
             </Pressable>
           ) : null}
         </View>
       </View>
 
-      {/* CTA: See your cocktails (guide #6) */}
-      {inventory.length > 0 ? (
-        <View style={{ position: "relative" }}>
-          <GuideBubble
-            storageKey={GUIDE_KEYS.MYBAR_CTA}
-            text="See what you can make!"
-            visible={guideMyBarCtaVisible}
-            onDismiss={() => setGuideMyBarCtaVisible(false)}
-          />
-          <Pressable
-            onPress={() => {
-              dismissGuide(GUIDE_KEYS.MYBAR_CTA)
-              setGuideMyBarCtaVisible(false)
-              setShowStaplesModal(true)
-            }}
-            disabled={recommendLoading}
-            style={{
-              borderWidth: 1,
-              borderColor: OaklandDusk.brand.gold,
-              borderRadius: 12,
-              padding: 14,
-              backgroundColor: OaklandDusk.brand.tagBg,
-              gap: 4,
-              opacity: recommendLoading ? 0.7 : 1,
-            }}
-          >
-            <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary }}>
-              You have {inventory.length} bottle{inventory.length !== 1 ? 's' : ''}
-            </Text>
-            {recommendLoading ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <ActivityIndicator size="small" color={OaklandDusk.brand.gold} />
-                <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
-                  Finding recipes...
-                </Text>
-              </View>
-            ) : (
-              <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
-                See your recipes →
-              </Text>
-            )}
-          </Pressable>
-        </View>
-      ) : null}
 
       {/* Sort Dropdown Modal */}
       <Modal
@@ -1054,6 +1038,64 @@ export default function MyBarScreen() {
       )}
     </ScrollView>
 
+    {/* Sticky footer: Show me recipes */}
+    {inventory.length > 0 && (
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: Platform.OS === 'ios' ? 16 : 12,
+        backgroundColor: OaklandDusk.bg.void,
+        borderTopWidth: 0.5,
+        borderTopColor: OaklandDusk.bg.border,
+      }}>
+        <View style={{ position: 'relative' }}>
+          <GuideBubble
+            storageKey={GUIDE_KEYS.MYBAR_CTA}
+            text="See what you can make!"
+            visible={guideMyBarCtaVisible}
+            onDismiss={() => setGuideMyBarCtaVisible(false)}
+          />
+          <Pressable
+            onPress={() => {
+              dismissGuide(GUIDE_KEYS.MYBAR_CTA)
+              setGuideMyBarCtaVisible(false)
+              setShowStaplesModal(true)
+            }}
+            disabled={recommendLoading}
+            style={{
+              backgroundColor: OaklandDusk.brand.gold,
+              paddingVertical: 14,
+              borderRadius: 12,
+              alignItems: 'center',
+              opacity: recommendLoading ? 0.7 : 1,
+            }}
+          >
+            {recommendLoading ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator size="small" color={OaklandDusk.bg.void} />
+                <Text style={{ fontSize: 15, fontWeight: '700', color: OaklandDusk.bg.void }}>
+                  Finding recipes...
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: OaklandDusk.bg.void }}>
+                  Show me recipes
+                </Text>
+                <Text style={{ fontSize: 12, color: OaklandDusk.bg.void, opacity: 0.7, marginTop: 2 }}>
+                  Based on your bar
+                </Text>
+              </>
+            )}
+          </Pressable>
+        </View>
+      </View>
+    )}
+
     <StaplesModal
       visible={showStaplesModal}
       loading={recommendLoading}
@@ -1063,7 +1105,7 @@ export default function MyBarScreen() {
       }}
       onCancel={() => setShowStaplesModal(false)}
     />
-    </>
+    </View>
   )
 }
 
@@ -1071,7 +1113,7 @@ const styles = StyleSheet.create({
   container: {
     padding: 16,
     gap: 8,
-    paddingBottom: 40,
+    paddingBottom: 100,
   },
   centered: {
     flex: 1,
