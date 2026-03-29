@@ -48,6 +48,14 @@ type Suggestion = {
   recipes: { iba_code: string; name: string; iba_category: string }[];
 };
 
+function formatFamilyKey(key: string | null | undefined): string {
+  if (!key) return "";
+  return key
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export default function CartScreen() {
   const { session } = useAuth();
   const { favoritesByKey } = useFavorites();
@@ -180,9 +188,9 @@ export default function CartScreen() {
     >
       {/* Header */}
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary }}>Smart Restock</Text>
+        <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary }}>What to buy next?</Text>
         <Text style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>
-          Buy one bottle, unlock multiple cocktails. Based on your bar inventory and taste.
+          Based on bottles you already own
         </Text>
       </View>
 
@@ -231,6 +239,17 @@ export default function CartScreen() {
         </View>
       )}
 
+      {/* Hero number — top suggestion's unlock count */}
+      {hasFetched && filteredSuggestions.length > 0 && !loading && (
+        <View style={{ alignItems: "center", paddingVertical: 8 }}>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>Add one bottle, make</Text>
+          <Text style={{ fontSize: 48, fontWeight: "800", color: OaklandDusk.brand.gold, lineHeight: 56 }}>
+            {filteredSuggestions[0].unlocks_count} more
+          </Text>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.brand.gold }}>cocktails</Text>
+        </View>
+      )}
+
       {/* Empty state */}
       {hasFetched && filteredSuggestions.length === 0 && !loading && (
         <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
@@ -246,9 +265,10 @@ export default function CartScreen() {
       {filteredSuggestions.map((s, i) => {
         const isTop = i === 0;
         const recipeNames = (s.recipes ?? []).map((r) => r.name).filter(Boolean);
-        const showRecipes = recipeNames.slice(0, 5);
+        const showRecipes = recipeNames.slice(0, 4);
         const moreCount = recipeNames.length - showRecipes.length;
         const prefPercent = Math.round((s.avg_pref_match ?? 0) * 100);
+        const categoryLabel = formatFamilyKey(s.family_key);
 
         return (
           <View
@@ -260,23 +280,47 @@ export default function CartScreen() {
               borderColor: OaklandDusk.bg.border,
               borderLeftColor: isTop ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
               backgroundColor: OaklandDusk.bg.card,
-              overflow: "hidden",
+              overflow: "visible",
+              position: "relative",
             }}
           >
+            {/* #1 pick badge */}
+            {isTop && (
+              <View style={{
+                position: "absolute",
+                top: -1,
+                right: 12,
+                backgroundColor: OaklandDusk.brand.gold,
+                paddingHorizontal: 10,
+                paddingVertical: 3,
+                borderBottomLeftRadius: 8,
+                borderBottomRightRadius: 8,
+                zIndex: 1,
+              }}>
+                <Text style={{ fontSize: 11, fontWeight: "800", color: OaklandDusk.bg.void }}>#1 pick</Text>
+              </View>
+            )}
+
             <View style={{ padding: 14, gap: 10 }}>
-              {/* Row 1: Bottle name + unlock count */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ fontSize: 17, fontWeight: "800", color: OaklandDusk.text.primary, flex: 1 }}>
-                  {s.display_name}
-                </Text>
-                <View style={{
-                  borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
-                  backgroundColor: isTop ? "rgba(200,120,40,0.15)" : "rgba(107,143,107,0.12)",
-                }}>
-                  <Text style={{ fontSize: 12, fontWeight: "800", color: isTop ? OaklandDusk.brand.gold : "#6B8F6B" }}>
-                    +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
+              {/* Row 1: Bottle name + category + big unlock number */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={{ fontSize: 17, fontWeight: "800", color: OaklandDusk.text.primary }}>
+                    {s.display_name}
                   </Text>
+                  {categoryLabel ? (
+                    <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                      {categoryLabel}
+                    </Text>
+                  ) : null}
                 </View>
+                <Text style={{
+                  fontSize: 22,
+                  fontWeight: "800",
+                  color: isTop ? OaklandDusk.brand.gold : "#6B8F6B",
+                }}>
+                  +{s.unlocks_count}
+                </Text>
               </View>
 
               {/* Row 2: Reason */}
@@ -286,22 +330,49 @@ export default function CartScreen() {
                 </Text>
               ) : null}
 
-              {/* Row 3: Unlocked recipes */}
+              {/* Row 3: Unlocked recipes — tappable */}
               {showRecipes.length > 0 && (
                 <View style={{ gap: 4 }}>
                   <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.text.tertiary, letterSpacing: 0.5 }}>
-                    UNLOCKS
+                    YOU COULD MAKE
                   </Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {showRecipes.map((name) => (
-                      <View key={name} style={{
-                        backgroundColor: "rgba(240,228,200,0.08)",
-                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
-                        borderWidth: 0.5, borderColor: "rgba(240,228,200,0.12)",
-                      }}>
-                        <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>{name}</Text>
-                      </View>
-                    ))}
+                    {showRecipes.map((name) => {
+                      const recipe = (s.recipes ?? []).find((r) => r.name === name);
+                      const ibaCode = recipe?.iba_code ?? "";
+                      return (
+                        <Pressable
+                          key={name}
+                          onPress={() => {
+                            if (ibaCode) {
+                              router.push({
+                                pathname: "/recipe",
+                                params: { iba_code: ibaCode, from: "restock" },
+                              });
+                            }
+                          }}
+                          disabled={!ibaCode}
+                        >
+                          <View style={{
+                            backgroundColor: "rgba(240,228,200,0.08)",
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6,
+                            borderWidth: 0.5,
+                            borderColor: "rgba(240,228,200,0.12)",
+                          }}>
+                            <Text style={{
+                              fontSize: 12,
+                              color: ibaCode ? OaklandDusk.brand.gold : OaklandDusk.text.secondary,
+                              textDecorationLine: ibaCode ? "underline" : "none",
+                              textDecorationColor: "rgba(200,152,88,0.3)",
+                            }}>
+                              {name}
+                            </Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
                     {moreCount > 0 && (
                       <View style={{ paddingHorizontal: 8, paddingVertical: 3 }}>
                         <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }}>+{moreCount} more</Text>

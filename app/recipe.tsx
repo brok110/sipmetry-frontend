@@ -998,7 +998,7 @@ export default function TabTwoScreen() {
               }
             } else if (isInOverlap) {
               availBadge = (
-                <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ Detected</Text>
+                <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ Just found</Text>
               );
             } else {
               availBadge = (

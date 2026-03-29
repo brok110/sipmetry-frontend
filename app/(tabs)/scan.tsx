@@ -719,17 +719,45 @@ export default function TabOneScreen() {
   }, [scanPhase, multiScanResults.length]);
 
   // "Scan More or Done" alert — fires once per completed batch via batchCompleteCount
-  // Works for both inventory and quick_look paths
+  // Path A (inventory): distinguishes alcoholic (saved to bar) vs non-alcoholic (used for recipes only)
+  // Path B (quick_look): simple item count, no inventory distinction
   useEffect(() => {
     if (scanPhase !== "accumulating") return;
     if (scanMode !== "inventory" && scanMode !== "quick_look") return;
-    const n = multiScanResults.length;
-    const title = scanMode === "inventory"
-      ? "Bottles added!"
-      : "Got it!";
-    const subtitle = scanMode === "inventory"
-      ? `${n} bottle${n !== 1 ? "s" : ""} saved to My Bar`
-      : `${n} bottle${n !== 1 ? "s" : ""} identified`;
+
+    let title = "";
+    let subtitle = "";
+
+    if (scanMode === "inventory") {
+      // Path A: distinguish alcoholic (saved) vs non-alcoholic (not saved but used for recipes)
+      const alcoholic = multiScanResults.filter(
+        (ing) => isAlcoholicIngredient(ing.canonical) !== false
+      );
+      const nonAlcoholic = multiScanResults.filter(
+        (ing) => isAlcoholicIngredient(ing.canonical) === false
+      );
+      // Only count items not already in the bar
+      const newlyAdded = alcoholic.filter((ing) => !isInInventory(ing.canonical));
+      const addedCount = newlyAdded.length;
+
+      if (addedCount > 0) {
+        title = `${addedCount} bottle${addedCount !== 1 ? "s" : ""} added to My Bar`;
+      } else if (alcoholic.length > 0) {
+        title = "Already in your bar";
+      } else {
+        title = "No spirits found";
+      }
+
+      if (nonAlcoholic.length > 0) {
+        const names = nonAlcoholic.map((x) => x.display).join(", ");
+        subtitle = `ℹ️ ${names} — not a spirit, still used for recipes`;
+      }
+    } else {
+      // Path B: simple count, no inventory distinction
+      const n = multiScanResults.length;
+      title = `${n} item${n !== 1 ? "s" : ""} found`;
+    }
+
     Alert.alert(
       title,
       subtitle,
