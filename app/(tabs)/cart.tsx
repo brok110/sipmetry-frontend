@@ -1,4 +1,5 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,6 +19,7 @@ import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
 import OaklandDusk from "@/constants/OaklandDusk";
+import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -56,13 +58,27 @@ export default function CartScreen() {
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
 
-  // Guide bubble state (Stage 6)
+  // Staples — keys the user confirmed they already have; excluded from suggestions
+  const [staplesKeys, setStaplesKeys] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    AsyncStorage.getItem(STAPLES_STORAGE_KEY)
+      .then((val) => {
+        if (val) {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) setStaplesKeys(new Set(parsed));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Guide bubble state
   const [guideCartVisible, setGuideCartVisible] = useState(false);
-  const [guideCartBuyVisible, setGuideCartBuyVisible] = useState(false);
 
   useEffect(() => {
     isGuideDismissed(GUIDE_KEYS.CART).then((d) => setGuideCartVisible(!d));
-    isGuideDismissed(GUIDE_KEYS.CART_BUY).then((d) => setGuideCartBuyVisible(!d));
   }, []);
 
   // Build user interactions payload for preference-aware scoring
@@ -78,6 +94,12 @@ export default function CartScreen() {
         .map(([k]) => k),
     };
   }, [favoritesByKey, feedback?.ratingsByKey, feedback?.ratings]);
+
+  // Filter out staples the user already confirmed having
+  const filteredSuggestions = useMemo(
+    () => suggestions.filter((s) => !staplesKeys.has(s.ingredient_key)),
+    [suggestions, staplesKeys]
+  );
 
   const fetchSuggestions = useCallback(async () => {
     if (!session?.access_token) return;
@@ -210,7 +232,7 @@ export default function CartScreen() {
       )}
 
       {/* Empty state */}
-      {hasFetched && suggestions.length === 0 && !loading && (
+      {hasFetched && filteredSuggestions.length === 0 && !loading && (
         <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
           <FontAwesome name="check-circle" size={36} color="#6B8F6B" />
           <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Your bar is well stocked!</Text>
@@ -220,81 +242,119 @@ export default function CartScreen() {
         </View>
       )}
 
-      {/* Suggestion cards */}
-      {suggestions.map((s, i) => {
-        const isFirst = i === 0;
+      {/* Suggestion cards — exclude staples the user already has */}
+      {filteredSuggestions.map((s, i) => {
+        const isTop = i === 0;
+        const recipeNames = (s.recipes ?? []).map((r) => r.name).filter(Boolean);
+        const showRecipes = recipeNames.slice(0, 5);
+        const moreCount = recipeNames.length - showRecipes.length;
+        const prefPercent = Math.round((s.avg_pref_match ?? 0) * 100);
+
         return (
           <View
             key={s.ingredient_key}
-            style={{ position: "relative", overflow: "visible", zIndex: isFirst ? 20 : 0 }}
+            style={{
+              borderRadius: 12,
+              borderWidth: 0.5,
+              borderLeftWidth: isTop ? 3 : 0.5,
+              borderColor: OaklandDusk.bg.border,
+              borderLeftColor: isTop ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
+              backgroundColor: OaklandDusk.bg.card,
+              overflow: "hidden",
+            }}
           >
-            {isFirst && (
-              <GuideBubble
-                storageKey={GUIDE_KEYS.CART_BUY}
-                text="Tap the cart to buy!"
-                visible={guideCartBuyVisible}
-                onDismiss={() => setGuideCartBuyVisible(false)}
-                position="above"
-                align="center"
-              />
-            )}
-            <View
-              style={{
-                borderRadius: 12,
-                borderWidth: 0.5,
-                borderLeftWidth: isFirst ? 3 : 0.5,
-                borderColor: OaklandDusk.bg.border,
-                borderLeftColor: isFirst ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
-                backgroundColor: OaklandDusk.bg.card,
-                overflow: "hidden",
-              }}
-            >
-              <View style={{ padding: 14, gap: 8 }}>
-                {/* Bottle name + shopping icon */}
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary, flex: 1 }}>
-                    {s.display_name}
+            <View style={{ padding: 14, gap: 10 }}>
+              {/* Row 1: Bottle name + unlock count */}
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ fontSize: 17, fontWeight: "800", color: OaklandDusk.text.primary, flex: 1 }}>
+                  {s.display_name}
+                </Text>
+                <View style={{
+                  borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3,
+                  backgroundColor: isTop ? "rgba(200,120,40,0.15)" : "rgba(107,143,107,0.12)",
+                }}>
+                  <Text style={{ fontSize: 12, fontWeight: "800", color: isTop ? OaklandDusk.brand.gold : "#6B8F6B" }}>
+                    +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
                   </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginLeft: 8 }}>
-                    <View style={{
-                      borderRadius: 10,
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      backgroundColor: "rgba(107,143,107,0.12)",
-                    }}>
-                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#6B8F6B" }}>
-                        +{s.unlocks_count} cocktail{s.unlocks_count > 1 ? "s" : ""}
-                      </Text>
-                    </View>
-                    <Pressable
-                      onPress={() => {
-                        if (isFirst) {
-                          dismissGuide(GUIDE_KEYS.CART_BUY);
-                          setGuideCartBuyVisible(false);
-                        }
-                        handleBuy(s);
-                      }}
-                      hitSlop={10}
-                    >
-                      <FontAwesome name="shopping-cart" size={16} color={OaklandDusk.brand.gold} />
-                    </Pressable>
+                </View>
+              </View>
+
+              {/* Row 2: Reason */}
+              {s.reason ? (
+                <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary, lineHeight: 18 }}>
+                  {s.reason}
+                </Text>
+              ) : null}
+
+              {/* Row 3: Unlocked recipes */}
+              {showRecipes.length > 0 && (
+                <View style={{ gap: 4 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.text.tertiary, letterSpacing: 0.5 }}>
+                    UNLOCKS
+                  </Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {showRecipes.map((name) => (
+                      <View key={name} style={{
+                        backgroundColor: "rgba(240,228,200,0.08)",
+                        paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+                        borderWidth: 0.5, borderColor: "rgba(240,228,200,0.12)",
+                      }}>
+                        <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>{name}</Text>
+                      </View>
+                    ))}
+                    {moreCount > 0 && (
+                      <View style={{ paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }}>+{moreCount} more</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
+              )}
 
-                {/* Reason */}
-                {s.reason ? (
-                  <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }} numberOfLines={2}>
-                    {s.reason}
+              {/* Row 4: Taste match */}
+              {prefPercent > 0 && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <View style={{
+                    height: 4, flex: 1, backgroundColor: "rgba(240,228,200,0.08)",
+                    borderRadius: 2, overflow: "hidden",
+                  }}>
+                    <View style={{
+                      height: 4, width: `${Math.min(prefPercent, 100)}%`,
+                      backgroundColor: prefPercent >= 70 ? "#6B8F6B" : OaklandDusk.brand.gold,
+                      borderRadius: 2,
+                    }} />
+                  </View>
+                  <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, minWidth: 65 }}>
+                    {prefPercent}% match
                   </Text>
-                ) : null}
-              </View>
+                </View>
+              )}
+
+              {/* Row 5: Buy CTA */}
+              <Pressable
+                onPress={() => handleBuy(s)}
+                style={{
+                  flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+                  backgroundColor: isTop ? OaklandDusk.brand.gold : "transparent",
+                  borderWidth: isTop ? 0 : 1, borderColor: OaklandDusk.brand.gold,
+                  borderRadius: 10, paddingVertical: 12, marginTop: 2,
+                }}
+              >
+                <FontAwesome name="external-link" size={13} color={isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold} />
+                <Text style={{
+                  fontSize: 14, fontWeight: "700",
+                  color: isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
+                }}>
+                  Find {s.display_name}
+                </Text>
+              </Pressable>
             </View>
           </View>
         );
       })}
 
       {/* Preference match info */}
-      {hasFetched && suggestions.length > 0 && (
+      {hasFetched && filteredSuggestions.length > 0 && (
         <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 11, textAlign: "center", marginTop: 4 }}>
           Recommendations based on your inventory, favorites, and taste preferences.
           {"\n"}Pull down to refresh.

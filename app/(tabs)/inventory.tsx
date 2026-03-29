@@ -1,6 +1,7 @@
 import { apiFetch } from '@/lib/api'
 import OaklandDusk from '@/constants/OaklandDusk'
 import AddToInventoryModal from '@/components/AddToInventoryModal'
+import StaplesModal from '@/components/StaplesModal'
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
 import SwipeRow from '@/components/ui/SwipeRow'
@@ -511,6 +512,7 @@ export default function MyBarScreen() {
   const { trackAndOpenPurchaseLink } = usePurchaseIntent()
   const {
     inventory,
+    availableIngredientKeys,
     loading,
     refreshing,
     error,
@@ -537,6 +539,10 @@ export default function MyBarScreen() {
     isGuideDismissed(GUIDE_KEYS.MYBAR_CTA).then((d) => setGuideMyBarCtaVisible(!d))
     isGuideDismissed(GUIDE_KEYS.MYBAR_SWIPE).then((d) => setGuideSwipeDismissed(d))
   }, [])
+
+  // ── See recipes loading state ──────────────────────────────────────────────
+  const [recommendLoading, setRecommendLoading] = useState(false)
+  const [showStaplesModal, setShowStaplesModal] = useState(false)
 
   // ── Bottle scan state ──────────────────────────────────────────────────────
   const [bottleScanLoading, setBottleScanLoading] = useState(false)
@@ -708,6 +714,65 @@ export default function MyBarScreen() {
     )
   }
 
+  const handleSeeRecipes = async (staplesKeys: string[] = []) => {
+    if (recommendLoading) return
+    if (availableIngredientKeys.length === 0) return
+
+    setRecommendLoading(true)
+    try {
+      const mergedIngredients = [...new Set([...availableIngredientKeys, ...staplesKeys])]
+      const resp = await apiFetch('/recommend-classics', {
+        session,
+        method: 'POST',
+        body: {
+          detected_ingredients: mergedIngredients,
+          locale: 'en',
+        },
+      })
+
+      if (!resp.ok) {
+        const text = await resp.text()
+        throw new Error(`Recommend API failed: ${resp.status} ${text}`)
+      }
+
+      const data = await resp.json() as {
+        can_make?: any[]
+        one_away?: any[]
+        two_away?: any[]
+      }
+
+      const canMake = Array.isArray(data.can_make) ? data.can_make : []
+      const oneAway = Array.isArray(data.one_away) ? data.one_away : []
+      const twoAway = Array.isArray(data.two_away) ? data.two_away : []
+
+      const flattened = [
+        ...canMake.map((x: any) => ({ ...x, bucket: 'ready' as const })),
+        ...oneAway.map((x: any) => ({ ...x, bucket: 'one_missing' as const })),
+        ...twoAway.map((x: any) => ({ ...x, bucket: 'two_missing' as const })),
+      ]
+
+      router.push({
+        pathname: '/recommendations',
+        params: {
+          recipes: JSON.stringify(flattened),
+          ingredientCount: String(availableIngredientKeys.length),
+          activeCanonical: JSON.stringify(availableIngredientKeys),
+          scanItems: JSON.stringify(
+            inventory.map((item) => ({
+              canonical: item.ingredient_key,
+              display: item.display_name,
+            }))
+          ),
+          mode: 'inventory',
+        },
+      })
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Could not load recipes')
+    } finally {
+      setRecommendLoading(false)
+    }
+  }
+
   if (!session) {
     return (
       <View style={styles.centered}>
@@ -728,6 +793,7 @@ export default function MyBarScreen() {
   }
 
   return (
+    <>
     <ScrollView
       contentContainerStyle={styles.container}
       refreshControl={
@@ -784,8 +850,9 @@ export default function MyBarScreen() {
             onPress={() => {
               dismissGuide(GUIDE_KEYS.MYBAR_CTA)
               setGuideMyBarCtaVisible(false)
-              router.push('/(tabs)/scan')
+              setShowStaplesModal(true)
             }}
+            disabled={recommendLoading}
             style={{
               borderWidth: 1,
               borderColor: OaklandDusk.brand.gold,
@@ -793,14 +860,24 @@ export default function MyBarScreen() {
               padding: 14,
               backgroundColor: OaklandDusk.brand.tagBg,
               gap: 4,
+              opacity: recommendLoading ? 0.7 : 1,
             }}
           >
             <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary }}>
               You have {inventory.length} bottle{inventory.length !== 1 ? 's' : ''}
             </Text>
-            <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
-              See your cocktails →
-            </Text>
+            {recommendLoading ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <ActivityIndicator size="small" color={OaklandDusk.brand.gold} />
+                <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
+                  Finding recipes...
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ fontSize: 16, fontWeight: '800', color: OaklandDusk.brand.gold }}>
+                See your recipes →
+              </Text>
+            )}
           </Pressable>
         </View>
       ) : null}
@@ -976,6 +1053,17 @@ export default function MyBarScreen() {
         </>
       )}
     </ScrollView>
+
+    <StaplesModal
+      visible={showStaplesModal}
+      loading={recommendLoading}
+      onConfirm={(staplesKeys) => {
+        setShowStaplesModal(false)
+        handleSeeRecipes(staplesKeys)
+      }}
+      onCancel={() => setShowStaplesModal(false)}
+    />
+    </>
   )
 }
 

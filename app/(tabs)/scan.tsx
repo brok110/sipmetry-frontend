@@ -2,12 +2,9 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
+import StaplesModal from "@/components/StaplesModal";
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
-import Card from "@/components/ui/Card";
-import Pill from "@/components/ui/Pill";
-import SectionLabel from "@/components/ui/SectionLabel";
 import SwipeRow from "@/components/ui/SwipeRow";
-import { FEATURE_FLAGS } from "@/constants/Features";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
@@ -85,8 +82,6 @@ type ClassicItem = {
   caffeine_warning?: boolean;
   caffeine_sources?: string[];
 };
-
-type SectionTone = "ready" | "one_missing" | "two_missing";
 
 type AnalyzeImageResponse = {
   ingredients?: string[];
@@ -553,8 +548,6 @@ export default function TabOneScreen() {
   const [lastHttpStatus, setLastHttpStatus] = useState<number | null>(null);
   const [lastAnalyzeResponseText, setLastAnalyzeResponseText] = useState<string | null>(null);
   const [lastAnalyzeResponseJson, setLastAnalyzeResponseJson] = useState<any | null>(null);
-  const [lastRecommendHttpStatus, setLastRecommendHttpStatus] = useState<number | null>(null);
-  const [lastRecommendResponseJson, setLastRecommendResponseJson] = useState<any | null>(null);
 
   const flavorVector = useMemo(() => {
     return aggregateIngredientVectors(activeCanonical);
@@ -570,35 +563,6 @@ export default function TabOneScreen() {
   }, [activeCanonical]);
 
   const [recipes, setRecipes] = useState<ClassicItem[]>([]);
-  const [recipesStale, setRecipesStale] = useState(false);
-  const [recipesStaleReason, setRecipesStaleReason] = useState<"ingredients" | "preferences" | "mood" | null>(null);
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
-
-  // Stage 7: Mood selector
-  type MoodOption = "chill" | "party" | "date_night" | "solo";
-  const [selectedMood, setSelectedMood] = useState<MoodOption | null>(null);
-  const lastRecommendMoodRef = React.useRef<MoodOption | null>(null);
-
-  // Stage 10: Flavor Explorer
-  type ExploreItem = {
-    iba_code: string;
-    name: string;
-    iba_category?: string;
-    missing_count: number;
-    total_ings: number;
-    overlap_count?: number;
-    overlap_hits?: string[];
-    ingredient_keys?: string[];
-    missing_items?: string[];
-    explore_score: number;
-    explore_dims?: { dim: string; user_avg: number; recipe: number; diff: number; contribution: number }[];
-    reasons?: string[];
-    bucket?: "ready" | "one_missing";
-  };
-  const [exploreResults, setExploreResults] = useState<ExploreItem[]>([]);
-  const [exploreMeta, setExploreMeta] = useState<any>(null);
-  const [exploreLoading, setExploreLoading] = useState(false);
-  const [showExplore, setShowExplore] = useState(false);
 
   const appLocale = useMemo(() => {
     try {
@@ -623,15 +587,27 @@ export default function TabOneScreen() {
   // Inventory Modal state
   const [inventoryModalTarget, setInventoryModalTarget] = useState<ActiveIngredient | null>(null);
 
+  // Staples Modal state
+  const [showStaplesModal, setShowStaplesModal] = useState(false);
+
+  // Dual-path scan state (Stage 2)
+  type ScanMode = "undecided" | "inventory" | "quick_look";
+  const [scanMode, setScanMode] = useState<ScanMode>("undecided");
+  const [multiScanResults, setMultiScanResults] = useState<ActiveIngredient[]>([]);
+  const [scanCount, setScanCount] = useState(0);
+  const [scanPhase, setScanPhase] = useState<"idle" | "scanning" | "choice" | "accumulating" | "review">("idle");
+  // Incremented once per completed batch (full photo queue drained); drives "Scan More or Done" alert
+  const [batchCompleteCount, setBatchCompleteCount] = useState(0);
+
   // Guide bubble state (Stages 2-4)
   const [guideScanVisible, setGuideScanVisible] = useState(false);
   const [autoAnalyze, setAutoAnalyze] = useState(false);
 
-  // Add-to-bar state (Stage 3)
-  const [showAddToBar, setShowAddToBar] = useState(false);
-  const [addedToBar, setAddedToBar] = useState<Set<string>>(new Set());
-  const [newIngredients, setNewIngredients] = useState<ActiveIngredient[]>([]);
-  const [guideAddBarVisible, setGuideAddBarVisible] = useState(false);
+  // BYPASSED: auto-add replaces manual add-to-bar flow
+  // const [showAddToBar, setShowAddToBar] = useState(false);
+  // const [addedToBar, setAddedToBar] = useState<Set<string>>(new Set());
+  // const [newIngredients, setNewIngredients] = useState<ActiveIngredient[]>([]);
+  // const [guideAddBarVisible, setGuideAddBarVisible] = useState(false);
 
   // Guide #4
   const [guideCocktailsVisible, setGuideCocktailsVisible] = useState(false);
@@ -679,9 +655,10 @@ export default function TabOneScreen() {
     isGuideDismissed(GUIDE_KEYS.SCAN).then((dismissed) => {
       setGuideScanVisible(!dismissed);
     });
-    isGuideDismissed(GUIDE_KEYS.ADD_BAR).then((dismissed) => {
-      setGuideAddBarVisible(!dismissed);
-    });
+    // BYPASSED: auto-add replaces manual add-to-bar flow
+    // isGuideDismissed(GUIDE_KEYS.ADD_BAR).then((dismissed) => {
+    //   setGuideAddBarVisible(!dismissed);
+    // });
     isGuideDismissed(GUIDE_KEYS.COCKTAILS).then((dismissed) => {
       setGuideCocktailsVisible(!dismissed);
     });
@@ -694,6 +671,88 @@ export default function TabOneScreen() {
       analyze();
     }
   }, [autoAnalyze, imageUri]);
+
+  // Path choice alert — fires when scan phase becomes "choice"
+  useEffect(() => {
+    if (scanPhase !== "choice" || multiScanResults.length === 0) return;
+    const n = multiScanResults.length;
+    Alert.alert(
+      "What would you like to do?",
+      `${n} bottle${n !== 1 ? "s" : ""} identified`,
+      [
+        {
+          text: "Add to My Bar",
+          onPress: async () => {
+            setScanMode("inventory");
+            if (session) {
+              for (const ing of multiScanResults) {
+                if (isAlcoholicIngredient(ing.canonical) === false) continue;
+                if (isInInventory(ing.canonical)) continue;
+                try {
+                  await addInventoryItem({
+                    ingredient_key: ing.canonical,
+                    display_name: ing.display,
+                    total_ml: 750,
+                    remaining_pct: 100,
+                  });
+                } catch {}
+              }
+              await refreshInventory({ silent: true });
+            }
+            // Trigger "Scan More or Done" alert (after all inventory adds complete)
+            setScanPhase("accumulating");
+            setBatchCompleteCount((c) => c + 1);
+          },
+        },
+        {
+          text: "Just See Recipes",
+          onPress: () => {
+            setScanMode("quick_look");
+            // Same "Scan More or Done" flow as inventory
+            setScanPhase("accumulating");
+            setBatchCompleteCount((c) => c + 1);
+          },
+        },
+      ],
+      { cancelable: false }
+    );
+  }, [scanPhase, multiScanResults.length]);
+
+  // "Scan More or Done" alert — fires once per completed batch via batchCompleteCount
+  // Works for both inventory and quick_look paths
+  useEffect(() => {
+    if (scanPhase !== "accumulating") return;
+    if (scanMode !== "inventory" && scanMode !== "quick_look") return;
+    const n = multiScanResults.length;
+    const title = scanMode === "inventory"
+      ? "Bottles added!"
+      : "Got it!";
+    const subtitle = scanMode === "inventory"
+      ? `${n} bottle${n !== 1 ? "s" : ""} saved to My Bar`
+      : `${n} bottle${n !== 1 ? "s" : ""} identified`;
+    Alert.alert(
+      title,
+      subtitle,
+      [
+        {
+          text: "Scan More",
+          onPress: () => {
+            Alert.alert(
+              "Scan bottles",
+              "Choose an option",
+              [
+                { text: "Take a photo", onPress: () => takePhoto() },
+                { text: "Choose from library", onPress: () => pickImage() },
+                { text: "Cancel", style: "cancel", onPress: () => setScanPhase("review") },
+              ]
+            );
+          },
+        },
+        { text: "Done", onPress: () => setScanPhase("review") },
+      ],
+      { cancelable: false }
+    );
+  }, [batchCompleteCount, scanMode]);
 
   const [hasRecommended, setHasRecommended] = useState(false);
   const [hasRecommendedLocal, setHasRecommendedLocal] = useState(false);
@@ -822,14 +881,6 @@ export default function TabOneScreen() {
     return resolvedMeta?.source === "user" || interactionSets.interactionCount > 0;
   }, [resolvedMeta, interactionSets]);
 
-  const getBucketRank = (r: ClassicItem): number => {
-    const b = r?.bucket;
-    if (b === "ready") return 0;
-    if (b === "one_missing") return 1;
-    if (b === "two_missing") return 2;
-    return 9;
-  };
-
   const pingApi = async () => {
     try {
       const r = await apiFetch("/health", { session });
@@ -843,27 +894,14 @@ export default function TabOneScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const ingredientYRef = useRef<Record<number, number>>({});
-  const lastRecommendPrefsKeyRef = useRef<string>("");
+  // Queue for sequential processing of multi-selected photos from library
+  const imageQueueRef = useRef<Array<{ uri: string; base64: string | null }>>([]);
 
-  const invalidateRecipes = (reason: "ingredients" | "preferences" = "ingredients") => {
+  const invalidateRecipes = () => {
     setRecipes([]);
-    setExpandedIndex(null);
-    setRecipesStale(true);
-    setRecipesStaleReason(reason);
     setHasRecommended(false);
     setHasRecommendedLocal(false);
-    lastRecommendPrefsKeyRef.current = "";
   };
-
-  useEffect(() => {
-    if (!hasRecommended) return;
-    if (!Array.isArray(recipes) || recipes.length === 0) return;
-    if (!lastRecommendPrefsKeyRef.current) return;
-    if (prefsKey === lastRecommendPrefsKeyRef.current) return;
-
-    setRecipesStale(true);
-    setRecipesStaleReason("preferences");
-  }, [prefsKey, hasRecommended, recipes]);
 
   const openRecipeInTab2 = (r: any, idx: number) => {
     const code = String(r?.iba_code ?? "").trim();
@@ -934,7 +972,11 @@ export default function TabOneScreen() {
     return String(normalizeIngredientKey(v) || "").trim();
   };
 
-  const regenerateRecipes = async (overrideIngredients?: ActiveIngredient[]) => {
+  const regenerateRecipes = async (
+    overrideIngredients?: ActiveIngredient[],
+    staplesKeys: string[] = [],
+    mode: "inventory" | "quick_look" = "quick_look"
+  ) => {
     if (!process.env.EXPO_PUBLIC_API_URL) {
       setError("Missing EXPO_PUBLIC_API_URL. Please check .env.");
       return;
@@ -949,16 +991,10 @@ export default function TabOneScreen() {
 
     setLoading(true);
     setStage("generating");
-    setExpandedIndex(null);
     setError(null);
     setRecipes([]);
-    setRecipesStale(false);
-    setRecipesStaleReason(null);
     setHasRecommended(true);
     setHasRecommendedLocal(true);
-
-    setLastRecommendHttpStatus(null);
-    setLastRecommendResponseJson(null);
 
     try {
       const updated: ActiveIngredient[] = [];
@@ -1031,7 +1067,7 @@ export default function TabOneScreen() {
       }
 
       const mergedIngredients = dedupeCaseInsensitive(
-        [...canonicalDeduped, ...inventoryKeys]
+        [...canonicalDeduped, ...inventoryKeys, ...staplesKeys]
           .map(canonicalizeForRecommendation)
           .filter((key) => {
             if (key) return true;
@@ -1046,23 +1082,15 @@ export default function TabOneScreen() {
       log("[DEBUG] mergedIngredients:", mergedIngredients);
 
       // Stage 7: build request body with optional mood filter
-      const recommendBody: Record<string, any> = {
-        detected_ingredients: mergedIngredients,
-        locale: localeForApi,
-        user_preference_vector: resolvedVector05,
-      };
-      if (selectedMood) {
-        recommendBody.mood = selectedMood;
-      }
-      lastRecommendMoodRef.current = selectedMood;
-
       const resp = await apiFetch("/recommend-classics", {
         session,
         method: "POST",
-        body: recommendBody,
+        body: {
+          detected_ingredients: mergedIngredients,
+          locale: localeForApi,
+          user_preference_vector: resolvedVector05,
+        },
       });
-
-      setLastRecommendHttpStatus(resp.status);
 
       const dataText = await resp.text();
       let dataParsed: any = null;
@@ -1071,7 +1099,6 @@ export default function TabOneScreen() {
       } catch {
         dataParsed = null;
       }
-      setLastRecommendResponseJson(dataParsed ?? (dataText ? { raw: dataText } : null));
 
       if (!resp.ok) {
         throw new Error(`Recommend API failed: ${resp.status} ${dataText}`);
@@ -1123,18 +1150,12 @@ export default function TabOneScreen() {
 
       if (flattened.length === 0) {
         setRecipes([]);
-        setRecipesStale(false);
-        setRecipesStaleReason(null);
         setStage("idle");
         setError(null);
-        lastRecommendPrefsKeyRef.current = "";
         return;
       }
 
       setRecipes(flattened);
-      setRecipesStale(false);
-      setRecipesStaleReason(null);
-      lastRecommendPrefsKeyRef.current = prefsKey;
       setStage("idle");
 
       // Stage 4: navigate to dedicated recommendations page
@@ -1150,6 +1171,7 @@ export default function TabOneScreen() {
               display: String(x?.display ?? "").trim(),
             }))
           ),
+          mode,
         },
       });
       // Note: recipe_vec is embedded in each recipe item in the flattened array
@@ -1177,50 +1199,6 @@ export default function TabOneScreen() {
     }
   };
 
-  // ── Stage 10: Flavor Explorer ─────────────────────────────────────────
-  const fetchExplore = async () => {
-    if (!process.env.EXPO_PUBLIC_API_URL || activeIngredients.length === 0) return;
-
-    setExploreLoading(true);
-    setError(null);
-    try {
-      const detectedList = activeIngredients.map((a) => String(a.canonical ?? a.display ?? "").trim()).filter(Boolean);
-
-      const favoriteCodes = Object.values(favoritesByKey ?? {}).map((f: any) => String(f?.iba_code || f?.recipe_key || "").trim()).filter(Boolean);
-      const likedCodes: string[] = [];
-      const dislikedCodes: string[] = [];
-      for (const [key, rating] of Object.entries(ratingsByKey)) {
-        const meta = ratingMetaByKey[key];
-        const code = String(meta?.iba_code || key || "").trim();
-        if (!code) continue;
-        if (rating === "like") likedCodes.push(code);
-        else if (rating === "dislike") dislikedCodes.push(code);
-      }
-
-      const resp = await apiFetch("/recommend-explore", {
-        session,
-        method: "POST",
-        body: {
-          detected_ingredients: detectedList,
-          locale: isZh ? "zh" : "en",
-        },
-      });
-
-      if (!resp.ok) {
-        const t = await resp.text();
-        throw new Error(`Explore API failed: ${resp.status} ${t}`);
-      }
-
-      const data = await resp.json();
-      setExploreResults(Array.isArray(data.explore) ? data.explore : []);
-      setExploreMeta(data.meta || null);
-      setShowExplore(true);
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to fetch explore recommendations.");
-    } finally {
-      setExploreLoading(false);
-    }
-  };
 
   const copyDebug = async () => {
     if (!__DEV__) {
@@ -1245,24 +1223,7 @@ export default function TabOneScreen() {
             ? lastAnalyzeResponseText.slice(0, 1200) + "..."
             : lastAnalyzeResponseText
           : null,
-        last_recommend_http_status: lastRecommendHttpStatus,
-        last_recommend_response_keys:
-          lastRecommendResponseJson && typeof lastRecommendResponseJson === "object"
-            ? Object.keys(lastRecommendResponseJson)
-            : null,
-        last_recommend_response_preview: lastRecommendResponseJson
-          ? (() => {
-              try {
-                const s = JSON.stringify(lastRecommendResponseJson);
-                return s.length > 1200 ? s.slice(0, 1200) + "..." : s;
-              } catch {
-                return "(unserializable)";
-              }
-            })()
-          : null,
-        results_count: visibleRecipeCount,
         raw_recipe_count: Array.isArray(recipes) ? recipes.length : 0,
-        visible_recipe_count: visibleRecipeCount,
         safety: safety ? { risk_level: safety.risk_level, non_count: safety.non_consumable_items.length } : null,
         hasRecommended,
         hasRecommendedLocal,
@@ -1341,32 +1302,37 @@ export default function TabOneScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
+      allowsMultipleSelection: true,
       quality: 0.9,
       exif: false,
       base64: true,
     });
 
-    if (result.canceled) return;
+    if (result.canceled || !result.assets || result.assets.length === 0) return;
 
-    const uri = result.assets?.[0]?.uri ?? null;
-    const b64 = result.assets?.[0]?.base64 ?? null;
-
-    setImageUri(uri);
-    setPickedBase64(b64);
-    setAutoAnalyze(true);
-
-    setActiveIngredients([]);
-    setRecipes([]);
-    setSafety(null);
-    setExpandedIndex(null);
-    setRecipesStale(false);
-    setRecipesStaleReason(null);
-    setHasRecommended(false);
-    setHasRecommendedLocal(false);
-    setShowAddToBar(false);
-    setAddedToBar(new Set());
-    setNewIngredients([]);
+    // Reset scan state for the new batch (only when undecided / starting fresh)
+    if (scanMode === "undecided") {
+      setActiveIngredients([]);
+      setMultiScanResults([]);
+      setScanCount(0);
+      setRecipes([]);
+      setSafety(null);
+      setHasRecommended(false);
+      setHasRecommendedLocal(false);
+    }
     setStage("idle");
+
+    // Queue remaining photos (index 1+) for sequential processing after the first
+    imageQueueRef.current = result.assets.slice(1).map((a) => ({
+      uri: a.uri,
+      base64: a.base64 ?? null,
+    }));
+
+    // Kick off first photo via the existing autoAnalyze mechanism
+    const first = result.assets[0];
+    setImageUri(first.uri);
+    setPickedBase64(first.base64 ?? null);
+    setAutoAnalyze(true);
   };
 
   const takePhoto = async () => {
@@ -1392,17 +1358,15 @@ export default function TabOneScreen() {
     setPickedBase64(b64);
     setAutoAnalyze(true);
 
-    setActiveIngredients([]);
-    setRecipes([]);
-    setSafety(null);
-    setExpandedIndex(null);
-    setRecipesStale(false);
-    setRecipesStaleReason(null);
-    setHasRecommended(false);
-    setHasRecommendedLocal(false);
-    setShowAddToBar(false);
-    setAddedToBar(new Set());
-    setNewIngredients([]);
+    if (scanMode === "undecided") {
+      setActiveIngredients([]);
+      setMultiScanResults([]);
+      setScanCount(0);
+      setRecipes([]);
+      setSafety(null);
+      setHasRecommended(false);
+      setHasRecommendedLocal(false);
+    }
     setStage("idle");
   };
 
@@ -1420,13 +1384,10 @@ export default function TabOneScreen() {
     setLastUploadInfo(null);
     setLastAnalyzeResponseText(null);
     setLastAnalyzeResponseJson(null);
-    setExpandedIndex(null);
     setError(null);
 
     setActiveIngredients([]);
     setRecipes([]);
-    setRecipesStale(false);
-    setRecipesStaleReason(null);
     setSafety(null);
     setHasRecommended(false);
     setHasRecommendedLocal(false);
@@ -1553,17 +1514,44 @@ export default function TabOneScreen() {
 
       setPickedBase64(null);
 
-      // Stage 3: detect new ingredients not yet in My Bar (spirits/liqueurs only)
-      const detected = nextWithCanonicalNormalized.filter(
-        (ing) =>
-          ing.canonical &&
-          !inventoryByIngredientKey[ing.canonical] &&
-          isAlcoholicIngredient(ing.canonical) !== false
-      );
-      if (detected.length > 0) {
-        setNewIngredients(detected);
-        setAddedToBar(new Set());
-        setShowAddToBar(true);
+      // BYPASSED: auto-add replaces manual add-to-bar flow
+      // const detected = nextWithCanonicalNormalized.filter(
+      //   (ing) =>
+      //     ing.canonical &&
+      //     !inventoryByIngredientKey[ing.canonical] &&
+      //     isAlcoholicIngredient(ing.canonical) !== false
+      // );
+      // if (detected.length > 0) {
+      //   setNewIngredients(detected);
+      //   setAddedToBar(new Set());
+      //   setShowAddToBar(true);
+      // }
+
+      // Dual-path: accumulate scan results and branch based on scanMode
+      setMultiScanResults((prev) => {
+        const existing = new Set(prev.map((x) => x.canonical).filter(Boolean));
+        const newItems = nextWithCanonicalNormalized.filter(
+          (x) => x.canonical && !existing.has(x.canonical)
+        );
+        return [...prev, ...newItems];
+      });
+      setScanCount((c) => c + 1);
+
+      // Inventory mode: add this photo's bottles to My Bar as they come in
+      if (scanMode === "inventory" && session) {
+        for (const ing of nextWithCanonicalNormalized) {
+          if (isAlcoholicIngredient(ing.canonical) === false) continue;
+          if (isInInventory(ing.canonical)) continue;
+          try {
+            await addInventoryItem({
+              ingredient_key: ing.canonical,
+              display_name: ing.display,
+              total_ml: 750,
+              remaining_pct: 100,
+            });
+          } catch {}
+        }
+        await refreshInventory({ silent: true });
       }
 
       setError(null);
@@ -1576,9 +1564,31 @@ export default function TabOneScreen() {
         }
       });
 
+      // Pop next queued photo.
+      // Only transition phase AFTER the whole batch (queue) is drained — this ensures
+      // "What would you like to do?" and "Scan More or Done" each appear exactly once.
+      const nextAsset = imageQueueRef.current.shift();
+      if (nextAsset) {
+        // More photos remaining — continue processing silently
+        setImageUri(nextAsset.uri);
+        setPickedBase64(nextAsset.base64);
+        setAutoAnalyze(true);
+      } else {
+        // Entire batch complete — trigger the appropriate dialog
+        if (scanMode === "undecided") {
+          setScanPhase("choice");
+        } else {
+          // inventory or quick_look: show "Scan More or Done"
+          setScanPhase("accumulating");
+          setBatchCompleteCount((c) => c + 1);
+        }
+      }
+
     } catch (e: any) {
       setError(e?.message ?? "Failed to analyze image.");
       setStage("idle");
+      // Clear queue on error so stale photos don't carry over
+      imageQueueRef.current = [];
     } finally {
       setLoading(false);
     }
@@ -1594,7 +1604,7 @@ export default function TabOneScreen() {
       return;
     }
 
-    if (recipes.length > 0) invalidateRecipes("ingredients");
+    if (recipes.length > 0) invalidateRecipes();
 
     const newId = `user-${Date.now()}-${v}`;
     setActiveIngredients((prev) => [
@@ -1629,6 +1639,9 @@ export default function TabOneScreen() {
     dismissGuide(GUIDE_KEYS.SCAN);
     setGuideScanVisible(false);
 
+    // resetScan() is deferred to when the user actually commits to a new scan.
+    // This way pressing Cancel leaves the previous session intact so the user
+    // can still tap "Show me recipes" if ingredients were already identified.
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
@@ -1636,21 +1649,39 @@ export default function TabOneScreen() {
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
-          if (buttonIndex === 1) takePhoto();
-          else if (buttonIndex === 2) pickImage();
+          if (buttonIndex === 1) { resetScan(); takePhoto(); }
+          else if (buttonIndex === 2) { resetScan(); pickImage(); }
+          // buttonIndex === 0 (Cancel): do nothing, preserve previous state
         }
       );
     } else {
       Alert.alert("Scan bottles", "Choose an option", [
         { text: "Cancel", style: "cancel" },
-        { text: "Take a photo", onPress: takePhoto },
-        { text: "Choose from library", onPress: pickImage },
+        { text: "Take a photo", onPress: () => { resetScan(); takePhoto(); } },
+        { text: "Choose from library", onPress: () => { resetScan(); pickImage(); } },
       ]);
     }
   };
 
+  const resetScan = () => {
+    setScanMode("undecided");
+    setMultiScanResults([]);
+    setScanCount(0);
+    setScanPhase("idle");
+    setBatchCompleteCount(0);
+    imageQueueRef.current = [];
+    setActiveIngredients([]);
+    setImageUri(null);
+    setPickedBase64(null);
+    setRecipes([]);
+    setError(null);
+    setSafety(null);
+    setHasRecommended(false);
+    setHasRecommendedLocal(false);
+  };
+
   const removeIngredient = (idx: number) => {
-    if (recipes.length > 0) invalidateRecipes("ingredients");
+    if (recipes.length > 0) invalidateRecipes();
     setActiveIngredients((prev) => prev.filter((_, i) => i !== idx));
     setHasRecommended(false);
     setHasRecommendedLocal(false);
@@ -1689,39 +1720,40 @@ export default function TabOneScreen() {
     await addInventoryItem({ ...payload, ingredient_key: canonicalKey });
   };
 
+  // BYPASSED: auto-add replaces manual add-to-bar flow
   // ── Add to My Bar helpers (Stage 3) ──────────────────────────────────────
-  const handleQuickAddToBar = async (ing: ActiveIngredient) => {
-    try {
-      await handleAddToInventory({
-        ingredient_key: ing.canonical,
-        display_name: ing.display,
-        total_ml: 750,
-        remaining_pct: 100,
-      });
-      setAddedToBar((prev) => new Set(prev).add(ing.canonical));
-    } catch {
-      // best-effort
-    }
-  };
+  // const handleQuickAddToBar = async (ing: ActiveIngredient) => {
+  //   try {
+  //     await handleAddToInventory({
+  //       ingredient_key: ing.canonical,
+  //       display_name: ing.display,
+  //       total_ml: 750,
+  //       remaining_pct: 100,
+  //     });
+  //     setAddedToBar((prev) => new Set(prev).add(ing.canonical));
+  //   } catch {
+  //     // best-effort
+  //   }
+  // };
 
-  const handleAddAllToBar = async () => {
-    dismissGuide(GUIDE_KEYS.ADD_BAR);
-    setGuideAddBarVisible(false);
-    for (const ing of newIngredients) {
-      if (!addedToBar.has(ing.canonical)) {
-        await handleQuickAddToBar(ing);
-      }
-    }
-    setShowAddToBar(false);
-    // Don't auto-regenerate — user taps sticky footer to see cocktails
-  };
+  // const handleAddAllToBar = async () => {
+  //   dismissGuide(GUIDE_KEYS.ADD_BAR);
+  //   setGuideAddBarVisible(false);
+  //   for (const ing of newIngredients) {
+  //     if (!addedToBar.has(ing.canonical)) {
+  //       await handleQuickAddToBar(ing);
+  //     }
+  //   }
+  //   setShowAddToBar(false);
+  //   // Don't auto-regenerate — user taps sticky footer to see cocktails
+  // };
 
-  const handleSkipAddToBar = () => {
-    dismissGuide(GUIDE_KEYS.ADD_BAR);
-    setGuideAddBarVisible(false);
-    setShowAddToBar(false);
-    // Don't auto-regenerate — user taps sticky footer to see cocktails
-  };
+  // const handleSkipAddToBar = () => {
+  //   dismissGuide(GUIDE_KEYS.ADD_BAR);
+  //   setGuideAddBarVisible(false);
+  //   setShowAddToBar(false);
+  //   // Don't auto-regenerate — user taps sticky footer to see cocktails
+  // };
 
   const saveEditIngredient = async () => {
     if (!editingId) return;
@@ -1750,7 +1782,7 @@ export default function TabOneScreen() {
       return;
     }
 
-    if (recipes.length > 0) invalidateRecipes("ingredients");
+    if (recipes.length > 0) invalidateRecipes();
 
     setActiveIngredients((prev) =>
       prev.map((x) => (x.id === id ? { ...x, display: v, canonical: "" } : x))
@@ -1772,184 +1804,6 @@ export default function TabOneScreen() {
     } catch {
       return;
     }
-  };
-
-  const { ready, oneMissing, twoMissing } = useMemo(() => {
-    const all = Array.isArray(recipes) ? recipes : [];
-
-    const enriched = all
-      .map((r) => {
-        const code = String(r?.iba_code ?? "").trim();
-        if (!code) return null;
-
-        const bucketRank = getBucketRank(r);
-        const totalScore =
-          typeof r?.score_breakdown?.total_score === "number"
-            ? r.score_breakdown.total_score
-            : typeof (r as any)?.total_score === "number"
-            ? (r as any).total_score
-            : null;
-        return {
-          ...r,
-          _code: code,
-          _bucketRank: bucketRank,
-          _totalScore: totalScore,
-          _name: String(r?.name ?? ""),
-        };
-      })
-      .filter(Boolean) as Array<
-      ClassicItem & {
-        _code: string;
-        _bucketRank: number;
-        _totalScore: number | null;
-        _name: string;
-      }
-    >;
-
-    const cmp = (a: typeof enriched[number], b: typeof enriched[number]) => {
-      if (a._bucketRank !== b._bucketRank) return a._bucketRank - b._bucketRank;
-      const aHas = typeof a._totalScore === "number";
-      const bHas = typeof b._totalScore === "number";
-      if (aHas !== bHas) return aHas ? -1 : 1;
-      if (aHas && bHas && a._totalScore !== b._totalScore) return (b._totalScore as number) - (a._totalScore as number);
-      const byName = a._name.localeCompare(b._name);
-      if (byName !== 0) return byName;
-      return a._code.localeCompare(b._code);
-    };
-
-    const sorted = [...enriched].sort(cmp);
-
-    return {
-      ready: sorted.filter((x) => x.bucket === "ready"),
-      oneMissing: sorted.filter((x) => x.bucket === "one_missing"),
-      twoMissing: sorted.filter((x) => x.bucket === "two_missing"),
-    };
-  }, [recipes]);
-
-  const visibleRecipeCount = ready.length + oneMissing.length + twoMissing.length;
-  const activeSafetyFilters = [
-    preferences.safetyMode.avoidHighProof ? "High Proof" : null,
-    preferences.safetyMode.avoidAllergens ? "Allergens" : null,
-    preferences.safetyMode.avoidCaffeineAlcohol ? "Caffeine + Alcohol" : null,
-  ].filter(Boolean) as string[];
-
-  const toneStyles = (tone: SectionTone) => {
-    if (tone === "ready") {
-      return {
-        bar: "#7AB89A",           // muted sage green
-        bg: OaklandDusk.bg.card,
-        text: "#7AB89A",
-        border: "#2A4030",
-      };
-    }
-    if (tone === "one_missing") {
-      return {
-        bar: OaklandDusk.brand.gold,
-        bg: OaklandDusk.bg.card,
-        text: OaklandDusk.brand.gold,
-        border: OaklandDusk.brand.tagBg,
-      };
-    }
-    return {
-      bar: OaklandDusk.brand.rust,
-      bg: OaklandDusk.bg.card,
-      text: OaklandDusk.text.secondary,
-      border: OaklandDusk.bg.border,
-    };
-  };
-
-  const Section = ({
-    title,
-    items,
-    tone,
-  }: {
-    title: string;
-    items: ClassicItem[];
-    tone: SectionTone;
-  }) => {
-    if (items.length === 0) return null;
-
-    const t = toneStyles(tone);
-
-    return (
-      <View style={{ gap: 4 }}>
-        <SectionLabel>{`${title} (${items.length})`}</SectionLabel>
-
-        {items.map((r, idx) => {
-          const name = String(r?.name ?? "").trim() || "Recipe";
-          const code = String(r?.iba_code || "").trim();
-          const ratedKeyStable = code ? `${code}-${name}` : name;
-          const ratedKeyLegacy = `${idx + 1}-${name}`;
-          const rated = Boolean(ratingsByKey?.[ratedKeyStable] || ratingsByKey?.[ratedKeyLegacy]);
-          const miss = Array.isArray(r.missing_items)
-            ? r.missing_items.map((s) => String(s).trim()).filter(Boolean)
-            : [];
-          const safetyBadges = [
-            r.alcohol_warning ? "High Proof" : null,
-            r.allergen_warning ? "Allergen" : null,
-            r.caffeine_warning ? "Caffeine+Alc" : null,
-          ].filter(Boolean) as string[];
-
-          return (
-            <Card key={`${r.iba_code}-${idx}`}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + " cocktail")}`)}>
-                  <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
-                    {name}
-                  </Text>
-                  {(() => {
-                    const tags = getTasteTags(r.recipe_vec);
-                    return tags.length > 0 ? (
-                      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
-                        {tags.map((tag) => (
-                          <View key={tag} style={{
-                            backgroundColor: OaklandDusk.brand.tagBg,
-                            paddingHorizontal: 8,
-                            paddingVertical: 2,
-                            borderRadius: 6,
-                            borderWidth: 0.5,
-                            borderColor: "rgba(201,164,88,.2)",
-                          }}>
-                            <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{tag}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null;
-                  })()}
-                  <View style={{ flexDirection: "row", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                    {tone === "ready" && <Pill label="Ready" variant="ready" />}
-                    {miss.length > 0 && <Pill label={`Missing ${miss.length}`} variant="missing" />}
-                    {rated && <Pill label="Rated" />}
-                    {safetyBadges.map((badge) => (
-                      <Pill key={badge} label={badge} />
-                    ))}
-                  </View>
-                </Pressable>
-                <Pressable onPress={() => openRecipeInTab2(r, idx)} hitSlop={12} style={{ paddingLeft: 12 }}>
-                  <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 18 }}>›</Text>
-                </Pressable>
-              </View>
-              {miss.length > 0 && (
-                <View style={{ marginTop: 8, gap: 4 }}>
-                  {miss.map((m) => (
-                    <View key={m} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, flex: 1 }}>{m}</Text>
-                      <Pressable
-                        onPress={() => Linking.openURL(`https://www.google.com/search?tbm=shop&q=${encodeURIComponent(m + " bottle")}`)}
-                        hitSlop={10}
-                        style={{ padding: 4 }}
-                      >
-                        <FontAwesome name="shopping-cart" size={13} color={OaklandDusk.brand.gold} />
-                      </Pressable>
-                    </View>
-                  ))}
-                </View>
-              )}
-            </Card>
-          );
-        })}
-      </View>
-    );
   };
 
   return (
@@ -2093,19 +1947,6 @@ export default function TabOneScreen() {
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
         <Text style={{ fontWeight: "800", marginBottom: 8, color: OaklandDusk.text.primary }}>Ingredients (editable)</Text>
 
-        {recipesStale ? (
-          <View style={{ padding: 10, borderWidth: 1, borderRadius: 10, marginBottom: 8, borderColor: OaklandDusk.brand.gold }}>
-            <Text style={{ fontWeight: "800", color: OaklandDusk.brand.gold }}>Results out of date</Text>
-            <Text style={{ color: OaklandDusk.text.secondary }}>
-              {recipesStaleReason === "preferences"
-                ? "Preferences changed. Please refresh recommendations."
-                : recipesStaleReason === "mood"
-                ? "Mood changed. Please refresh recommendations."
-                : "Ingredients changed. Please refresh recommendations."}
-            </Text>
-          </View>
-        ) : null}
-
         {activeIngredients.length === 0 ? (
           <Text style={{ color: OaklandDusk.text.tertiary }}>(No ingredients yet)</Text>
         ) : (
@@ -2186,18 +2027,23 @@ export default function TabOneScreen() {
                             const alcoholic = isAlcoholicIngredient(ing.canonical);
                             log(`[bar-filter] canonical="${ing.canonical}" alcoholic=${alcoholic}`);
                             if (alcoholic === false) return null;
+                            if (!isInInventory(ing.canonical)) return null;
 
-                            return isInInventory(ing.canonical) ? (
-                              <View style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: OaklandDusk.bg.surface, borderRadius: 8, borderWidth: 1, borderColor: "#7AB89A" }}>
-                                <Text style={{ fontWeight: "700", color: "#7AB89A", fontSize: 12 }}>In Bar ✓</Text>
+                            // BYPASSED: auto-add replaces manual add-to-bar flow
+                            // Read-only status badge — not tappable
+                            return (
+                              <View style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                backgroundColor: OaklandDusk.bg.surface,
+                                borderRadius: 8,
+                                borderWidth: 0.5,
+                                borderColor: "#7AB89A",
+                              }}>
+                                <Text style={{ fontWeight: "600", color: "#7AB89A", fontSize: 11 }}>
+                                  In bar ✓
+                                </Text>
                               </View>
-                            ) : (
-                              <Pressable
-                                onPress={() => setInventoryModalTarget(ing)}
-                                style={{ paddingHorizontal: 8, paddingVertical: 4, backgroundColor: OaklandDusk.brand.gold, borderRadius: 8 }}
-                              >
-                                <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void, fontSize: 12 }}>+ Bar</Text>
-                              </Pressable>
                             );
                           })()
                         ) : null}
@@ -2242,6 +2088,8 @@ export default function TabOneScreen() {
           </View>
         ) : null}
 
+        {/* Stage 2: accumulating + review — handled via Alert dialogs; no inline UI */}
+
         <View style={{ marginTop: 12, gap: 8 }}>
           <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>Add ingredient</Text>
 
@@ -2282,65 +2130,6 @@ export default function TabOneScreen() {
             </Pressable>
           </View>
 
-          {/* Stage 7 + 9b: Mood selector — hidden behind feature flag (Phase 1) */}
-          {FEATURE_FLAGS.ENABLE_MOOD_SELECTOR && (
-          <View style={{ marginTop: 8 }}>
-            <Text style={{ fontWeight: "700", fontSize: 13, marginBottom: 6 }}>Mood (optional)</Text>
-            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
-              {(
-                [
-                  { key: "chill", label: "Chill", emoji: "😌", color: "#4ade80" },
-                  { key: "party", label: "Party", emoji: "🎉", color: "#f59e0b" },
-                  { key: "date_night", label: "Date Night", emoji: "💕", color: "#f472b6" },
-                  { key: "solo", label: "Solo", emoji: "🧘", color: "#60a5fa" },
-                ] as const
-              ).map((m) => {
-                const isActive = selectedMood === m.key;
-                return (
-                  <Pressable
-                    key={m.key}
-                    onPress={() => {
-                      const next = isActive ? null : m.key;
-                      setSelectedMood(next);
-                      if (hasRecommended && recipes.length > 0 && next !== lastRecommendMoodRef.current) {
-                        setRecipesStale(true);
-                        setRecipesStaleReason("mood");
-                      } else if (hasRecommended && next === lastRecommendMoodRef.current) {
-                        if (recipesStaleReason === "mood") {
-                          setRecipesStale(false);
-                          setRecipesStaleReason(null);
-                        }
-                      }
-                    }}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 4,
-                      paddingHorizontal: 12,
-                      paddingVertical: 7,
-                      borderRadius: 20,
-                      borderWidth: 1.5,
-                      borderColor: isActive ? m.color : OaklandDusk.bg.border,
-                      backgroundColor: isActive ? m.color + "18" : "transparent",
-                    }}
-                  >
-                    <Text style={{ fontSize: 14 }}>{m.emoji}</Text>
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: isActive ? "700" : "500",
-                        color: isActive ? m.color : OaklandDusk.text.tertiary,
-                      }}
-                    >
-                      {m.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-          )}
-
           {/* Stage 10: Flavor Explorer — future feature, not yet implemented */}
 
           {/* Stage 3: Add to My Bar — rendered as bottom sheet Modal below */}
@@ -2349,110 +2138,14 @@ export default function TabOneScreen() {
         </View>
       </View>
 
-      {activeSafetyFilters.length > 0 ? (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 6 }}>
-          <Text style={{ fontWeight: "800" }}>🛡 Safety Mode Active</Text>
-          <Text style={{ color: OaklandDusk.text.tertiary }}>Filtered:</Text>
-          <View style={{ gap: 2 }}>
-            {activeSafetyFilters.map((item) => (
-              <Text key={item} style={{ color: OaklandDusk.text.tertiary }}>
-                • {item}
-              </Text>
-            ))}
-          </View>
-        </View>
-      ) : null}
-
       {/* Recommendations are shown on the dedicated /recommendations page (Stage 4) */}
 
-      {/* Stage 10: Flavor Explorer results — hidden during development */}
-      {false && showExplore && exploreResults.length > 0 ? (
-        <View style={{ gap: 10 }}>
-          <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10, borderColor: OaklandDusk.accent.indigo }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: OaklandDusk.accent.indigo }} />
-              <View
-                style={{
-                  borderWidth: 1,
-                  borderRadius: 999,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  backgroundColor: OaklandDusk.accent.indigoBg,
-                  borderColor: OaklandDusk.accent.indigo,
-                }}
-              >
-                <Text style={{ fontWeight: "900", color: OaklandDusk.accent.indigo }}>
-                  🧭 Explore ({exploreResults.length})
-                </Text>
-              </View>
-            </View>
-
-            {exploreMeta?.explore_dims ? (
-              <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12 }}>
-                {isZh ? "探索方向：" : "Exploring: "}
-                {(exploreMeta.explore_dims as any[]).map((d: any) => d.label || d.dim).join(", ")}
-              </Text>
-            ) : null}
-
-            {exploreResults.map((r, idx) => {
-              const name = String(r?.name ?? "").trim() || "Recipe";
-              return (
-                <View
-                  key={`explore-${r.iba_code}-${idx}`}
-                  style={{
-                    borderWidth: 1,
-                    borderRadius: 12,
-                    padding: 12,
-                    gap: 8,
-                    borderColor: OaklandDusk.bg.border,
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                    <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(name + " cocktail")}`)}>
-                      <Text style={{ fontWeight: "800", color: OaklandDusk.brand.gold, textDecorationLine: "underline" }} numberOfLines={1}>
-                        {name}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => openRecipeInTab2(r as any, idx)}
-                      style={{
-                        borderWidth: 1,
-                        borderRadius: 999,
-                        paddingHorizontal: 12,
-                        paddingVertical: 6,
-                        borderColor: OaklandDusk.bg.border,
-                      }}
-                    >
-                      <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>View</Text>
-                    </Pressable>
-                  </View>
-
-                  {Array.isArray(r.reasons) && r.reasons.length > 0 ? (
-                    <View style={{ gap: 2 }}>
-                      {r.reasons.map((reason, ri) => (
-                        <Text key={ri} style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>
-                          {reason}
-                        </Text>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
-        </View>
-      ) : false && showExplore && exploreMeta?.reason === "insufficient_data" ? (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.indigo }}>
-          <Text style={{ fontWeight: "700", color: OaklandDusk.accent.indigo }}>🧭 Flavor Explorer</Text>
-          <Text style={{ color: OaklandDusk.text.tertiary, marginTop: 4 }}>
-            {exploreMeta?.message || (isZh ? "需要更多互動資料才能生成探險推薦" : "Need more interactions to generate explore recommendations")}
-          </Text>
-        </View>
-      ) : null}
     </ScrollView>
 
-    {/* Fix 1: Sticky "Show me cocktails" footer */}
-    {activeIngredients.length > 0 && !loading && !showAddToBar && (
+    {/* Sticky "Show me recipes" footer
+        - Hidden until user presses Done in the "Scan More or Done" alert
+        - inventory: "Based on my bar" | quick_look: "Based on X ingredients" */}
+    {!loading && scanPhase === "review" && scanMode !== "undecided" && (
       <View style={{
         position: "absolute", bottom: 0, left: 0, right: 0,
         paddingHorizontal: 16, paddingTop: 12,
@@ -2471,17 +2164,23 @@ export default function TabOneScreen() {
             onPress={() => {
               dismissGuide(GUIDE_KEYS.COCKTAILS);
               setGuideCocktailsVisible(false);
-              regenerateRecipes();
+              setShowStaplesModal(true);
             }}
             style={{ backgroundColor: OaklandDusk.brand.gold, paddingVertical: 14, borderRadius: 12, alignItems: "center" }}
           >
             <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-              {isZh ? "看我能做什麼雞尾酒" : "Show me cocktails I can make"}
+              {isZh ? "看我能做什麼食譜" : "Show me recipes"}
             </Text>
             <Text style={{ fontSize: 12, color: OaklandDusk.bg.void, opacity: 0.7, marginTop: 2 }}>
-              {isZh
-                ? `根據 ${activeIngredients.length} 種材料`
-                : `Based on ${activeIngredients.length} ingredient${activeIngredients.length !== 1 ? "s" : ""}`}
+              {scanMode === "inventory"
+                ? (isZh ? "根據我的酒吧庫存" : "Based on my bar")
+                : (() => {
+                    // Use multiScanResults (all scans accumulated) not just the last scan
+                    const n = multiScanResults.length > 0 ? multiScanResults.length : activeIngredients.length;
+                    return isZh
+                      ? `根據 ${n} 種材料`
+                      : `Based on ${n} ingredient${n !== 1 ? "s" : ""}`;
+                  })()}
             </Text>
           </Pressable>
         </View>
@@ -2499,8 +2198,24 @@ export default function TabOneScreen() {
       />
     ) : null}
 
-    {/* Fix 1: Add to My Bar — bottom sheet */}
-    <Modal
+    <StaplesModal
+      visible={showStaplesModal}
+      loading={loading}
+      onConfirm={(staplesKeys) => {
+        setShowStaplesModal(false);
+        const mode = scanMode === "inventory" ? "inventory" : "quick_look";
+        // For quick_look: pass ALL accumulated scan results (multiScanResults),
+        // not just the last scan's activeIngredients
+        const ingredientSource = mode === "quick_look" && multiScanResults.length > 0
+          ? multiScanResults
+          : undefined;
+        regenerateRecipes(ingredientSource, staplesKeys, mode);
+      }}
+      onCancel={() => setShowStaplesModal(false)}
+    />
+
+    {/* BYPASSED: auto-add replaces manual add-to-bar flow — bottom sheet removed */}
+    {/* <Modal
       visible={showAddToBar && newIngredients.length > 0}
       transparent
       animationType="slide"
@@ -2517,14 +2232,11 @@ export default function TabOneScreen() {
           paddingBottom: 36,
           maxHeight: "70%",
         }}>
-          {/* Handle bar */}
           <View style={{
             width: 36, height: 4, borderRadius: 2,
             backgroundColor: OaklandDusk.bg.border,
             alignSelf: "center", marginBottom: 16,
           }} />
-
-          {/* Header */}
           <View style={{
             flexDirection: "row", alignItems: "center", gap: 8,
             padding: 8, borderRadius: 8,
@@ -2544,8 +2256,6 @@ export default function TabOneScreen() {
               {isZh ? "偵測到新食材！" : "New ingredients detected!"}
             </Text>
           </View>
-
-          {/* Ingredient list */}
           <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
             {newIngredients.map((ing) => {
               const isAdded = addedToBar.has(ing.canonical);
@@ -2582,8 +2292,6 @@ export default function TabOneScreen() {
               );
             })}
           </ScrollView>
-
-          {/* Bottom buttons */}
           <View style={{ gap: 8, marginTop: 14 }}>
             <View style={{ position: "relative" }}>
               <GuideBubble
@@ -2601,20 +2309,18 @@ export default function TabOneScreen() {
                 </Text>
               </Pressable>
             </View>
-
             <Pressable onPress={handleSkipAddToBar}>
               <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
                 {isZh ? "跳過 — 直接看雞尾酒" : "Skip — just show cocktails"}
               </Text>
             </Pressable>
-
             <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
               {addedToBar.size} of {newIngredients.length} saved
             </Text>
           </View>
         </View>
       </View>
-    </Modal>
+    </Modal> */}
     </>
   );
 }

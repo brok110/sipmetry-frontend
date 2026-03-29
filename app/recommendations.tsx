@@ -64,7 +64,10 @@ export default function RecommendationsScreen() {
     ingredientCount: string;
     activeCanonical: string;
     scanItems: string;
+    mode: string;  // "inventory" | "quick_look"
   }>();
+
+  const isInventoryMode = params.mode === "inventory";
 
   const [guideRecoShopVisible, setGuideRecoShopVisible] = useState(false);
 
@@ -73,7 +76,11 @@ export default function RecommendationsScreen() {
   }, []);
 
   const recipes: RecipeItem[] = useMemo(() => {
-    try { return JSON.parse(params.recipes ?? "[]"); } catch { return []; }
+    try {
+      const all: RecipeItem[] = JSON.parse(params.recipes ?? "[]");
+      // Only show recipes with at most 2 missing ingredients
+      return all.filter((r) => (r.missing_items?.length ?? 0) <= 2);
+    } catch { return []; }
   }, [params.recipes]);
 
   const scanItems: { canonical: string; display: string }[] = useMemo(() => {
@@ -89,6 +96,28 @@ export default function RecommendationsScreen() {
   const ready = recipes.filter((r) => r.bucket === "ready");
   const oneMissing = recipes.filter((r) => r.bucket === "one_missing");
   const twoMissing = recipes.filter((r) => r.bucket === "two_missing");
+
+  // Stage 3: compute top missing ingredients — only shown in inventory mode where
+  // both recommendations and Smart Restock are based on My Bar (consistent data source).
+  // In quick_look mode this is omitted because 1-missing/2-missing sections already show what's needed.
+  const topMissing = useMemo(() => {
+    if (!isInventoryMode) return [];
+    const missingTally: Record<string, number> = {};
+    for (const recipe of [...oneMissing, ...twoMissing]) {
+      for (const item of (recipe.missing_items ?? [])) {
+        const key = String(item ?? "").trim();
+        if (key) missingTally[key] = (missingTally[key] || 0) + 1;
+      }
+    }
+    return Object.entries(missingTally)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 2);
+  }, [oneMissing, twoMissing, isInventoryMode]);
+
+  const formatIngredientName = (key: string) => {
+    const s = key.replace(/_/g, " ").trim();
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  };
 
   const openRecipe = (r: RecipeItem, idx: number) => {
     const code = String(r?.iba_code ?? "").trim();
@@ -235,7 +264,7 @@ export default function RecommendationsScreen() {
 
             {/* Missing items with cart + guide */}
             <View style={{ gap: 6 }}>
-            {miss.map((m, mi) => (
+            {miss.map((m: string, mi: number) => (
               <View key={m} style={{ position: "relative" }}>
                 {isFirstCard && mi === 0 && (
                   <GuideBubble
@@ -304,6 +333,21 @@ export default function RecommendationsScreen() {
         headerTintColor: OaklandDusk.brand.gold,
         headerBackTitle: "Scan",
         headerShadowVisible: false,
+        headerLeft: () => (
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(tabs)/scan" as any);
+              }
+            }}
+            hitSlop={16}
+            style={{ paddingHorizontal: 8, paddingVertical: 8 }}
+          >
+            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>‹ Scan</Text>
+          </Pressable>
+        ),
       }} />
 
       {/* Custom title row (shown below the native header) */}
@@ -339,6 +383,27 @@ export default function RecommendationsScreen() {
               <RecipeCard key={`ready-${i}`} r={r} idx={i} isFirstCard={false} />
             ))}
 
+            {/* Inventory mode: no ready cocktails empty state */}
+            {ready.length === 0 && isInventoryMode ? (
+              <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
+                <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>No cocktails ready yet</Text>
+                <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
+                  You're close! Check Smart Restock to see which bottle to buy first.
+                </Text>
+                <Pressable
+                  onPress={() => { try { router.push("/(tabs)/cart" as any); } catch {} }}
+                  style={{
+                    marginTop: 8, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24,
+                    backgroundColor: OaklandDusk.brand.gold,
+                  }}
+                >
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
+                    See what to buy next →
+                  </Text>
+                </Pressable>
+              </View>
+            ) : null}
+
             {(oneMissing.length > 0 || twoMissing.length > 0) && (
               <Pressable
                 onPress={() => {
@@ -370,25 +435,56 @@ export default function RecommendationsScreen() {
               </Pressable>
             )}
 
-            <SectionHeader title="1 ingredient away" count={oneMissing.length} />
-            {oneMissing.map((r, i) => (
-              <RecipeCard
-                key={`one-${i}`}
-                r={r}
-                idx={ready.length + i}
-                isFirstCard={ready.length + i === firstMissingCardGlobalIdx}
-              />
-            ))}
+            {/* 1 missing / 2 missing — only shown in quick_look mode (or no mode) */}
+            {!isInventoryMode && (
+              <>
+                <SectionHeader title="1 ingredient away" count={oneMissing.length} />
+                {oneMissing.map((r, i) => (
+                  <RecipeCard
+                    key={`one-${i}`}
+                    r={r}
+                    idx={ready.length + i}
+                    isFirstCard={ready.length + i === firstMissingCardGlobalIdx}
+                  />
+                ))}
 
-            <SectionHeader title="2 ingredients away" count={twoMissing.length} />
-            {twoMissing.map((r, i) => (
-              <RecipeCard
-                key={`two-${i}`}
-                r={r}
-                idx={ready.length + oneMissing.length + i}
-                isFirstCard={ready.length + oneMissing.length + i === firstMissingCardGlobalIdx}
-              />
-            ))}
+                <SectionHeader title="2 ingredients away" count={twoMissing.length} />
+                {twoMissing.map((r, i) => (
+                  <RecipeCard
+                    key={`two-${i}`}
+                    r={r}
+                    idx={ready.length + oneMissing.length + i}
+                    isFirstCard={ready.length + oneMissing.length + i === firstMissingCardGlobalIdx}
+                  />
+                ))}
+              </>
+            )}
+
+            {/* Stage 3: "Unlock more" — only in inventory mode (My Bar), hidden in quick_look */}
+            {topMissing.length > 0 && (
+              <View style={{
+                marginTop: 24,
+                paddingTop: 16,
+                borderTopWidth: 0.5,
+                borderTopColor: OaklandDusk.bg.border,
+              }}>
+                <Text style={{ fontSize: 13, fontWeight: "600", color: OaklandDusk.text.secondary, marginBottom: 8 }}>
+                  Unlock more recipes
+                </Text>
+                {topMissing.map(([ingredient, count]) => (
+                  <Text key={ingredient} style={{ fontSize: 13, color: OaklandDusk.text.secondary, marginBottom: 4 }}>
+                    {formatIngredientName(ingredient)} would unlock {count} more cocktail{count !== 1 ? "s" : ""}
+                  </Text>
+                ))}
+                <Pressable onPress={() => {
+                  try { router.push("/(tabs)/cart" as any); } catch {}
+                }}>
+                  <Text style={{ fontSize: 13, color: OaklandDusk.brand.gold, marginTop: 8 }}>
+                    See all suggestions →
+                  </Text>
+                </Pressable>
+              </View>
+            )}
           </>
         )}
       </ScrollView>
