@@ -77,6 +77,7 @@ export default function TabTwoScreen() {
 
   const params = useLocalSearchParams<{
     idx?: string;
+    source?: string;
     recipe_json?: string;
     ingredients_json?: string;
     recipe_key?: string;
@@ -1052,7 +1053,12 @@ export default function TabTwoScreen() {
         title: "",
         headerStyle: { backgroundColor: OaklandDusk.bg.void },
         headerTintColor: OaklandDusk.brand.gold,
-        headerBackTitle: fromParam === "recommendations" ? "Cocktails" : "Scan",
+        headerBackTitle:
+          params.source === "favorites"
+            ? "Favorites"
+            : params.source === "cocktails" || fromParam === "recommendations"
+              ? "Cocktails"
+              : "Back",
         headerShadowVisible: false,
       }} />
       <ScrollView

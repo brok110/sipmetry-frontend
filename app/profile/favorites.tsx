@@ -128,6 +128,7 @@ export default function TabThreeScreen() {
       pathname: "/recipe",
       params: {
         idx: "0",
+        source: "favorites",
         recipe_key: fav.recipe_key,
         iba_code: ibaCode || undefined,
         recipe_json: encodeURIComponent(JSON.stringify(fav.recipe)),

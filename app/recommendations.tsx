@@ -187,6 +187,7 @@ export default function RecommendationsScreen() {
       pathname: "/recipe",
       params: {
         idx: String(idx),
+        source: "cocktails",
         recipe_key,
         recipe_hash: recipeHash || undefined,
         iba_code: code,
