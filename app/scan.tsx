@@ -1884,6 +1884,7 @@ export default function TabOneScreen() {
       </View>
 
 
+      {!searchParams.photoUri && !searchParams.photoUris ? (
       <View style={{ position: "relative" }}>
         <GuideBubble
           storageKey={GUIDE_KEYS.SCAN}
@@ -1909,6 +1910,7 @@ export default function TabOneScreen() {
           </Text>
         </Pressable>
       </View>
+      ) : null}
 
       {imageUri ? (
         <View style={{ gap: 8 }}>

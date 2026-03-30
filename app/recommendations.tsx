@@ -342,7 +342,7 @@ export default function RecommendationsScreen() {
         title: "",
         headerStyle: { backgroundColor: OaklandDusk.bg.void },
         headerTintColor: OaklandDusk.brand.gold,
-        headerBackTitle: isInventoryMode ? "My Bar" : "Scan",
+        headerBackTitle: isInventoryMode ? "My Bar" : "Cocktails",
         headerShadowVisible: false,
         headerLeft: () => (
           <Pressable
@@ -357,7 +357,7 @@ export default function RecommendationsScreen() {
             style={{ paddingHorizontal: 8, paddingVertical: 8 }}
           >
             <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
-              ‹ {isInventoryMode ? "My Bar" : "Scan"}
+              ‹ {isInventoryMode ? "My Bar" : "Cocktails"}
             </Text>
           </Pressable>
         ),
