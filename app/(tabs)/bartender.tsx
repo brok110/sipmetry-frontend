@@ -1,16 +1,21 @@
 import { apiFetch } from "@/lib/api";
+import StaplesModal from "@/components/StaplesModal";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Modal,
   Pressable,
   ScrollView,
   Text,
   View,
 } from "react-native";
+import PagerView from "react-native-pager-view";
 
 const BASE_SPIRITS = ["gin", "whiskey", "rum", "tequila", "vodka", "mezcal"];
 const FLAVORS = ["sweet", "strong", "smoky", "refreshing", "fruity", "bitter"];
@@ -19,11 +24,11 @@ const EXCLUDES = [
   { key: "too_sweet", label: "too sweet" },
   { key: "too_bitter", label: "too bitter" },
   { key: "too_strong", label: "too strong" },
-  { key: "no_vodka", label: "no vodka" },
-  { key: "no_rum", label: "no rum" },
-  { key: "no_gin", label: "no gin" },
-  { key: "no_whiskey", label: "no whiskey" },
-  { key: "no_tequila", label: "no tequila" },
+  { key: "no_vodka", label: "Vodka" },
+  { key: "no_rum", label: "Rum" },
+  { key: "no_gin", label: "Gin" },
+  { key: "no_whiskey", label: "Whiskey" },
+  { key: "no_tequila", label: "Tequila" },
 ];
 const ANCHORS = [
   { code: "IBA_MARGARITA", name: "Margarita", desc: "Citrus, tequila, refreshing" },
@@ -33,7 +38,7 @@ const ANCHORS = [
   { code: "IBA_DAIQUIRI", name: "Daiquiri", desc: "Rum, citrus, balanced" },
 ];
 
-type StepId = 1 | 2 | 3 | "results";
+const PAGE_COUNT = 5;
 
 type Pick = {
   iba_code: string;
@@ -124,19 +129,17 @@ function SectionHeader({ children }: { children: string }) {
   );
 }
 
-function StepIndicator({ step }: { step: StepId }) {
-  const steps = [1, 2, 3] as const;
-  const current = step === "results" ? 4 : step;
+function ProgressDots({ count, activeIndex }: { count: number; activeIndex: number }) {
   return (
     <View style={{ flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 20 }}>
-      {steps.map(s => (
+      {Array.from({ length: count }, (_, i) => (
         <View
-          key={s}
+          key={i}
           style={{
             width: 8,
             height: 8,
             borderRadius: 4,
-            backgroundColor: s <= current
+            backgroundColor: i === activeIndex
               ? OaklandDusk.brand.gold
               : OaklandDusk.text.tertiary,
           }}
@@ -150,7 +153,22 @@ export default function BartenderScreen() {
   const { session } = useAuth();
   const { inventory, availableIngredientKeys } = useInventory();
 
-  const [step, setStep] = useState<StepId>(1);
+  const pagerRef = useRef<PagerView>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [showResults, setShowResults] = useState(false);
+  const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
+  const swipeHintOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (hasSwipedOnce) {
+      Animated.timing(swipeHintOpacity, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [hasSwipedOnce]);
+
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
@@ -159,20 +177,23 @@ export default function BartenderScreen() {
   const [results, setResults] = useState<Pick[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showBottomSheet, setShowBottomSheet] = useState(false);
+  const [showStaples, setShowStaples] = useState(false);
 
   const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
   };
 
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = async (extraKeys: string[] = []) => {
     setLoading(true);
     setError(null);
     try {
+      const allKeys = [...new Set([...availableIngredientKeys, ...extraKeys])];
       const res = await apiFetch("/bartender-recommend", {
         session,
         method: "POST",
         body: {
-          detected_ingredients: availableIngredientKeys,
+          detected_ingredients: allKeys,
           base_spirits: selectedSpirits,
           flavors: selectedFlavors,
           styles: selectedStyles,
@@ -183,7 +204,7 @@ export default function BartenderScreen() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Request failed");
       setResults(data.recommendations || []);
-      setStep("results");
+      setShowResults(true);
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
     } finally {
@@ -207,349 +228,507 @@ export default function BartenderScreen() {
     });
   };
 
-  if (inventory.length === 0) {
+
+  if (showResults) {
     return (
-      <View style={{
-        flex: 1,
-        backgroundColor: OaklandDusk.bg.void,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 32,
-      }}>
-        <Text style={{
-          fontSize: 28,
-          fontWeight: "800",
-          color: OaklandDusk.text.primary,
-          marginBottom: 8,
-          textAlign: "center",
-        }}>
-          What are you in the mood for?
-        </Text>
-        <Text style={{
-          fontSize: 15,
-          color: OaklandDusk.text.secondary,
-          textAlign: "center",
-          marginBottom: 32,
-          lineHeight: 22,
-        }}>
-          Add some bottles first so I can work with what you have.
-        </Text>
-        <Pressable
-          onPress={() => router.push("/(tabs)/inventory")}
-          style={{
-            backgroundColor: OaklandDusk.brand.gold,
-            paddingVertical: 14,
-            paddingHorizontal: 32,
-            borderRadius: 12,
-          }}
-        >
-          <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-            Go to My Bar
+      <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+          <Text style={{
+            fontSize: 26,
+            fontWeight: "800",
+            color: OaklandDusk.text.primary,
+            marginBottom: 16,
+          }}>
+            Your picks
           </Text>
-        </Pressable>
+
+          {results.length === 0 ? (
+            <View style={{ alignItems: "center", paddingTop: 40 }}>
+              <Text style={{
+                fontSize: 16,
+                color: OaklandDusk.text.secondary,
+                textAlign: "center",
+                lineHeight: 24,
+              }}>
+                Your bar doesn't have a match yet.{"\n"}
+                Try different tags or add more bottles.
+              </Text>
+            </View>
+          ) : (
+            <View style={{ gap: 16 }}>
+              {results.map(pick => {
+                const tags = getTasteTags(pick.recipe_vec);
+                return (
+                  <Pressable
+                    key={pick.iba_code}
+                    onPress={() => openRecipe(pick)}
+                    style={{
+                      backgroundColor: OaklandDusk.bg.card,
+                      borderRadius: 14,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: OaklandDusk.bg.border,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                      <Text style={{
+                        fontSize: 20,
+                        fontWeight: "800",
+                        color: OaklandDusk.text.primary,
+                        flex: 1,
+                      }}>
+                        {pick.name}
+                      </Text>
+                      {pick.missing_count > 0 && (
+                        <View style={{
+                          backgroundColor: "rgba(192,72,88,0.15)",
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 8,
+                          marginLeft: 8,
+                        }}>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.accent.crimson }}>
+                            {pick.missing_count === 1 ? "1 missing" : `${pick.missing_count} missing`}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+
+                    {tags.length > 0 && (
+                      <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                        {tags.map(t => (
+                          <View key={t} style={{
+                            backgroundColor: OaklandDusk.brand.tagBg,
+                            paddingHorizontal: 8,
+                            paddingVertical: 3,
+                            borderRadius: 6,
+                          }}>
+                            <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    <View style={{ marginTop: 10, gap: 3 }}>
+                      {(pick.ingredient_keys || []).map(key => {
+                        const have = (pick.overlap_hits || []).includes(key);
+                        const missing = (pick.missing_items || []).includes(key);
+                        return (
+                          <Text key={key} style={{
+                            fontSize: 13,
+                            color: missing
+                              ? OaklandDusk.accent.crimson
+                              : have
+                                ? OaklandDusk.text.secondary
+                                : OaklandDusk.text.tertiary,
+                          }}>
+                            {have ? "\u2713 " : missing ? "\u2717 " : "  "}{key.replace(/_/g, " ")}
+                          </Text>
+                        );
+                      })}
+                    </View>
+
+                    {pick.style && (
+                      <Text style={{
+                        fontSize: 11,
+                        color: OaklandDusk.text.tertiary,
+                        marginTop: 8,
+                        textTransform: "capitalize",
+                      }}>
+                        {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+
+          {error && (
+            <Text style={{
+              color: OaklandDusk.accent.crimson,
+              textAlign: "center",
+              marginTop: 16,
+              fontSize: 14,
+            }}>
+              {error}
+            </Text>
+          )}
+
+          <Pressable
+            onPress={() => {
+              setShowResults(false);
+              setSelectedSpirits([]);
+              setSelectedFlavors([]);
+              setSelectedStyles([]);
+              setSelectedExcludes([]);
+              setSelectedAnchor(null);
+              setResults([]);
+              setError(null);
+              pagerRef.current?.setPage(0);
+              setActiveIndex(0);
+            }}
+            style={{
+              borderWidth: 1.5,
+              borderColor: OaklandDusk.brand.gold,
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: "center",
+              marginTop: 24,
+            }}
+          >
+            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+              Try different mood
+            </Text>
+          </Pressable>
+        </ScrollView>
       </View>
     );
   }
 
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      <ScrollView
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
-        keyboardShouldPersistTaps="handled"
+      <ProgressDots count={PAGE_COUNT} activeIndex={activeIndex} />
+
+      <PagerView
+        ref={pagerRef}
+        style={{ flex: 1 }}
+        initialPage={0}
+        onPageSelected={(e) => {
+          setActiveIndex(e.nativeEvent.position);
+          if (!hasSwipedOnce) setHasSwipedOnce(true);
+        }}
       >
-        <Text style={{
-          fontSize: 26,
-          fontWeight: "800",
-          color: OaklandDusk.text.primary,
-          marginBottom: 4,
-        }}>
-          {step === "results" ? "Your picks" : "What are you in the mood for?"}
-        </Text>
-        {step !== "results" && (
-          <Text style={{
-            fontSize: 14,
-            color: OaklandDusk.text.tertiary,
-            marginBottom: 8,
-          }}>
-            {step === 1 && "Pick what sounds good. Skip what doesn\u2019t matter."}
-            {step === 2 && "Anything you want to avoid?"}
-            {step === 3 && "Something like this?"}
+        {/* Page 0: Base Spirit */}
+        <ScrollView key="0" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+            What base spirit sounds good?
           </Text>
-        )}
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
+            Pick as many as you like, or skip ahead.
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {BASE_SPIRITS.map(s => (
+              <Tag
+                key={s}
+                label={s}
+                selected={selectedSpirits.includes(s)}
+                onPress={() => toggle(selectedSpirits, s, setSelectedSpirits)}
+              />
+            ))}
+          </View>
+          <Animated.Text style={{ textAlign: "center", color: OaklandDusk.text.tertiary, fontSize: 12, marginTop: 32, opacity: swipeHintOpacity }}>
+            {"\u2190 swipe to navigate \u2192"}
+          </Animated.Text>
+        </ScrollView>
 
-        <StepIndicator step={step} />
+        {/* Page 1: Flavor */}
+        <ScrollView key="1" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+            What flavors are you feeling?
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
+            Select any that appeal to you.
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {FLAVORS.map(f => (
+              <Tag
+                key={f}
+                label={f}
+                selected={selectedFlavors.includes(f)}
+                onPress={() => toggle(selectedFlavors, f, setSelectedFlavors)}
+              />
+            ))}
+          </View>
+        </ScrollView>
 
-        {step === 1 && (
-          <>
-            <SectionHeader>Base Spirit</SectionHeader>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {BASE_SPIRITS.map(s => (
-                <Tag
-                  key={s}
-                  label={s}
-                  selected={selectedSpirits.includes(s)}
-                  onPress={() => toggle(selectedSpirits, s, setSelectedSpirits)}
-                />
-              ))}
+        {/* Page 2: Style */}
+        <ScrollView key="2" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+            Any style in mind?
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
+            Choose one or more, or just skip.
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {STYLES.map(s => (
+              <Tag
+                key={s}
+                label={s}
+                selected={selectedStyles.includes(s)}
+                onPress={() => toggle(selectedStyles, s, setSelectedStyles)}
+              />
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Page 3: Avoid */}
+        <ScrollView key="3" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+            Not in the mood for...
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 12 }}>
+            Anything you'd rather leave out? Totally fine to skip this.
+          </Text>
+          <SectionHeader>Taste</SectionHeader>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {EXCLUDES.filter(ex => ex.key.startsWith("too_")).map(ex => (
+              <Tag
+                key={ex.key}
+                label={ex.label}
+                variant="exclude"
+                selected={selectedExcludes.includes(ex.key)}
+                onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)}
+              />
+            ))}
+          </View>
+          <SectionHeader>Skip these spirits</SectionHeader>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {EXCLUDES.filter(ex => ex.key.startsWith("no_")).map(ex => (
+              <Tag
+                key={ex.key}
+                label={ex.label}
+                variant="exclude"
+                selected={selectedExcludes.includes(ex.key)}
+                onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)}
+              />
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Page 4: Anchors */}
+        <ScrollView key="4" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+            Something like this?
+          </Text>
+          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
+            Tap a cocktail that matches your vibe.
+          </Text>
+          <View style={{ gap: 10 }}>
+            {ANCHORS.map(a => {
+              const active = selectedAnchor === a.code;
+              return (
+                <Pressable
+                  key={a.code}
+                  onPress={() => setSelectedAnchor(active ? null : a.code)}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: active ? OaklandDusk.brand.gold : "rgba(200,120,40,0.25)",
+                    backgroundColor: active ? "rgba(200,120,40,0.1)" : "transparent",
+                    borderRadius: 12,
+                    padding: 14,
+                  }}
+                >
+                  <Text style={{
+                    fontSize: 16,
+                    fontWeight: "700",
+                    color: active ? OaklandDusk.brand.yellow : OaklandDusk.text.primary,
+                  }}>
+                    {a.name}
+                  </Text>
+                  <Text style={{
+                    fontSize: 13,
+                    color: OaklandDusk.text.tertiary,
+                    marginTop: 2,
+                  }}>
+                    {a.desc}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </PagerView>
+
+      {error && (
+        <Text style={{
+          color: OaklandDusk.accent.crimson,
+          textAlign: "center",
+          paddingHorizontal: 20,
+          fontSize: 14,
+        }}>
+          {error}
+        </Text>
+      )}
+
+      <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 }}>
+        <Pressable
+          onPress={() => setShowBottomSheet(true)}
+          disabled={loading}
+          style={{
+            backgroundColor: OaklandDusk.brand.gold,
+            paddingVertical: 14,
+            borderRadius: 12,
+            alignItems: "center",
+          }}
+        >
+          {loading ? (
+            <ActivityIndicator color={OaklandDusk.bg.void} />
+          ) : (
+            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
+              Let's make a drink
+            </Text>
+          )}
+        </Pressable>
+      </View>
+
+      <Modal
+        visible={showBottomSheet}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBottomSheet(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}
+          onPress={() => setShowBottomSheet(false)}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={{
+              backgroundColor: OaklandDusk.bg.card,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              paddingBottom: 36,
+            }}
+          >
+            <View style={{ alignItems: "center", marginBottom: 16 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: OaklandDusk.bg.border }} />
             </View>
 
-            <SectionHeader>Flavor</SectionHeader>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {FLAVORS.map(f => (
-                <Tag
-                  key={f}
-                  label={f}
-                  selected={selectedFlavors.includes(f)}
-                  onPress={() => toggle(selectedFlavors, f, setSelectedFlavors)}
-                />
-              ))}
-            </View>
+            <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 4 }}>
+              {inventory.length > 0 ? "How do you want to explore?" : "Let\u2019s get you started"}
+            </Text>
+            <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
+              {inventory.length > 0
+                ? `Your bar has ${inventory.length} bottle${inventory.length === 1 ? "" : "s"} ready`
+                : "Your bar is empty \u2014 scan your bottles to unlock personalized picks"}
+            </Text>
 
-            <SectionHeader>Style</SectionHeader>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {STYLES.map(s => (
-                <Tag
-                  key={s}
-                  label={s}
-                  selected={selectedStyles.includes(s)}
-                  onPress={() => toggle(selectedStyles, s, setSelectedStyles)}
-                />
-              ))}
-            </View>
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <SectionHeader>Avoid</SectionHeader>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {EXCLUDES.map(ex => (
-                <Tag
-                  key={ex.key}
-                  label={ex.label}
-                  variant="exclude"
-                  selected={selectedExcludes.includes(ex.key)}
-                  onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)}
-                />
-              ))}
-            </View>
-          </>
-        )}
-
-        {step === 3 && (
-          <>
-            <SectionHeader>Like one of these?</SectionHeader>
-            <View style={{ gap: 10 }}>
-              {ANCHORS.map(a => {
-                const active = selectedAnchor === a.code;
-                return (
-                  <Pressable
-                    key={a.code}
-                    onPress={() => setSelectedAnchor(active ? null : a.code)}
-                    style={{
-                      borderWidth: 1,
-                      borderColor: active ? OaklandDusk.brand.gold : "rgba(200,120,40,0.25)",
-                      backgroundColor: active ? "rgba(200,120,40,0.1)" : "transparent",
-                      borderRadius: 12,
-                      padding: 14,
-                    }}
-                  >
-                    <Text style={{
-                      fontSize: 16,
-                      fontWeight: "700",
-                      color: active ? OaklandDusk.brand.yellow : OaklandDusk.text.primary,
-                    }}>
-                      {a.name}
+            {inventory.length > 0 ? (
+              <View style={{ gap: 12 }}>
+                <Pressable
+                  onPress={() => {
+                    setShowBottomSheet(false);
+                    setShowStaples(true);
+                  }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: OaklandDusk.brand.gold,
+                    backgroundColor: "rgba(200,120,40,0.08)",
+                    borderRadius: 14,
+                    padding: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                  }}
+                >
+                  <FontAwesome name="archive" size={20} color={OaklandDusk.brand.gold} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
+                      Use what's in my bar
                     </Text>
-                    <Text style={{
-                      fontSize: 13,
-                      color: OaklandDusk.text.tertiary,
-                      marginTop: 2,
-                    }}>
-                      {a.desc}
+                    <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                      Recipes based on your bottles
                     </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        )}
+                  </View>
+                </Pressable>
 
-        {step === "results" && (
-          <>
-            {results.length === 0 ? (
-              <View style={{ alignItems: "center", paddingTop: 40 }}>
-                <Text style={{
-                  fontSize: 16,
-                  color: OaklandDusk.text.secondary,
-                  textAlign: "center",
-                  lineHeight: 24,
-                }}>
-                  Your bar doesn't have a match yet.{"\n"}
-                  Try different tags or add more bottles.
-                </Text>
+                <Pressable
+                  onPress={() => {
+                    setShowBottomSheet(false);
+                    router.push("/scan");
+                  }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "rgba(200,120,40,0.25)",
+                    borderRadius: 14,
+                    padding: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                  }}
+                >
+                  <FontAwesome name="camera" size={20} color={OaklandDusk.text.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
+                      Scan something new
+                    </Text>
+                    <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                      Snap a photo and see what you can make
+                    </Text>
+                  </View>
+                </Pressable>
               </View>
             ) : (
-              <View style={{ gap: 16, marginTop: 8 }}>
-                {results.map(pick => {
-                  const tags = getTasteTags(pick.recipe_vec);
-                  return (
-                    <Pressable
-                      key={pick.iba_code}
-                      onPress={() => openRecipe(pick)}
-                      style={{
-                        backgroundColor: OaklandDusk.bg.card,
-                        borderRadius: 14,
-                        padding: 16,
-                        borderWidth: 1,
-                        borderColor: OaklandDusk.bg.border,
-                      }}
-                    >
-                      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <Text style={{
-                          fontSize: 20,
-                          fontWeight: "800",
-                          color: OaklandDusk.text.primary,
-                          flex: 1,
-                        }}>
-                          {pick.name}
-                        </Text>
-                        {pick.missing_count > 0 && (
-                          <View style={{
-                            backgroundColor: "rgba(192,72,88,0.15)",
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 8,
-                            marginLeft: 8,
-                          }}>
-                            <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.accent.crimson }}>
-                              {pick.missing_count === 1 ? "1 missing" : `${pick.missing_count} missing`}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
+              <View style={{ gap: 12 }}>
+                <Pressable
+                  onPress={() => {
+                    setShowBottomSheet(false);
+                    router.push("/scan");
+                  }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: OaklandDusk.brand.gold,
+                    backgroundColor: "rgba(200,120,40,0.08)",
+                    borderRadius: 14,
+                    padding: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                  }}
+                >
+                  <FontAwesome name="camera" size={20} color={OaklandDusk.brand.gold} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
+                      Scan my bottles
+                    </Text>
+                    <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                      Build your bar and get personal picks
+                    </Text>
+                  </View>
+                </Pressable>
 
-                      {tags.length > 0 && (
-                        <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                          {tags.map(t => (
-                            <View key={t} style={{
-                              backgroundColor: OaklandDusk.brand.tagBg,
-                              paddingHorizontal: 8,
-                              paddingVertical: 3,
-                              borderRadius: 6,
-                            }}>
-                              <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      )}
-
-                      <View style={{ marginTop: 10, gap: 3 }}>
-                        {(pick.ingredient_keys || []).map(key => {
-                          const have = (pick.overlap_hits || []).includes(key);
-                          const missing = (pick.missing_items || []).includes(key);
-                          return (
-                            <Text key={key} style={{
-                              fontSize: 13,
-                              color: missing
-                                ? OaklandDusk.accent.crimson
-                                : have
-                                  ? OaklandDusk.text.secondary
-                                  : OaklandDusk.text.tertiary,
-                            }}>
-                              {have ? "\u2713 " : missing ? "\u2717 " : "  "}{key.replace(/_/g, " ")}
-                            </Text>
-                          );
-                        })}
-                      </View>
-
-                      {pick.style && (
-                        <Text style={{
-                          fontSize: 11,
-                          color: OaklandDusk.text.tertiary,
-                          marginTop: 8,
-                          textTransform: "capitalize",
-                        }}>
-                          {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
-                        </Text>
-                      )}
-                    </Pressable>
-                  );
-                })}
+                <Pressable
+                  onPress={() => {
+                    setShowBottomSheet(false);
+                    router.push("/scan");
+                  }}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: "rgba(200,120,40,0.25)",
+                    borderRadius: 14,
+                    padding: 16,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 14,
+                  }}
+                >
+                  <FontAwesome name="glass" size={20} color={OaklandDusk.text.secondary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
+                      Just explore recipes
+                    </Text>
+                    <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                      Browse without scanning
+                    </Text>
+                  </View>
+                </Pressable>
               </View>
             )}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
-            <Pressable
-              onPress={() => setStep(1)}
-              style={{
-                borderWidth: 1.5,
-                borderColor: OaklandDusk.brand.gold,
-                borderRadius: 12,
-                paddingVertical: 14,
-                alignItems: "center",
-                marginTop: 24,
-              }}
-            >
-              <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
-                Try different mood
-              </Text>
-            </Pressable>
-          </>
-        )}
-
-        {error && (
-          <Text style={{
-            color: OaklandDusk.accent.crimson,
-            textAlign: "center",
-            marginTop: 16,
-            fontSize: 14,
-          }}>
-            {error}
-          </Text>
-        )}
-
-        {step !== "results" && (
-          <View style={{ flexDirection: "row", gap: 12, marginTop: 28 }}>
-            <Pressable
-              onPress={fetchRecommendations}
-              disabled={loading}
-              style={{
-                flex: 1,
-                backgroundColor: OaklandDusk.brand.gold,
-                paddingVertical: 14,
-                borderRadius: 12,
-                alignItems: "center",
-              }}
-            >
-              {loading ? (
-                <ActivityIndicator color={OaklandDusk.bg.void} />
-              ) : (
-                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                  Show me
-                </Text>
-              )}
-            </Pressable>
-
-            {step < 3 && (
-              <Pressable
-                onPress={() => setStep((step + 1) as StepId)}
-                style={{
-                  flex: 1,
-                  borderWidth: 1.5,
-                  borderColor: OaklandDusk.brand.gold,
-                  paddingVertical: 14,
-                  borderRadius: 12,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
-                  Next
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-      </ScrollView>
+      <StaplesModal
+        visible={showStaples}
+        loading={loading}
+        onConfirm={(stapleKeys) => {
+          setShowStaples(false);
+          fetchRecommendations(stapleKeys);
+        }}
+        onCancel={() => setShowStaples(false)}
+      />
     </View>
   );
 }
