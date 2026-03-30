@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api'
+import * as ImagePicker from 'expo-image-picker'
 import OaklandDusk from '@/constants/OaklandDusk'
 import StaplesModal from '@/components/StaplesModal'
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
@@ -540,6 +541,48 @@ export default function MyBarScreen() {
   const [recommendLoading, setRecommendLoading] = useState(false)
   const [showStaplesModal, setShowStaplesModal] = useState(false)
 
+  const promptScanBottles = () => {
+    Alert.alert('Scan Bottles', 'How would you like to scan?', [
+      {
+        text: 'Take Photo',
+        onPress: async () => {
+          const perm = await ImagePicker.requestCameraPermissionsAsync()
+          if (!perm.granted) {
+            Alert.alert('Permission required', 'Please allow camera access.')
+            return
+          }
+          const result = await ImagePicker.launchCameraAsync({ quality: 0.9, exif: false, base64: false })
+          if (!result.canceled && result.assets?.[0]) {
+            router.push({ pathname: '/scan', params: { photoUri: result.assets[0].uri } })
+          }
+        },
+      },
+      {
+        text: 'Choose Photos',
+        onPress: async () => {
+          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+          if (!perm.granted) {
+            Alert.alert('Permission required', 'Please allow photo library access.')
+            return
+          }
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsMultipleSelection: true,
+            quality: 0.9,
+            exif: false,
+            base64: false,
+          })
+          if (!result.canceled && result.assets?.length) {
+            router.push({
+              pathname: '/scan',
+              params: { photoUris: JSON.stringify(result.assets.map(a => a.uri)) },
+            })
+          }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ])
+  }
 
   const handleSortSelect = (key: SortBy) => {
     if (key === sortBy) {
@@ -714,7 +757,7 @@ export default function MyBarScreen() {
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
           {/* Scan Bottle button */}
           <Pressable
-            onPress={() => router.push('/scan')}
+            onPress={promptScanBottles}
             hitSlop={8}
             style={{ alignItems: 'center', gap: 2 }}
           >
@@ -830,7 +873,7 @@ export default function MyBarScreen() {
               onPress={() => {
                 dismissGuide(GUIDE_KEYS.MYBAR_EMPTY)
                 setGuideMyBarEmptyVisible(false)
-                router.push('/scan')
+                promptScanBottles()
               }}
               style={{
                 borderWidth: 1.5,

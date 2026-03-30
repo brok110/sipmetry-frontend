@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
@@ -523,6 +523,7 @@ function buildActiveIngredientsFromAnalyze(data: AnalyzeImageResponse): ActiveIn
 }
 
 export default function TabOneScreen() {
+  const searchParams = useLocalSearchParams<{ photoUri?: string; photoUris?: string }>();
   const [activeIngredients, setActiveIngredients] = useState<ActiveIngredient[]>([]);
 
   const activeCanonical = useMemo(() => {
@@ -672,6 +673,30 @@ export default function TabOneScreen() {
       analyze();
     }
   }, [autoAnalyze, imageUri]);
+
+  const paramsHandledRef = useRef(false);
+  useEffect(() => {
+    if (paramsHandledRef.current) return;
+    if (searchParams.photoUri) {
+      paramsHandledRef.current = true;
+      resetScan();
+      setImageUri(searchParams.photoUri);
+      setPickedBase64(null);
+      setAutoAnalyze(true);
+    } else if (searchParams.photoUris) {
+      paramsHandledRef.current = true;
+      try {
+        const uris: string[] = JSON.parse(searchParams.photoUris);
+        if (uris.length > 0) {
+          resetScan();
+          imageQueueRef.current = uris.slice(1).map(uri => ({ uri, base64: null }));
+          setImageUri(uris[0]);
+          setPickedBase64(null);
+          setAutoAnalyze(true);
+        }
+      } catch {}
+    }
+  }, [searchParams.photoUri, searchParams.photoUris]);
 
   // Path choice alert — fires when scan phase becomes "choice"
   useEffect(() => {
@@ -1839,6 +1864,7 @@ export default function TabOneScreen() {
     <>
     <Stack.Screen options={{
       title: "Scan",
+      headerBackTitle: "My Bar",
       headerStyle: { backgroundColor: OaklandDusk.bg.void },
       headerTintColor: OaklandDusk.text.primary,
       headerShadowVisible: false,

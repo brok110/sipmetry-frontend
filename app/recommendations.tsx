@@ -342,15 +342,23 @@ export default function RecommendationsScreen() {
         title: "",
         headerStyle: { backgroundColor: OaklandDusk.bg.void },
         headerTintColor: OaklandDusk.brand.gold,
-        headerBackTitle: "Back",
+        headerBackTitle: isInventoryMode ? "My Bar" : "Scan",
         headerShadowVisible: false,
         headerLeft: () => (
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace(isInventoryMode ? "/(tabs)/inventory" as any : "/(tabs)/bartender" as any);
+              }
+            }}
             hitSlop={16}
             style={{ paddingHorizontal: 8, paddingVertical: 8 }}
           >
-            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>‹ Back</Text>
+            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
+              ‹ {isInventoryMode ? "My Bar" : "Scan"}
+            </Text>
           </Pressable>
         ),
       }} />
