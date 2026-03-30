@@ -1,7 +1,9 @@
 import { useRouter } from "expo-router";
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import StaplesModal, { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import Card from "@/components/ui/Card";
 import Pill from "@/components/ui/Pill";
 import SwipeRow from "@/components/ui/SwipeRow";
@@ -110,11 +112,44 @@ export default function TabThreeScreen() {
     return s;
   }, [inventory, inventoryInitialized]);
 
+  // ── Staples awareness ──────────────────────────────────────────
+  const [staplesKeys, setStaplesKeys] = useState<Set<string>>(new Set());
+  const [staplesLoaded, setStaplesLoaded] = useState(false);
+  const [showStaplesModal, setShowStaplesModal] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STAPLES_STORAGE_KEY)
+      .then((val) => {
+        if (val) {
+          try {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) {
+              setStaplesKeys(new Set(parsed));
+            }
+          } catch {}
+        } else if (favoritesList.length > 0) {
+          // 用戶從未設定過 staples，且有 favorites — 彈 modal
+          setShowStaplesModal(true);
+        }
+        setStaplesLoaded(true);
+      })
+      .catch(() => setStaplesLoaded(true));
+  }, [favoritesList.length]);
+
+  const handleStaplesConfirm = (selectedKeys: string[]) => {
+    setStaplesKeys(new Set(selectedKeys));
+    setShowStaplesModal(false);
+  };
+
+  const handleStaplesCancel = () => {
+    setShowStaplesModal(false);
+  };
+
   const getAvailability = (fav: any): { ready: boolean; missingCount: number } | null => {
     if (!invKeySet) return null;
     const keys = extractIngredientsFromAnyRecipe(fav?.recipe);
     if (keys.length === 0) return null;
-    const missing = keys.filter((k) => !invKeySet.has(k));
+    const missing = keys.filter((k) => !invKeySet.has(k) && !staplesKeys.has(k));
     return { ready: missing.length === 0, missingCount: missing.length };
   };
 
@@ -193,10 +228,11 @@ export default function TabThreeScreen() {
   };
 
   return (
-    <ScrollView
-      style={{ backgroundColor: OaklandDusk.bg.void }}
-      contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-    >
+    <>
+      <ScrollView
+        style={{ backgroundColor: OaklandDusk.bg.void }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+      >
       <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary, marginBottom: 16 }}>
         Favorites
       </Text>
@@ -274,5 +310,13 @@ export default function TabThreeScreen() {
         </Text>
       )}
     </ScrollView>
+
+      <StaplesModal
+        visible={showStaplesModal}
+        loading={false}
+        onConfirm={handleStaplesConfirm}
+        onCancel={handleStaplesCancel}
+      />
+    </>
   );
 }

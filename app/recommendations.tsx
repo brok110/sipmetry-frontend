@@ -461,8 +461,9 @@ export default function RecommendationsScreen() {
               </Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
                 {restockPicks.map((pick, i) => (
-                  <View
+                  <Pressable
                     key={pick.ingredient_key}
+                    onPress={() => router.push('/(tabs)/cart')}
                     style={{
                       flex: 1,
                       backgroundColor: OaklandDusk.bg.card,
@@ -483,7 +484,7 @@ export default function RecommendationsScreen() {
                     <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>
                       Unlocks {pick.unlocks_count} cocktail{pick.unlocks_count > 1 ? "s" : ""}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             </View>
