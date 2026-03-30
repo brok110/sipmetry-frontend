@@ -132,14 +132,8 @@ function RootLayoutNav() {
             title: 'Recipe',
             headerShown: true,
             headerStyle: { backgroundColor: OaklandDusk.bg.void },
-            headerTintColor: OaklandDusk.text.primary,
+            headerTintColor: OaklandDusk.brand.gold,
             headerTitleStyle: { color: OaklandDusk.text.primary },
-            headerLeft: () => (
-              <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
-                <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>Scan</Text>
-              </Pressable>
-            ),
           }}
         />
         <Stack.Screen
