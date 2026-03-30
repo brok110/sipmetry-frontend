@@ -1,6 +1,6 @@
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import Card from "@/components/ui/Card";
 import Pill from "@/components/ui/Pill";
@@ -220,7 +220,7 @@ export default function TabThreeScreen() {
               >
                 <Card>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <Pressable style={{ flex: 1 }} onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(title + " cocktail")}`)}>
+                    <Pressable style={{ flex: 1 }} onPress={() => openFavorite(key)}>
                       <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
                         {title}
                       </Text>
@@ -259,9 +259,7 @@ export default function TabThreeScreen() {
                         )}
                       </View>
                     </Pressable>
-                    <Pressable onPress={() => openFavorite(key)} hitSlop={12} style={{ paddingLeft: 12 }}>
-                      <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 18 }}>›</Text>
-                    </Pressable>
+
                   </View>
                 </Card>
               </SwipeRow>
