@@ -1789,7 +1789,7 @@ export default function TabOneScreen() {
     const id = editingId;
     const v = editingValue.trim();
     if (!v) {
-      setError("Ingredient cannot be empty.");
+      setError("Please enter an ingredient name.");
       return;
     }
 
@@ -1942,28 +1942,30 @@ export default function TabOneScreen() {
 
       {error ? (
         <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
-          <Text style={{ fontWeight: "800", color: OaklandDusk.accent.crimson }}>Error</Text>
+          <Text style={{ fontWeight: "800", color: OaklandDusk.accent.crimson }}>Something went wrong</Text>
           <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
         </View>
       ) : null}
 
       {safety && (safety.risk_level !== "none" || safety.non_consumable_items.length > 0) ? (
         <View style={{ padding: 12, borderWidth: 2, borderRadius: 12, borderColor: OaklandDusk.brand.rust, backgroundColor: OaklandDusk.brand.tagBg }}>
-          <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.brand.sundown }}>Warning</Text>
+          <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.brand.sundown }}>
+            Heads up
+          </Text>
 
           <Text style={{ marginBottom: 8, color: OaklandDusk.text.secondary }}>
             {safety.message && safety.message.trim()
               ? safety.message
               : safety.risk_level === "high"
-              ? "Non-consumable item(s) detected. Do NOT ingest."
-              : "Possible non-consumable item(s) detected. Do NOT ingest and please double-check."}
+              ? "Some items here aren't meant to be consumed. Please double-check before using."
+              : "A few items might not be consumable. Worth a second look."}
           </Text>
-
-          <Text style={{ fontWeight: "800", marginBottom: 4, color: OaklandDusk.text.primary }}>Risk: {safety.risk_level}</Text>
 
           {safety.non_consumable_items.length > 0 ? (
             <View style={{ gap: 4 }}>
-              <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Detected:</Text>
+              <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>
+                Please verify:
+              </Text>
               {safety.non_consumable_items.map((x, i) => (
                 <Text key={i} style={{ color: OaklandDusk.text.secondary }}>• {x}</Text>
               ))}
@@ -2163,6 +2165,62 @@ export default function TabOneScreen() {
           {/* Stage 3: Add to My Bar — rendered as bottom sheet Modal below */}
 
           {/* Stage 4: Show me cocktails — moved to sticky footer below ScrollView */}
+
+          {/* Manual-input action buttons — shown when user has typed at least one ingredient */}
+          {activeIngredients.length > 0 && (
+            <View style={{ gap: 10, marginTop: 12 }}>
+              <Pressable
+                onPress={async () => {
+                  setScanMode("inventory");
+                  if (session) {
+                    for (const ing of activeIngredients) {
+                      if (isAlcoholicIngredient(ing.canonical) === false) continue;
+                      if (isInInventory(ing.canonical)) continue;
+                      try {
+                        await addInventoryItem({
+                          ingredient_key: ing.canonical,
+                          display_name: ing.display,
+                          total_ml: 750,
+                          remaining_pct: 100,
+                        });
+                      } catch {}
+                    }
+                    await refreshInventory({ silent: true });
+                  }
+                  setScanPhase("accumulating");
+                  setBatchCompleteCount((c) => c + 1);
+                }}
+                style={{
+                  backgroundColor: OaklandDusk.brand.gold,
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
+                  Add to My Bar
+                </Text>
+              </Pressable>
+
+              <Pressable
+                onPress={() => {
+                  setScanMode("quick_look");
+                  setShowStaplesModal(true);
+                }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: OaklandDusk.brand.gold,
+                  borderRadius: 12,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+                  Show Recipes
+                </Text>
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
 

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 
 import * as Sentry from "@sentry/react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/context/auth";
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { useFavorites } from "@/context/favorites";
@@ -46,6 +46,9 @@ type Suggestion = {
   reason: string;
   buy_url: string;
   recipes: { iba_code: string; name: string; iba_category: string }[];
+  is_alternative_upgrade?: boolean;
+  covering_alternative?: { user_has: string; user_has_display: string } | null;
+  alt_description?: string | null;
 };
 
 function formatFamilyKey(key: string | null | undefined): string {
@@ -60,6 +63,7 @@ export default function CartScreen() {
   const { session } = useAuth();
   const { favoritesByKey } = useFavorites();
   const feedback = useFeedback() as any;
+  const params = useLocalSearchParams<{ autoFetch?: string }>();
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -82,12 +86,23 @@ export default function CartScreen() {
       .catch(() => {});
   }, []);
 
+  // Explore accordion
+  const [exploreExpanded, setExploreExpanded] = useState(false);
+
   // Guide bubble state
   const [guideCartVisible, setGuideCartVisible] = useState(false);
 
   useEffect(() => {
     isGuideDismissed(GUIDE_KEYS.CART).then((d) => setGuideCartVisible(!d));
   }, []);
+
+  // Auto-fetch when navigated from Recommendations with autoFetch=true
+  useEffect(() => {
+    if (params.autoFetch === "true") {
+      fetchSuggestions();
+      router.setParams({ autoFetch: undefined });
+    }
+  }, [params.autoFetch]);
 
   // Build user interactions payload for preference-aware scoring
   const userInteractions = useMemo(() => {
@@ -107,6 +122,16 @@ export default function CartScreen() {
   const filteredSuggestions = useMemo(
     () => suggestions.filter((s) => !staplesKeys.has(s.ingredient_key)),
     [suggestions, staplesKeys]
+  );
+
+  // Split into primary (true must-buys) vs explore (user already has a substitute)
+  const primarySuggestions = useMemo(
+    () => filteredSuggestions.filter((s) => !s.is_alternative_upgrade),
+    [filteredSuggestions]
+  );
+  const exploreSuggestions = useMemo(
+    () => filteredSuggestions.filter((s) => s.is_alternative_upgrade),
+    [filteredSuggestions]
   );
 
   const fetchSuggestions = useCallback(async () => {
@@ -239,12 +264,12 @@ export default function CartScreen() {
         </View>
       )}
 
-      {/* Hero number — top suggestion's unlock count */}
-      {hasFetched && filteredSuggestions.length > 0 && !loading && (
+      {/* Hero number — top PRIMARY suggestion's unlock count */}
+      {hasFetched && primarySuggestions.length > 0 && !loading && (
         <View style={{ alignItems: "center", paddingVertical: 8 }}>
           <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>Add one bottle, make</Text>
           <Text style={{ fontSize: 48, fontWeight: "800", color: OaklandDusk.brand.gold, lineHeight: 56 }}>
-            {filteredSuggestions[0].unlocks_count} more
+            {primarySuggestions[0].unlocks_count} more
           </Text>
           <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.brand.gold }}>cocktails</Text>
         </View>
@@ -261,8 +286,8 @@ export default function CartScreen() {
         </View>
       )}
 
-      {/* Suggestion cards — exclude staples the user already has */}
-      {filteredSuggestions.map((s, i) => {
+      {/* Primary suggestion cards — true must-buys */}
+      {primarySuggestions.map((s, i) => {
         const isTop = i === 0;
         const recipeNames = (s.recipes ?? []).map((r) => r.name).filter(Boolean);
         const showRecipes = recipeNames.slice(0, 4);
@@ -423,6 +448,137 @@ export default function CartScreen() {
           </View>
         );
       })}
+
+      {/* Explore section — items where user already has a substitute (collapsible) */}
+      {hasFetched && exploreSuggestions.length > 0 && (
+        <View style={{ borderTopWidth: 1, borderTopColor: "rgba(200,120,40,0.1)", marginTop: 8, paddingTop: 14 }}>
+          {/* Toggle header */}
+          <Pressable
+            onPress={() => setExploreExpanded(!exploreExpanded)}
+            style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
+          >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: exploreExpanded ? OaklandDusk.brand.gold : OaklandDusk.text.secondary }}>
+                Explore
+              </Text>
+              <View style={{ backgroundColor: "rgba(200,120,40,0.1)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>
+                  {exploreSuggestions.length} upgrade{exploreSuggestions.length > 1 ? "s" : ""}
+                </Text>
+              </View>
+            </View>
+            <FontAwesome
+              name={exploreExpanded ? "chevron-up" : "chevron-down"}
+              size={12}
+              color={exploreExpanded ? OaklandDusk.brand.gold : OaklandDusk.text.secondary}
+            />
+          </Pressable>
+
+          {/* Subtitle when collapsed */}
+          {!exploreExpanded && (
+            <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 6 }}>
+              You can already make these with substitutes in your bar
+            </Text>
+          )}
+
+          {/* Expanded cards */}
+          {exploreExpanded && (
+            <View style={{ gap: 10, marginTop: 12 }}>
+              {exploreSuggestions.map((s) => {
+                const covering = s.covering_alternative;
+                const recipeNames = (s.recipes ?? []).map((r) => r.name).filter(Boolean);
+                const showRecipes = recipeNames.slice(0, 5);
+
+                return (
+                  <View
+                    key={s.ingredient_key}
+                    style={{
+                      borderRadius: 12,
+                      borderWidth: 0.5,
+                      borderColor: "rgba(200,120,40,0.12)",
+                      backgroundColor: OaklandDusk.bg.card,
+                      padding: 14,
+                      gap: 8,
+                    }}
+                  >
+                    {/* Header: name + category + unlock count (gray, not gold) */}
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.text.primary }}>
+                          {s.display_name}
+                        </Text>
+                        <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 2 }}>
+                          {s.category_key ? s.category_key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : ""}
+                        </Text>
+                      </View>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: OaklandDusk.text.secondary }}>
+                        +{s.unlocks_count}
+                      </Text>
+                    </View>
+
+                    {/* Green pill: substitute info */}
+                    {covering && (
+                      <View style={{
+                        flexDirection: "row", alignItems: "center", gap: 6,
+                        backgroundColor: "rgba(99,153,34,0.08)",
+                        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
+                      }}>
+                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#639922" }} />
+                        <Text style={{ fontSize: 12, color: "#97C459" }}>
+                          You have {covering.user_has_display} as a substitute
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Alt description */}
+                    {s.alt_description ? (
+                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>
+                        {s.alt_description}
+                      </Text>
+                    ) : null}
+
+                    {/* Recipe pills — muted style */}
+                    {showRecipes.length > 0 && (
+                      <View>
+                        <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary, letterSpacing: 0.3, marginBottom: 4 }}>
+                          ORIGINAL RECIPE USES {s.display_name.toUpperCase()} IN
+                        </Text>
+                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
+                          {showRecipes.map((name: string) => (
+                            <View key={name} style={{
+                              backgroundColor: "rgba(200,120,40,0.08)",
+                              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+                            }}>
+                              <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{name}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
+
+                    {/* CTA: outline style */}
+                    <Pressable
+                      onPress={() => handleBuy(s)}
+                      style={{
+                        borderWidth: 1,
+                        borderColor: "rgba(200,120,40,0.2)",
+                        borderRadius: 10,
+                        paddingVertical: 11,
+                        alignItems: "center",
+                        marginTop: 2,
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+                        Find {s.display_name}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Preference match info */}
       {hasFetched && filteredSuggestions.length > 0 && (

@@ -1,12 +1,15 @@
-import FontAwesome from "@expo/vector-icons/FontAwesome";
 import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import OaklandDusk from "@/constants/OaklandDusk";
 import { normalizeIngredientKey } from "@/context/ontology";
-import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { apiFetch } from "@/lib/api";
+import { useAuth } from "@/context/auth";
+import { useInventory } from "@/context/inventory";
+import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,6 +62,8 @@ function getTasteTags(vec: Record<string, any> | null | undefined, max = 3): str
 
 export default function RecommendationsScreen() {
   const router = useRouter();
+  const { session } = useAuth();
+  const { availableIngredientKeys } = useInventory();
   const params = useLocalSearchParams<{
     recipes: string;
     ingredientCount: string;
@@ -69,11 +74,40 @@ export default function RecommendationsScreen() {
 
   const isInventoryMode = params.mode === "inventory";
 
-  const [guideRecoShopVisible, setGuideRecoShopVisible] = useState(false);
+  // Restock picks — top 2 primary suggestions, shown in sticky footer (inventory mode only)
+  const [restockPicks, setRestockPicks] = useState<any[]>([]);
 
   useEffect(() => {
-    isGuideDismissed(GUIDE_KEYS.RECO_SHOP).then((d) => setGuideRecoShopVisible(!d));
-  }, []);
+    if (!isInventoryMode || !session) return;
+    const fetchRestock = async () => {
+      try {
+        // Read staples the user already confirmed having (same logic as cart.tsx)
+        let staplesKeys = new Set<string>();
+        try {
+          const val = await AsyncStorage.getItem(STAPLES_STORAGE_KEY);
+          if (val) {
+            const parsed = JSON.parse(val);
+            if (Array.isArray(parsed)) staplesKeys = new Set(parsed);
+          }
+        } catch {}
+
+        const res = await apiFetch("/restock-suggestions", {
+          session,
+          method: "POST",
+          body: { user_interactions: {} },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const primary = (data.suggestions ?? []).filter(
+          (s: any) => !s.is_alternative_upgrade && !staplesKeys.has(s.ingredient_key)
+        );
+        setRestockPicks(primary.slice(0, 2));
+      } catch (err) {
+        console.warn("[recommendations] restock fetch failed:", err);
+      }
+    };
+    fetchRestock();
+  }, [isInventoryMode, session, availableIngredientKeys]);
 
   const recipes: RecipeItem[] = useMemo(() => {
     try {
@@ -264,38 +298,13 @@ export default function RecommendationsScreen() {
               </View>
             )}
 
-            {/* Missing items with cart + guide */}
+            {/* Missing items — pure text display */}
             <View style={{ gap: 6 }}>
-            {miss.map((m: string, mi: number) => (
-              <View key={m} style={{ position: "relative" }}>
-                {isFirstCard && mi === 0 && (
-                  <GuideBubble
-                    storageKey={GUIDE_KEYS.RECO_SHOP}
-                    text="Buy missing items!"
-                    visible={guideRecoShopVisible}
-                    onDismiss={() => setGuideRecoShopVisible(false)}
-                    align="right"
-                    position="below"
-                  />
-                )}
-                <Pressable
-                  onPress={() => {
-                    if (isFirstCard && mi === 0) {
-                      dismissGuide(GUIDE_KEYS.RECO_SHOP);
-                      setGuideRecoShopVisible(false);
-                    }
-                    Linking.openURL(
-                      `https://www.google.com/search?tbm=shop&q=${encodeURIComponent(m + " bottle")}`
-                    );
-                  }}
-                  hitSlop={8}
-                  style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
-                >
-                  <Text style={{ fontSize: 13, color: OaklandDusk.accent.crimson }} numberOfLines={1}>
-                    {m.replace(/_/g, " ")}
-                  </Text>
-                  <FontAwesome name="shopping-cart" size={15} color={OaklandDusk.brand.gold} />
-                </Pressable>
+            {miss.map((m: string) => (
+              <View key={m} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Text style={{ fontSize: 13, color: OaklandDusk.accent.crimson }} numberOfLines={1}>
+                  {m.replace(/_/g, " ")}
+                </Text>
               </View>
             ))}
             </View>
@@ -388,21 +397,12 @@ export default function RecommendationsScreen() {
             {/* Inventory mode: no ready cocktails empty state */}
             {ready.length === 0 && isInventoryMode ? (
               <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
-                <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>No cocktails ready yet</Text>
-                <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
-                  You're close! Check Smart Restock to see which bottle to buy first.
+                <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>
+                  You're close!
                 </Text>
-                <Pressable
-                  onPress={() => { try { router.push("/(tabs)/cart" as any); } catch {} }}
-                  style={{
-                    marginTop: 8, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 24,
-                    backgroundColor: OaklandDusk.brand.gold,
-                  }}
-                >
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                    See what to buy next →
-                  </Text>
-                </Pressable>
+                <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
+                  Add one more bottle to your bar and you'll start unlocking cocktails.
+                </Text>
               </View>
             ) : null}
 
@@ -450,49 +450,42 @@ export default function RecommendationsScreen() {
           borderTopWidth: 0.5,
           borderTopColor: OaklandDusk.bg.border,
         }}>
-          {/* Unlock insight — inventory mode only */}
-          {topMissing.length > 0 && (
+          {/* Restock mini cards — inventory mode only, top 2 primary picks */}
+          {isInventoryMode && restockPicks.length > 0 && (
             <View style={{ marginBottom: 10 }}>
-              {topMissing.map(([ingredient, count]) => (
-                <Text key={ingredient} style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginBottom: 2 }}>
-                  {formatIngredientName(ingredient)} would unlock {count} more cocktail{count !== 1 ? "s" : ""}
-                </Text>
-              ))}
+              <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary, letterSpacing: 0.5, marginBottom: 8 }}>
+                WANT MORE COCKTAILS?
+              </Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {restockPicks.map((pick, i) => (
+                  <View
+                    key={pick.ingredient_key}
+                    style={{
+                      flex: 1,
+                      backgroundColor: OaklandDusk.bg.card,
+                      borderWidth: 0.5,
+                      borderColor: i === 0 ? "rgba(200,120,40,0.25)" : "rgba(200,120,40,0.15)",
+                      borderRadius: 12,
+                      padding: 10,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: OaklandDusk.text.primary, flex: 1 }} numberOfLines={1}>
+                        {pick.display_name}
+                      </Text>
+                      <Text style={{ fontSize: 16, fontWeight: "800", color: OaklandDusk.brand.gold, marginLeft: 4 }}>
+                        +{pick.unlocks_count}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>
+                      Unlocks {pick.unlocks_count} cocktail{pick.unlocks_count > 1 ? "s" : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
 
-          {/* CTA button */}
-          <Pressable
-            onPress={() => {
-              try {
-                Sentry.addBreadcrumb({
-                  category: "restock",
-                  message: "restock_cta_tap",
-                  level: "info",
-                });
-              } catch {}
-              try {
-                router.push("/(tabs)/cart" as any);
-              } catch {}
-            }}
-            accessibilityLabel="See what to buy next"
-            accessibilityRole="button"
-            style={{
-              borderRadius: 12,
-              paddingVertical: 14,
-              alignItems: "center",
-              backgroundColor: OaklandDusk.brand.gold,
-            }}
-          >
-            <>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                See what to buy next
-              </Text>
-              <Text style={{ fontSize: 12, color: OaklandDusk.bg.void, opacity: 0.7, marginTop: 2 }}>
-                Smart Restock →
-              </Text>
-            </>
-          </Pressable>
         </View>
       )}
     </View>
