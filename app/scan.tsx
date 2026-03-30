@@ -1,3 +1,4 @@
+import { Stack } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
@@ -1836,6 +1837,12 @@ export default function TabOneScreen() {
 
   return (
     <>
+    <Stack.Screen options={{
+      title: "Scan",
+      headerStyle: { backgroundColor: OaklandDusk.bg.void },
+      headerTintColor: OaklandDusk.text.primary,
+      headerShadowVisible: false,
+    }} />
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}

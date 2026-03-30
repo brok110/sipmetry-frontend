@@ -16,7 +16,7 @@ export default function Index() {
         const done = await AsyncStorage.getItem(ONBOARDING_STORAGE_KEY);
         if (!alive) return;
         if (done === "true") {
-          router.replace("/(tabs)/scan");
+          router.replace("/(tabs)/bartender");
           return;
         }
         router.replace("/onboarding");

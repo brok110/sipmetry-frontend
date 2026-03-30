@@ -47,7 +47,7 @@ export default function TabLayout() {
   return (
     <>
       <Tabs
-        initialRouteName="scan"
+        initialRouteName="bartender"
         screenOptions={{
           tabBarActiveTintColor: OaklandDusk.brand.gold,
           tabBarInactiveTintColor: OaklandDusk.text.tertiary,
@@ -71,10 +71,10 @@ export default function TabLayout() {
         }}
       >
         <Tabs.Screen
-          name="scan"
+          name="bartender"
           options={{
-            title: "Scan",
-            tabBarIcon: ({ color }) => <TabBarIcon name="camera" color={color} />,
+            title: "Bartender",
+            tabBarIcon: ({ color }) => <TabBarIcon name="glass" color={color} />,
           }}
         />
 

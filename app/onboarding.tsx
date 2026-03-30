@@ -76,7 +76,7 @@ export default function OnboardingScreen() {
     } catch {
       // Continue into the app even if persistence fails.
     } finally {
-      router.replace("/(tabs)/scan");
+      router.replace("/(tabs)/bartender");
     }
   };
 

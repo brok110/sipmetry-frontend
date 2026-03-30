@@ -104,7 +104,7 @@ function RootLayoutNav() {
     if (!user && inAuthArea) {
       router.replace('/login');
     } else if (user && firstSegment === 'login') {
-      router.replace('/(tabs)/scan');
+      router.replace('/(tabs)/bartender');
     }
   }, [user, hydrated, segments]);
 

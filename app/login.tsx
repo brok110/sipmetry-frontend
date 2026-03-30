@@ -33,7 +33,7 @@ export default function LoginScreen() {
     if (error) {
       setError(error)
     } else {
-      router.replace('/(tabs)/scan')
+      router.replace('/(tabs)/bartender')
     }
   }
 
@@ -43,7 +43,7 @@ export default function LoginScreen() {
     const { error } = await signInWithApple()
     setLoading(false)
     if (error) setError(error)
-    else router.replace('/(tabs)/scan')
+    else router.replace('/(tabs)/bartender')
   }
 
   return (

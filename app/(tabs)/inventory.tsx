@@ -1,6 +1,5 @@
 import { apiFetch } from '@/lib/api'
 import OaklandDusk from '@/constants/OaklandDusk'
-import AddToInventoryModal from '@/components/AddToInventoryModal'
 import StaplesModal from '@/components/StaplesModal'
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
@@ -8,8 +7,6 @@ import SwipeRow from '@/components/ui/SwipeRow'
 import { useAuth } from '@/context/auth'
 import { InventoryItem, useInventory } from '@/context/inventory'
 import { usePurchaseIntent } from '@/hooks/usePurchaseIntent'
-import * as ImageManipulator from 'expo-image-manipulator'
-import * as ImagePicker from 'expo-image-picker'
 import { useFocusEffect, router } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -543,15 +540,6 @@ export default function MyBarScreen() {
   const [recommendLoading, setRecommendLoading] = useState(false)
   const [showStaplesModal, setShowStaplesModal] = useState(false)
 
-  // ── Bottle scan state ──────────────────────────────────────────────────────
-  const [bottleScanLoading, setBottleScanLoading] = useState(false)
-  const [bottleScanTarget, setBottleScanTarget] = useState<{
-    displayName: string
-    ingredientKey: string
-    totalMl: number | null          // valid size if AI read it from label
-    detectedSizeMl: number | null   // raw AI value (null = not on label)
-    confidence: 'high' | 'medium' | 'low'
-  } | null>(null)
 
   const handleSortSelect = (key: SortBy) => {
     if (key === sortBy) {
@@ -583,93 +571,6 @@ export default function MyBarScreen() {
     refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {})
   }
 
-  // ── Bottle scan ────────────────────────────────────────────────────────────
-  const handleScanBottle = async () => {
-    if (!session?.access_token) {
-      Alert.alert('Sign in required', 'Please sign in to scan bottles.')
-      return
-    }
-
-    // Ask user: camera or photo library
-    Alert.alert('Scan Bottle', 'How would you like to add a bottle?', [
-      {
-        text: 'Take Photo',
-        onPress: async () => {
-          const perm = await ImagePicker.requestCameraPermissionsAsync()
-          if (!perm.granted) {
-            Alert.alert('Permission required', 'Please allow camera access.')
-            return
-          }
-          const result = await ImagePicker.launchCameraAsync({ quality: 0.9, exif: false, base64: false })
-          if (!result.canceled && result.assets?.[0]) {
-            await runIdentifyBottle(result.assets[0].uri)
-          }
-        },
-      },
-      {
-        text: 'Choose Photo',
-        onPress: async () => {
-          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-          if (!perm.granted) {
-            Alert.alert('Permission required', 'Please allow photo library access.')
-            return
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.9, exif: false, base64: false })
-          if (!result.canceled && result.assets?.[0]) {
-            await runIdentifyBottle(result.assets[0].uri)
-          }
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ])
-  }
-
-  const runIdentifyBottle = async (uri: string) => {
-    setBottleScanLoading(true)
-    try {
-      // Compress image before upload (~500KB target)
-      const compressed = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 1200 } }],
-        { compress: 0.75, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-      )
-      const b64 = compressed.base64
-      if (!b64) throw new Error('Image compression failed.')
-
-      const res = await apiFetch('/identify-bottle', {
-        session,
-        method: 'POST',
-        body: { image_base64: b64 },
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err?.error ?? `HTTP ${res.status}`)
-      }
-      const data = await res.json()
-      const validSizes = [375, 500, 700, 750, 1000, 1750]
-      const rawSize = data.bottle_size_ml != null ? Number(data.bottle_size_ml) : null
-      setBottleScanTarget({
-        displayName: data.display_name ?? '',
-        ingredientKey: data.ingredient_key ?? '',
-        totalMl: rawSize && validSizes.includes(rawSize) ? rawSize : null,
-        detectedSizeMl: rawSize,
-        confidence: data.confidence ?? 'medium',
-      })
-    } catch (e: any) {
-      Alert.alert('Scan failed', e?.message ?? 'Could not identify the bottle. Please try again.')
-    } finally {
-      setBottleScanLoading(false)
-    }
-  }
-
-  const handleBottleAdd = async (payload: {
-    ingredient_key: string
-    display_name: string
-    total_ml: number
-    remaining_pct: number
-  }) => {
-    await addInventoryItem(payload)
-  }
 
   const dismissSwipeGuide = () => {
     if (!guideSwipeDismissed) {
@@ -813,13 +714,9 @@ export default function MyBarScreen() {
         <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
           {/* Scan Bottle button */}
           <Pressable
-            onPress={handleScanBottle}
+            onPress={() => router.push('/scan')}
             hitSlop={8}
-            disabled={bottleScanLoading}
-            style={{
-              alignItems: 'center',
-              gap: 2,
-            }}
+            style={{ alignItems: 'center', gap: 2 }}
           >
             <View style={{
               width: 38,
@@ -830,10 +727,7 @@ export default function MyBarScreen() {
               alignItems: 'center',
               justifyContent: 'center',
             }}>
-              {bottleScanLoading
-                ? <ActivityIndicator size="small" color={OaklandDusk.brand.gold} />
-                : <CameraIcon size={18} />
-              }
+              <CameraIcon size={18} />
             </View>
             <Text style={{ fontSize: 10, color: OaklandDusk.brand.gold }}>Scan</Text>
           </Pressable>
@@ -904,19 +798,6 @@ export default function MyBarScreen() {
         </Pressable>
       </Modal>
 
-      {/* Scan Bottle → Add to Inventory Modal */}
-      {bottleScanTarget ? (
-        <AddToInventoryModal
-          visible={true}
-          ingredientKey={bottleScanTarget.ingredientKey}
-          displayName={bottleScanTarget.displayName}
-          initialTotalMl={bottleScanTarget.totalMl ?? undefined}
-          detectedSizeMl={bottleScanTarget.detectedSizeMl}
-          confidence={bottleScanTarget.confidence}
-          onClose={() => setBottleScanTarget(null)}
-          onConfirm={handleBottleAdd}
-        />
-      ) : null}
 
       {/* Edit Bottle Modal */}
       <EditBottleModal
@@ -941,7 +822,7 @@ export default function MyBarScreen() {
           <View style={{ position: 'relative', width: '100%', marginTop: 12 }}>
             <GuideBubble
               storageKey={GUIDE_KEYS.MYBAR_EMPTY}
-              text="Go scan your first bottle!"
+              text="Scan your bottles to get started!"
               visible={guideMyBarEmptyVisible}
               onDismiss={() => setGuideMyBarEmptyVisible(false)}
             />
@@ -949,7 +830,7 @@ export default function MyBarScreen() {
               onPress={() => {
                 dismissGuide(GUIDE_KEYS.MYBAR_EMPTY)
                 setGuideMyBarEmptyVisible(false)
-                router.push('/(tabs)/scan')
+                router.push('/scan')
               }}
               style={{
                 borderWidth: 1.5,
@@ -960,7 +841,7 @@ export default function MyBarScreen() {
               }}
             >
               <Text style={{ fontWeight: '700', color: OaklandDusk.brand.gold }}>
-                Go to Scan tab
+                Scan your bottles
               </Text>
             </Pressable>
           </View>

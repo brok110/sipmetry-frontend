@@ -342,21 +342,15 @@ export default function RecommendationsScreen() {
         title: "",
         headerStyle: { backgroundColor: OaklandDusk.bg.void },
         headerTintColor: OaklandDusk.brand.gold,
-        headerBackTitle: "Scan",
+        headerBackTitle: "Back",
         headerShadowVisible: false,
         headerLeft: () => (
           <Pressable
-            onPress={() => {
-              if (router.canGoBack()) {
-                router.back();
-              } else {
-                router.replace("/(tabs)/scan" as any);
-              }
-            }}
+            onPress={() => router.back()}
             hitSlop={16}
             style={{ paddingHorizontal: 8, paddingVertical: 8 }}
           >
-            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>‹ Scan</Text>
+            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>‹ Back</Text>
           </Pressable>
         ),
       }} />
