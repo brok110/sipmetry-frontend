@@ -230,13 +230,12 @@ export default function TabTwoScreen() {
   };
 
 
-  const resolveDisplayForIngredientKey = (ingredientKey: string) => {
+  const resolveDisplayForIngredientKey = (ingredientKey: string): { display: string; substitute: boolean } => {
     const k = String(ingredientKey || "").trim().toLowerCase();
-    if (!k) return "";
+    if (!k) return { display: "", substitute: false };
 
-    // 1) direct match
     const direct = scanDisplayByCanonical[k];
-    if (direct) return direct;
+    if (direct) return { display: direct, substitute: false };
 
     // 2) identity fallbacks: scan label uses a different key than the DB ingredient_key
     //    (e.g. scan sees "tequila_blanco" but user scanned "tequila" and vice versa)
@@ -297,26 +296,22 @@ export default function TabTwoScreen() {
     const alts = identityFallbacks[k] ?? [];
     for (const alt of alts) {
       const hit = scanDisplayByCanonical[String(alt || "").trim().toLowerCase()];
-      if (hit) return hit;
+      if (hit) return { display: hit, substitute: true };
     }
 
-    // 3) fallback: prefix/contains matching (useful when DB key is more specific)
-    // e.g. tequila_blanco -> tequila, or orange_curacao -> curacao-like matches
     for (const [scanKey, scanDisplay] of Object.entries(scanDisplayByCanonical)) {
       const sk = String(scanKey || "").trim().toLowerCase();
       if (!sk || !scanDisplay) continue;
 
-      if (k === sk) return scanDisplay;
-      if (k.startsWith(sk + "_") || sk.startsWith(k + "_")) return scanDisplay;
+      if (k === sk) return { display: scanDisplay, substitute: false };
+      if (k.startsWith(sk + "_") || sk.startsWith(k + "_")) return { display: scanDisplay, substitute: true };
 
-      // very small heuristic: if both contain a shared root token, accept
-      // (kept conservative to avoid weird matches)
       if ((k.includes("tequila") && sk.includes("tequila")) || (k.includes("curacao") && sk.includes("curacao"))) {
-        return scanDisplay;
+        return { display: scanDisplay, substitute: true };
       }
     }
 
-    return "";
+    return { display: "", substitute: false };
   };
 
   const ibaCode = useMemo(() => {
@@ -652,7 +647,7 @@ export default function TabTwoScreen() {
               .map((it) => {
                 const key = String(it?.item ?? "").trim();
                 const fromScan = resolveDisplayForIngredientKey(key);
-                return { key, resolved: fromScan || null };
+                return { key, resolved: fromScan.display || null };
               })
           : null,
       };
@@ -843,40 +838,49 @@ export default function TabTwoScreen() {
     }
 
     try {
-      const inventoryItems = inventoryInitialized
-        ? inventory
-        : await refreshInventory({ silent: true });
-
-      // 建立 ingredient_key → inventory item 的 map
-      const invByKey: Record<string, { id: string; display_name: string; remaining_volume: number }> = {}
-      for (const it of inventoryItems) {
-        invByKey[String(it.ingredient_key ?? '').trim()] = {
-          id: it.id,
-          display_name: it.display_name,
-          remaining_volume: Number(it.remaining_volume ?? 0),
-        }
-      }
-
-      // 2. 比對食譜食材 vs 庫存
-      type DeductItem = { ingredient_id: string; amount_ml: number; display_name: string }
-      const toDeduct: DeductItem[] = []
-
-      for (const ing of dbRecipe.ingredients) {
-        const key = String(ing.item ?? '').trim()
-        const ml = ing.amount_ml !== null && ing.amount_ml !== undefined ? Number(ing.amount_ml) : null
-        if (!key || ml === null || !Number.isFinite(ml) || ml <= 0) continue
-
-        const invItem = invByKey[key]
-        if (!invItem) continue
-
-        toDeduct.push({
-          ingredient_id: invItem.id,
-          amount_ml: Math.round(ml * servings),
-          display_name: invItem.display_name,
+      // 1. Build recipe ingredient keys with amounts
+      const recipeIngredientKeys = dbRecipe.ingredients
+        .map((ing) => {
+          const key = String(ing.item ?? '').trim()
+          const ml = ing.amount_ml !== null && ing.amount_ml !== undefined ? Number(ing.amount_ml) : null
+          if (!key || ml === null || !Number.isFinite(ml) || ml <= 0) return null
+          return { key, amount_ml: ml }
         })
+        .filter(Boolean) as Array<{ key: string; amount_ml: number }>
+
+      if (recipeIngredientKeys.length === 0) {
+        Alert.alert('Nothing to update', 'This recipe has no measurable ingredients.')
+        return
       }
 
-      if (toDeduct.length === 0) {
+      // 2. Call backend to resolve which inventory items match
+      const resolveResp = await apiFetch('/inventory/resolve-deductions', {
+        session,
+        method: 'POST',
+        body: {
+          recipe_ingredient_keys: recipeIngredientKeys,
+          servings,
+        },
+      })
+
+      if (!resolveResp.ok) {
+        const errData = await resolveResp.json().catch(() => ({}))
+        Alert.alert('Error', errData?.error ?? 'Failed to resolve ingredients')
+        return
+      }
+
+      const { deductions } = (await resolveResp.json()) as {
+        deductions: Array<{
+          ingredient_id: string
+          ingredient_key: string
+          display_name: string
+          amount_ml: number
+          remaining_volume: number
+          recipe_key: string
+        }>
+      }
+
+      if (!deductions || deductions.length === 0) {
         Alert.alert(
           'Nothing to update',
           "None of this recipe's ingredients (with amounts) match your My Bar."
@@ -884,8 +888,8 @@ export default function TabTwoScreen() {
         return
       }
 
-      // 3. 確認 dialog
-      const lines = toDeduct.map((x) => `• ${x.display_name}: −${x.amount_ml}ml`)
+      // 3. Confirm dialog
+      const lines = deductions.map((x) => `• ${x.display_name}: −${x.amount_ml}ml`)
       Alert.alert(
         servings > 1 ? `I made this! ×${servings}` : 'I made this!',
         `Deduct from My Bar:\n\n${lines.join('\n')}`,
@@ -899,7 +903,7 @@ export default function TabTwoScreen() {
                 await recordInventoryUse({
                   recipe_id: ibaCode || recipeKey,
                   made_at: new Date().toISOString(),
-                  ingredients_used: toDeduct.map((x) => ({
+                  ingredients_used: deductions.map((x) => ({
                     ingredient_id: x.ingredient_id,
                     amount_ml: x.amount_ml,
                   })),
@@ -952,8 +956,9 @@ export default function TabTwoScreen() {
       <View style={{ gap: 6 }}>
         {sorted.map((it, i) => {
           const key = String(it?.item ?? "").trim();
-          const fromScan = resolveDisplayForIngredientKey(key);
-          const name = (fromScan || humanizeKey(key) || "unknown").trim();
+          const resolved = resolveDisplayForIngredientKey(key);
+          const name = (resolved.display || humanizeKey(key) || "unknown").trim();
+          const isSubstitute = resolved.substitute;
           const isOptional = Boolean(it?.is_optional);
 
           const ml =
@@ -1010,7 +1015,7 @@ export default function TabTwoScreen() {
 
           return (
             <Text key={i} style={{ color: OaklandDusk.text.secondary }}>
-              • {name} — {amountLabel}
+              • {name}{isSubstitute ? <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12 }}> (substitute)</Text> : ""} — {amountLabel}
               {isOptional ? <Text style={{ color: OaklandDusk.text.tertiary }}> (optional)</Text> : ""}
               {availBadge}
             </Text>
@@ -1024,23 +1029,47 @@ export default function TabTwoScreen() {
 
   if (!hasSelection) {
     return (
-      <ScrollView
-        style={{ backgroundColor: OaklandDusk.bg.void }}
-        contentContainerStyle={{ padding: 16, gap: 12 }}
-      >
-        <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>Recipe</Text>
-        <Text style={{ color: OaklandDusk.text.secondary }}>No recipe selected. Go back to Scan and tap "View".</Text>
+      <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
+        <Stack.Screen options={{
+          title: "",
+          headerStyle: { backgroundColor: OaklandDusk.bg.void },
+          headerTintColor: OaklandDusk.brand.gold,
+          headerShadowVisible: false,
+          headerLeft: () => (
+            <Pressable
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)/bartender" as any);
+                }
+              }}
+              hitSlop={16}
+              style={{ paddingHorizontal: 8, paddingVertical: 8 }}
+            >
+              <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
+                ‹ Back
+              </Text>
+            </Pressable>
+          ),
+        }} />
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 16, gap: 12 }}
+        >
+          <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>Recipe</Text>
+          <Text style={{ color: OaklandDusk.text.secondary }}>No recipe selected. Go back to Scan and tap "View".</Text>
 
-        {__DEV__ ? (
-          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 6, backgroundColor: OaklandDusk.bg.card }}>
-            <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Debug</Text>
-            <Text style={{ color: OaklandDusk.text.tertiary }}>ibaCode: {ibaCode || "(empty)"}</Text>
-            <Text style={{ color: OaklandDusk.text.tertiary }}>recipe_key: {String((params as any)?.recipe_key ?? "") || "(empty)"}</Text>
-            <Text style={{ color: OaklandDusk.text.tertiary }}>idx: {String((params as any)?.idx ?? "") || "(empty)"}</Text>
-          </View>
-        ) : null}
-
-      </ScrollView>
+          {__DEV__ ? (
+            <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 6, backgroundColor: OaklandDusk.bg.card }}>
+              <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Debug</Text>
+              <Text style={{ color: OaklandDusk.text.tertiary }}>ibaCode: {ibaCode || "(empty)"}</Text>
+              <Text style={{ color: OaklandDusk.text.tertiary }}>recipe_key: {String((params as any)?.recipe_key ?? "") || "(empty)"}</Text>
+              <Text style={{ color: OaklandDusk.text.tertiary }}>idx: {String((params as any)?.idx ?? "") || "(empty)"}</Text>
+            </View>
+          ) : null}
+        </ScrollView>
+      </View>
     );
   }
 
@@ -1053,13 +1082,34 @@ export default function TabTwoScreen() {
         title: "",
         headerStyle: { backgroundColor: OaklandDusk.bg.void },
         headerTintColor: OaklandDusk.brand.gold,
-        headerBackTitle:
-          params.source === "favorites"
-            ? "Favorites"
-            : params.source === "cocktails" || fromParam === "recommendations"
-              ? "Cocktails"
-              : "Back",
         headerShadowVisible: false,
+        headerLeft: () => {
+          const backLabel =
+            params.source === "favorites"
+              ? "Favorites"
+              : params.source === "bartender"
+                ? "Picks"
+                : params.source === "cocktails" || fromParam === "recommendations"
+                  ? "Cocktails"
+                  : "Back";
+          return (
+            <Pressable
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace("/(tabs)/bartender" as any);
+                }
+              }}
+              hitSlop={16}
+              style={{ paddingHorizontal: 8, paddingVertical: 8 }}
+            >
+              <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
+                ‹ {backLabel}
+              </Text>
+            </Pressable>
+          );
+        },
       }} />
       <ScrollView
         contentContainerStyle={{

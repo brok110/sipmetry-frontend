@@ -38,7 +38,7 @@ const ANCHORS = [
   { code: "IBA_DAIQUIRI", name: "Daiquiri", desc: "Rum, citrus, balanced" },
 ];
 
-const PAGE_COUNT = 5;
+const PAGE_COUNT = 6;
 
 type Pick = {
   iba_code: string;
@@ -149,6 +149,22 @@ function ProgressDots({ count, activeIndex }: { count: number; activeIndex: numb
   );
 }
 
+function SwipeHint({ text, bounce }: { text: string; bounce: Animated.Value }) {
+  return (
+    <Animated.View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 32, opacity: 0.4 }}>
+      <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 13, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
+        {"\u2190"}
+      </Animated.Text>
+      <Text style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>
+        {text}
+      </Text>
+      <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 13, transform: [{ translateX: bounce }] }}>
+        {"\u2192"}
+      </Animated.Text>
+    </Animated.View>
+  );
+}
+
 export default function BartenderScreen() {
   const { session } = useAuth();
   const { inventory, availableIngredientKeys } = useInventory();
@@ -156,18 +172,23 @@ export default function BartenderScreen() {
   const pagerRef = useRef<PagerView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  const [hasSwipedOnce, setHasSwipedOnce] = useState(false);
-  const swipeHintOpacity = useRef(new Animated.Value(1)).current;
+  const welcomeTitleOpacity = useRef(new Animated.Value(0)).current;
+  const arrowBounce = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (hasSwipedOnce) {
-      Animated.timing(swipeHintOpacity, {
-        toValue: 0,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [hasSwipedOnce]);
+    Animated.timing(welcomeTitleOpacity, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(arrowBounce, { toValue: 4, duration: 900, useNativeDriver: true }),
+        Animated.timing(arrowBounce, { toValue: -4, duration: 900, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
 
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
@@ -218,6 +239,7 @@ export default function BartenderScreen() {
       params: {
         recipe_key: pick.iba_code,
         iba_code: pick.iba_code,
+        source: "bartender",
         ingredients_json: encodeURIComponent(JSON.stringify(pick.ingredient_keys)),
         scan_items_json: encodeURIComponent(JSON.stringify(
           inventory.map(item => ({ canonical: item.ingredient_key, display: item.display_name }))
@@ -270,29 +292,13 @@ export default function BartenderScreen() {
                       borderColor: OaklandDusk.bg.border,
                     }}
                   >
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                      <Text style={{
-                        fontSize: 20,
-                        fontWeight: "800",
-                        color: OaklandDusk.text.primary,
-                        flex: 1,
-                      }}>
-                        {pick.name}
-                      </Text>
-                      {pick.missing_count > 0 && (
-                        <View style={{
-                          backgroundColor: "rgba(192,72,88,0.15)",
-                          paddingHorizontal: 8,
-                          paddingVertical: 3,
-                          borderRadius: 8,
-                          marginLeft: 8,
-                        }}>
-                          <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.accent.crimson }}>
-                            {pick.missing_count === 1 ? "1 missing" : `${pick.missing_count} missing`}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
+                    <Text style={{
+                      fontSize: 20,
+                      fontWeight: "800",
+                      color: OaklandDusk.text.primary,
+                    }}>
+                      {pick.name}
+                    </Text>
 
                     {tags.length > 0 && (
                       <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
@@ -308,25 +314,6 @@ export default function BartenderScreen() {
                         ))}
                       </View>
                     )}
-
-                    <View style={{ marginTop: 10, gap: 3 }}>
-                      {(pick.ingredient_keys || []).map(key => {
-                        const have = (pick.overlap_hits || []).includes(key);
-                        const missing = (pick.missing_items || []).includes(key);
-                        return (
-                          <Text key={key} style={{
-                            fontSize: 13,
-                            color: missing
-                              ? OaklandDusk.accent.crimson
-                              : have
-                                ? OaklandDusk.text.secondary
-                                : OaklandDusk.text.tertiary,
-                          }}>
-                            {have ? "\u2713 " : missing ? "\u2717 " : "  "}{key.replace(/_/g, " ")}
-                          </Text>
-                        );
-                      })}
-                    </View>
 
                     {pick.style && (
                       <Text style={{
@@ -378,7 +365,7 @@ export default function BartenderScreen() {
             }}
           >
             <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
-              Try different mood
+              Try another drink
             </Text>
           </Pressable>
         </ScrollView>
@@ -396,11 +383,48 @@ export default function BartenderScreen() {
         initialPage={0}
         onPageSelected={(e) => {
           setActiveIndex(e.nativeEvent.position);
-          if (!hasSwipedOnce) setHasSwipedOnce(true);
         }}
       >
-        {/* Page 0: Base Spirit */}
-        <ScrollView key="0" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        {/* Page 0: Welcome */}
+        <View key="welcome" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32 }}>
+          <View style={{
+            width: 72,
+            height: 72,
+            borderRadius: 18,
+            backgroundColor: "rgba(200,120,40,0.12)",
+            borderWidth: 1,
+            borderColor: "rgba(200,120,40,0.2)",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 24,
+          }}>
+            <FontAwesome name="glass" size={30} color={OaklandDusk.brand.gold} />
+          </View>
+          <Animated.Text style={{
+            fontSize: 26,
+            fontWeight: "800",
+            color: OaklandDusk.text.primary,
+            textAlign: "center",
+            lineHeight: 34,
+            marginBottom: 10,
+            opacity: welcomeTitleOpacity,
+          }}>
+            Your personal bartender, ready when you are.
+          </Animated.Text>
+          <Text style={{
+            fontSize: 14,
+            color: OaklandDusk.text.tertiary,
+            textAlign: "center",
+            lineHeight: 20,
+            marginBottom: 32,
+          }}>
+            Swipe through a few questions {"\u2014"} or skip straight to your drink.
+          </Text>
+          <SwipeHint text="swipe to start" bounce={arrowBounce} />
+        </View>
+
+        {/* Page 1: Base Spirit */}
+        <ScrollView key="1" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             What base spirit sounds good?
           </Text>
@@ -417,13 +441,11 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
-          <Animated.Text style={{ textAlign: "center", color: OaklandDusk.text.tertiary, fontSize: 12, marginTop: 32, opacity: swipeHintOpacity }}>
-            {"\u2190 swipe to navigate \u2192"}
-          </Animated.Text>
+          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
-        {/* Page 1: Flavor */}
-        <ScrollView key="1" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        {/* Page 2: Flavor */}
+        <ScrollView key="2" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             What flavors are you feeling?
           </Text>
@@ -440,10 +462,11 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
+          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
-        {/* Page 2: Style */}
-        <ScrollView key="2" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        {/* Page 3: Style */}
+        <ScrollView key="3" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             Any style in mind?
           </Text>
@@ -460,10 +483,11 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
+          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
-        {/* Page 3: Avoid */}
-        <ScrollView key="3" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        {/* Page 4: Avoid */}
+        <ScrollView key="4" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             Not in the mood for...
           </Text>
@@ -494,10 +518,11 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
+          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
-        {/* Page 4: Anchors */}
-        <ScrollView key="4" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        {/* Page 5: Anchors */}
+        <ScrollView key="5" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             Something like this?
           </Text>
@@ -537,6 +562,7 @@ export default function BartenderScreen() {
               );
             })}
           </View>
+          <SwipeHint text="swipe back" bounce={arrowBounce} />
         </ScrollView>
       </PagerView>
 
