@@ -1013,12 +1013,22 @@ export default function TabTwoScreen() {
             }
           }
 
+          // Build "Originally: Gin" label for substitute ingredients
+          const originalName = isSubstitute ? humanizeKey(key) : "";
+
           return (
-            <Text key={i} style={{ color: OaklandDusk.text.secondary }}>
-              • {name}{isSubstitute ? <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12 }}> (substitute)</Text> : ""} — {amountLabel}
-              {isOptional ? <Text style={{ color: OaklandDusk.text.tertiary }}> (optional)</Text> : ""}
-              {availBadge}
-            </Text>
+            <View key={i} style={{ gap: 1 }}>
+              <Text style={{ color: OaklandDusk.text.secondary }}>
+                • {name}{isSubstitute ? <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12 }}> (substitute)</Text> : ""} — {amountLabel}
+                {isOptional ? <Text style={{ color: OaklandDusk.text.tertiary }}> (optional)</Text> : ""}
+                {availBadge}
+              </Text>
+              {isSubstitute && originalName ? (
+                <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 11, marginLeft: 14 }}>
+                  Originally: {originalName}
+                </Text>
+              ) : null}
+            </View>
           );
         })}
       </View>
