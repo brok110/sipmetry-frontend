@@ -332,7 +332,7 @@ export default function TabZeroPreferencesScreen() {
       <ScrollView contentContainerStyle={{ padding: 14, gap: 8, paddingBottom: 30 }}>
         <Text style={{ fontSize: 20, fontWeight: "700", color: OaklandDusk.text.primary }}>Taste profile</Text>
 
-        {/* Style card */}
+        {/* Flavor card */}
         <View style={{ position: "relative" }}>
           <GuideBubble
             storageKey={GUIDE_KEYS.PREFS_STYLE}
@@ -351,8 +351,8 @@ export default function TabZeroPreferencesScreen() {
               opacity: disabled ? 0.7 : 1,
             }}
           >
-            <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Style</Text>
-            <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Pick a style you like (you can change it anytime).</Text>
+            <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Flavor</Text>
+            <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Pick a flavor you like (you can change it anytime).</Text>
 
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {STYLE_PRESETS.map((x) => (
