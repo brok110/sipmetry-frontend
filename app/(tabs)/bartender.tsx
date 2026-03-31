@@ -149,18 +149,24 @@ function ProgressDots({ count, activeIndex }: { count: number; activeIndex: numb
   );
 }
 
-function SwipeHint({ text, bounce }: { text: string; bounce: Animated.Value }) {
+function SwipeHint({ text, bounce, direction = "both" }: { text: string; bounce: Animated.Value; direction?: "left" | "right" | "both" }) {
+  const showLeft = direction === "left" || direction === "both";
+  const showRight = direction === "right" || direction === "both";
   return (
-    <Animated.View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 32, opacity: 0.4 }}>
-      <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 13, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
-        {"\u2190"}
-      </Animated.Text>
-      <Text style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>
+    <Animated.View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, opacity: 0.55 }}>
+      {showLeft && (
+        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 16, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
+          {"\u2190"}
+        </Animated.Text>
+      )}
+      <Text style={{ color: OaklandDusk.text.secondary, fontSize: 16, fontWeight: "500", letterSpacing: 0.5 }}>
         {text}
       </Text>
-      <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 13, transform: [{ translateX: bounce }] }}>
-        {"\u2192"}
-      </Animated.Text>
+      {showRight && (
+        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 16, transform: [{ translateX: bounce }] }}>
+          {"\u2192"}
+        </Animated.Text>
+      )}
     </Animated.View>
   );
 }
@@ -420,7 +426,6 @@ export default function BartenderScreen() {
           }}>
             Swipe through a few questions {"\u2014"} or skip straight to your drink.
           </Text>
-          <SwipeHint text="swipe to start" bounce={arrowBounce} />
         </View>
 
         {/* Page 1: Base Spirit */}
@@ -441,7 +446,6 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
-          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
         {/* Page 2: Flavor */}
@@ -462,7 +466,6 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
-          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
         {/* Page 3: Style */}
@@ -483,7 +486,6 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
-          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
         {/* Page 4: Avoid */}
@@ -518,7 +520,6 @@ export default function BartenderScreen() {
               />
             ))}
           </View>
-          <SwipeHint text="swipe for more" bounce={arrowBounce} />
         </ScrollView>
 
         {/* Page 5: Anchors */}
@@ -562,9 +563,17 @@ export default function BartenderScreen() {
               );
             })}
           </View>
-          <SwipeHint text="swipe back" bounce={arrowBounce} />
         </ScrollView>
       </PagerView>
+
+      {/* 統一的 SwipeHint — 固定在 PagerView 和 CTA 之間 */}
+      <View style={{ paddingVertical: 12, alignItems: "center" }}>
+        <SwipeHint
+          text={activeIndex === 0 ? "swipe to start" : activeIndex === PAGE_COUNT - 1 ? "swipe back" : "swipe for more"}
+          bounce={arrowBounce}
+          direction={activeIndex === 0 ? "right" : activeIndex === PAGE_COUNT - 1 ? "left" : "both"}
+        />
+      </View>
 
       {error && (
         <Text style={{
