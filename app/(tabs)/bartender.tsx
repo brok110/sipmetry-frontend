@@ -18,27 +18,14 @@ import {
 import PagerView from "react-native-pager-view";
 
 const BASE_SPIRITS = ["gin", "whiskey", "rum", "tequila", "vodka", "mezcal"];
-const FLAVORS = ["sweet", "strong", "smoky", "refreshing", "fruity", "bitter"];
-const STYLES = ["tiki", "classic", "sour", "highball", "tropical"];
+const FLAVORS = ["Clean", "Rich", "Bitter-forward", "Sweet-tooth", "Herbal", "Fruity", "Smoky", "Sparkling"];
 const EXCLUDES = [
-  { key: "too_sweet", label: "too sweet" },
-  { key: "too_bitter", label: "too bitter" },
-  { key: "too_strong", label: "too strong" },
-  { key: "no_vodka", label: "Vodka" },
-  { key: "no_rum", label: "Rum" },
-  { key: "no_gin", label: "Gin" },
-  { key: "no_whiskey", label: "Whiskey" },
-  { key: "no_tequila", label: "Tequila" },
-];
-const ANCHORS = [
-  { code: "IBA_MARGARITA", name: "Margarita", desc: "Citrus, tequila, refreshing" },
-  { code: "IBA_OLD_FASHIONED", name: "Old Fashioned", desc: "Whiskey, rich, classic" },
-  { code: "IBA_MOJITO", name: "Mojito", desc: "Rum, minty, refreshing" },
-  { code: "IBA_NEGRONI", name: "Negroni", desc: "Gin, bitter, herbal" },
-  { code: "IBA_DAIQUIRI", name: "Daiquiri", desc: "Rum, citrus, balanced" },
+  { key: "too_sweet", label: "Not too sweet" },
+  { key: "too_bitter", label: "Not too bitter" },
+  { key: "too_strong", label: "Not too strong" },
 ];
 
-const PAGE_COUNT = 6;
+const PAGE_COUNT = 4;
 
 type Pick = {
   iba_code: string;
@@ -198,9 +185,7 @@ export default function BartenderScreen() {
 
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
-  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [selectedExcludes, setSelectedExcludes] = useState<string[]>([]);
-  const [selectedAnchor, setSelectedAnchor] = useState<string | null>(null);
   const [results, setResults] = useState<Pick[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -223,9 +208,7 @@ export default function BartenderScreen() {
           detected_ingredients: allKeys,
           base_spirits: selectedSpirits,
           flavors: selectedFlavors,
-          styles: selectedStyles,
           excludes: selectedExcludes,
-          anchor_recipe: selectedAnchor,
         },
       });
       const data = await res.json();
@@ -353,9 +336,7 @@ export default function BartenderScreen() {
               setShowResults(false);
               setSelectedSpirits([]);
               setSelectedFlavors([]);
-              setSelectedStyles([]);
               setSelectedExcludes([]);
-              setSelectedAnchor(null);
               setResults([]);
               setError(null);
               pagerRef.current?.setPage(0);
@@ -468,37 +449,16 @@ export default function BartenderScreen() {
           </View>
         </ScrollView>
 
-        {/* Page 3: Style */}
+        {/* Page 3: Avoid */}
         <ScrollView key="3" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-            Any style in mind?
-          </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
-            Choose one or more, or just skip.
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {STYLES.map(s => (
-              <Tag
-                key={s}
-                label={s}
-                selected={selectedStyles.includes(s)}
-                onPress={() => toggle(selectedStyles, s, setSelectedStyles)}
-              />
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* Page 4: Avoid */}
-        <ScrollView key="4" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
-          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-            Not in the mood for...
+            Anything to avoid?
           </Text>
           <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 12 }}>
-            Anything you'd rather leave out? Totally fine to skip this.
+            Tap what you'd rather skip. Totally fine to leave this blank.
           </Text>
-          <SectionHeader>Taste</SectionHeader>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {EXCLUDES.filter(ex => ex.key.startsWith("too_")).map(ex => (
+            {EXCLUDES.map(ex => (
               <Tag
                 key={ex.key}
                 label={ex.label}
@@ -507,61 +467,6 @@ export default function BartenderScreen() {
                 onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)}
               />
             ))}
-          </View>
-          <SectionHeader>Skip these spirits</SectionHeader>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {EXCLUDES.filter(ex => ex.key.startsWith("no_")).map(ex => (
-              <Tag
-                key={ex.key}
-                label={ex.label}
-                variant="exclude"
-                selected={selectedExcludes.includes(ex.key)}
-                onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)}
-              />
-            ))}
-          </View>
-        </ScrollView>
-
-        {/* Page 5: Anchors */}
-        <ScrollView key="5" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
-          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-            Something like this?
-          </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
-            Tap a cocktail that matches your vibe.
-          </Text>
-          <View style={{ gap: 10 }}>
-            {ANCHORS.map(a => {
-              const active = selectedAnchor === a.code;
-              return (
-                <Pressable
-                  key={a.code}
-                  onPress={() => setSelectedAnchor(active ? null : a.code)}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: active ? OaklandDusk.brand.gold : "rgba(200,120,40,0.25)",
-                    backgroundColor: active ? "rgba(200,120,40,0.1)" : "transparent",
-                    borderRadius: 12,
-                    padding: 14,
-                  }}
-                >
-                  <Text style={{
-                    fontSize: 16,
-                    fontWeight: "700",
-                    color: active ? OaklandDusk.brand.yellow : OaklandDusk.text.primary,
-                  }}>
-                    {a.name}
-                  </Text>
-                  <Text style={{
-                    fontSize: 13,
-                    color: OaklandDusk.text.tertiary,
-                    marginTop: 2,
-                  }}>
-                    {a.desc}
-                  </Text>
-                </Pressable>
-              );
-            })}
           </View>
         </ScrollView>
       </PagerView>
