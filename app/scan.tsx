@@ -2208,7 +2208,7 @@ export default function TabOneScreen() {
           {/* Stage 4: Show me cocktails — moved to sticky footer below ScrollView */}
 
           {/* Manual-input action buttons — shown when user has typed at least one ingredient */}
-          {activeIngredients.length > 0 && (
+          {activeIngredients.length > 0 && scanMode === "undecided" && (
             <View style={{ gap: 10, marginTop: 12 }}>
               <Pressable
                 onPress={async () => {
