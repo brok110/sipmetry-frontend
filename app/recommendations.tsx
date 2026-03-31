@@ -463,7 +463,7 @@ export default function RecommendationsScreen() {
                 {restockPicks.map((pick, i) => (
                   <Pressable
                     key={pick.ingredient_key}
-                    onPress={() => router.push('/(tabs)/cart')}
+                    onPress={() => router.push({ pathname: '/(tabs)/cart', params: { autoFetch: 'true' } })}
                     style={{
                       flex: 1,
                       backgroundColor: OaklandDusk.bg.card,
