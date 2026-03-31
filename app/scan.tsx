@@ -1868,6 +1868,12 @@ export default function TabOneScreen() {
       headerStyle: { backgroundColor: OaklandDusk.bg.void },
       headerTintColor: OaklandDusk.text.primary,
       headerShadowVisible: false,
+      headerLeft: () => (
+        <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 8 }}>
+          <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
+          <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>My Bar</Text>
+        </Pressable>
+      ),
     }} />
     <KeyboardAvoidingView
       style={{ flex: 1 }}

@@ -100,7 +100,7 @@ function RootLayoutNav() {
   useEffect(() => {
     if (!hydrated) return;
     const firstSegment = segments[0];
-    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'recipe' || firstSegment === 'qr' || firstSegment === 'profile';
+    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile';
     if (!user && inAuthArea) {
       router.replace('/login');
     } else if (user && firstSegment === 'login') {
@@ -127,6 +127,17 @@ function RootLayoutNav() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
+          name="scan"
+          options={{
+            title: 'Scan',
+            headerShown: true,
+            headerStyle: { backgroundColor: OaklandDusk.bg.void },
+            headerTintColor: OaklandDusk.brand.gold,
+            headerTitleStyle: { color: OaklandDusk.text.primary },
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
           name="recipe"
           options={{
             title: 'Recipe',
@@ -144,6 +155,17 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: OaklandDusk.bg.void },
             headerTintColor: OaklandDusk.text.primary,
             headerTitleStyle: { color: OaklandDusk.text.primary },
+          }}
+        />
+        <Stack.Screen
+          name="recommendations"
+          options={{
+            title: 'Recommendations',
+            headerShown: true,
+            headerStyle: { backgroundColor: OaklandDusk.bg.void },
+            headerTintColor: OaklandDusk.brand.gold,
+            headerTitleStyle: { color: OaklandDusk.text.primary },
+            headerShadowVisible: false,
           }}
         />
         <Stack.Screen name="profile/preferences" options={{
