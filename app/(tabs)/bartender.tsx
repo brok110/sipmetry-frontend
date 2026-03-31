@@ -155,15 +155,15 @@ function SwipeHint({ text, bounce, direction = "both" }: { text: string; bounce:
   return (
     <Animated.View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, opacity: 0.55 }}>
       {showLeft && (
-        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 16, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
+        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 18, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
           {"\u2190"}
         </Animated.Text>
       )}
-      <Text style={{ color: OaklandDusk.text.secondary, fontSize: 16, fontWeight: "500", letterSpacing: 0.5 }}>
+      <Text style={{ color: OaklandDusk.text.secondary, fontSize: 18, fontWeight: "500", letterSpacing: 0.5 }}>
         {text}
       </Text>
       {showRight && (
-        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 16, transform: [{ translateX: bounce }] }}>
+        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 18, transform: [{ translateX: bounce }] }}>
           {"\u2192"}
         </Animated.Text>
       )}
