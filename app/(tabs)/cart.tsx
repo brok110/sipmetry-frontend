@@ -69,6 +69,7 @@ export default function CartScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
+  const [meta, setMeta] = useState<{ reason?: string; message?: string } | null>(null);
 
   // Staples — keys the user confirmed they already have; excluded from suggestions
   const [staplesKeys, setStaplesKeys] = useState<Set<string>>(new Set());
@@ -152,6 +153,7 @@ export default function CartScreen() {
 
       const data = await resp.json();
       setSuggestions(data.suggestions ?? []);
+      setMeta(data.meta ?? null);
       setHasFetched(true);
 
       try {
@@ -275,15 +277,38 @@ export default function CartScreen() {
         </View>
       )}
 
-      {/* Empty state */}
       {hasFetched && filteredSuggestions.length === 0 && !loading && (
-        <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
-          <FontAwesome name="check-circle" size={36} color="#6B8F6B" />
-          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Your bar is well stocked!</Text>
-          <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center", fontSize: 13 }}>
-            Scan more bottles or add favorites to get better suggestions.
-          </Text>
-        </View>
+        meta?.reason === "no_inventory" ? (
+          <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
+            <FontAwesome name="search" size={36} color={OaklandDusk.text.tertiary} />
+            <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>No bottles in your bar yet</Text>
+            <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center", fontSize: 13 }}>
+              Scan your bottles first, then come back for personalized recommendations.
+            </Text>
+            <Pressable
+              onPress={() => router.push("/(tabs)/inventory")}
+              style={{
+                backgroundColor: OaklandDusk.brand.gold,
+                borderRadius: 10,
+                paddingVertical: 12,
+                paddingHorizontal: 24,
+                marginTop: 8,
+              }}
+            >
+              <Text style={{ color: OaklandDusk.bg.void, fontWeight: "700", fontSize: 14 }}>
+                Go to My Bar
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
+            <FontAwesome name="check-circle" size={36} color="#6B8F6B" />
+            <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Your bar is well stocked!</Text>
+            <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center", fontSize: 13 }}>
+              Scan more bottles or add favorites to get better suggestions.
+            </Text>
+          </View>
+        )
       )}
 
       {/* Primary suggestion cards — true must-buys */}
