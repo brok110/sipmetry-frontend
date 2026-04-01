@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Modal, Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import OaklandDusk from "@/constants/OaklandDusk";
 import { normalizeIngredientKey } from "@/context/ontology";
@@ -77,6 +77,7 @@ export default function RecommendationsScreen() {
 
   // Restock picks — top 2 primary suggestions, shown in sticky footer (inventory mode only)
   const [restockPicks, setRestockPicks] = useState<any[]>([]);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isInventoryMode || !session) return;
@@ -241,18 +242,25 @@ export default function RecommendationsScreen() {
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
 
-          {/* Thumbnail */}
+          {/* Thumbnail — tap opens lightbox if image exists */}
           {r.image_url ? (
-            <Image
-              source={{ uri: r.image_url }}
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 10,
-                backgroundColor: "#1A1428",
+            <Pressable
+              onPress={(e) => {
+                e.stopPropagation();
+                setLightboxUrl(r.image_url!);
               }}
-              resizeMode="cover"
-            />
+            >
+              <Image
+                source={{ uri: r.image_url }}
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 10,
+                  backgroundColor: "#1A1428",
+                }}
+                resizeMode="cover"
+              />
+            </Pressable>
           ) : (
             <View
               style={{
@@ -520,6 +528,34 @@ export default function RecommendationsScreen() {
 
         </View>
       )}
+
+      {/* Lightbox modal for cocktail image */}
+      <Modal
+        visible={lightboxUrl !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLightboxUrl(null)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+          onPress={() => setLightboxUrl(null)}
+        >
+          <Image
+            source={{ uri: lightboxUrl! }}
+            style={{
+              width: 130,
+              height: 130,
+              borderRadius: 14,
+            }}
+            resizeMode="cover"
+          />
+        </Pressable>
+      </Modal>
     </View>
   );
 }
