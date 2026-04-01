@@ -10,6 +10,7 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
+  Image,
   Modal,
   NativeModules,
   Platform,
@@ -48,6 +49,7 @@ type Pick = {
   anchor_score: number;
   profile_score: number;
   preset_match: boolean;
+  image_url?: string | null;
 };
 
 function getTasteTags(vec: Record<string, number> | null | undefined, max = 3): string[] {
@@ -325,21 +327,32 @@ export default function BartenderScreen() {
                           const tags = getTasteTags(pick.recipe_vec);
                           return (
                             <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
-                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
-                              {tags.length > 0 && (
-                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                                  {tags.map(t => (
-                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                                {pick.image_url ? (
+                                  <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
+                                ) : (
+                                  <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
+                                    <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
+                                  </View>
+                                )}
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                                  {tags.length > 0 && (
+                                    <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                                      {tags.map(t => (
+                                        <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                          <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                        </View>
+                                      ))}
                                     </View>
-                                  ))}
+                                  )}
+                                  {pick.style && (
+                                    <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
+                                      {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
+                                    </Text>
+                                  )}
                                 </View>
-                              )}
-                              {pick.style && (
-                                <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
-                                  {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
-                                </Text>
-                              )}
+                              </View>
                             </Pressable>
                           );
                         })}
@@ -350,19 +363,30 @@ export default function BartenderScreen() {
                       const tags = getTasteTags(pick.recipe_vec);
                       return (
                         <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
-                          <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
-                          {tags.length > 0 && (
-                            <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                              {tags.map(t => (
-                                <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                  <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                            {pick.image_url ? (
+                              <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
+                            ) : (
+                              <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
+                                <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
+                              </View>
+                            )}
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                              {tags.length > 0 && (
+                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                                  {tags.map(t => (
+                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                    </View>
+                                  ))}
                                 </View>
-                              ))}
+                              )}
+                              <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
+                                Missing: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
+                              </Text>
                             </View>
-                          )}
-                          <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
-                            Missing: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
-                          </Text>
+                          </View>
                         </Pressable>
                       );
                     })}
@@ -376,19 +400,30 @@ export default function BartenderScreen() {
                           const tags = getTasteTags(pick.recipe_vec);
                           return (
                             <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(200,120,40,0.15)", borderLeftWidth: 3, borderLeftColor: OaklandDusk.brand.gold }}>
-                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
-                              {tags.length > 0 && (
-                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                                  {tags.map(t => (
-                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                                {pick.image_url ? (
+                                  <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
+                                ) : (
+                                  <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
+                                    <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
+                                  </View>
+                                )}
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                                  {tags.length > 0 && (
+                                    <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                                      {tags.map(t => (
+                                        <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                          <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                        </View>
+                                      ))}
                                     </View>
-                                  ))}
+                                  )}
+                                  <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
+                                    Need: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
+                                  </Text>
                                 </View>
-                              )}
-                              <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
-                                Need: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
-                              </Text>
+                              </View>
                             </Pressable>
                           );
                         })}
@@ -404,21 +439,32 @@ export default function BartenderScreen() {
                           const tags = getTasteTags(pick.recipe_vec);
                           return (
                             <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border, opacity: 0.7 }}>
-                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
-                              {tags.length > 0 && (
-                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                                  {tags.map(t => (
-                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                                {pick.image_url ? (
+                                  <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
+                                ) : (
+                                  <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
+                                    <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
+                                  </View>
+                                )}
+                                <View style={{ flex: 1 }}>
+                                  <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                                  {tags.length > 0 && (
+                                    <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                                      {tags.map(t => (
+                                        <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                          <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                        </View>
+                                      ))}
                                     </View>
-                                  ))}
+                                  )}
+                                  {pick.style && (
+                                    <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
+                                      {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
+                                    </Text>
+                                  )}
                                 </View>
-                              )}
-                              {pick.style && (
-                                <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
-                                  {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
-                                </Text>
-                              )}
+                              </View>
                             </Pressable>
                           );
                         })}
