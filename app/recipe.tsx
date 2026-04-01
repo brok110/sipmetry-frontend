@@ -44,6 +44,7 @@ type DbRecipe = {
   glass: string | null;
   instructions: string | null;
   is_published: boolean | null;
+  image_url?: string | null;
   ingredients: DbRecipeIngredient[];
   recipe_vec?: Record<string, any> | null;
 };
@@ -412,6 +413,7 @@ export default function TabTwoScreen() {
           glass: (r as any).glass ?? null,
           instructions: (r as any).instructions ?? null,
           is_published: (r as any).is_published ?? null,
+          image_url: typeof (r as any).image_url === "string" ? (r as any).image_url : null,
           ingredients: Array.isArray((r as any).ingredients)
             ? (r as any).ingredients.map((it: any) => {
                 const amountMlRaw =
@@ -670,6 +672,7 @@ export default function TabTwoScreen() {
       tags: subtitleTokensForFavorite,
       recipe: recipe,
       ingredients: ingredientsFromScan,
+      image_url: dbRecipe?.image_url ?? null,
       saved_at: Date.now(),
     });
   };
