@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
 import StaplesModal from "@/components/StaplesModal";
+import CocktailThumbnail from "@/components/CocktailThumbnail";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
@@ -10,7 +11,6 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Image,
   Modal,
   NativeModules,
   Platform,
@@ -328,13 +328,7 @@ export default function BartenderScreen() {
                           return (
                             <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
                               <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                                {pick.image_url ? (
-                                  <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
-                                ) : (
-                                  <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
-                                    <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
-                                  </View>
-                                )}
+                                <CocktailThumbnail imageUrl={pick.image_url} />
                                 <View style={{ flex: 1 }}>
                                   <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
                                   {tags.length > 0 && (
@@ -364,13 +358,7 @@ export default function BartenderScreen() {
                       return (
                         <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
                           <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                            {pick.image_url ? (
-                              <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
-                            ) : (
-                              <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
-                                <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
-                              </View>
-                            )}
+                            <CocktailThumbnail imageUrl={pick.image_url} />
                             <View style={{ flex: 1 }}>
                               <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
                               {tags.length > 0 && (
@@ -401,13 +389,7 @@ export default function BartenderScreen() {
                           return (
                             <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(200,120,40,0.15)", borderLeftWidth: 3, borderLeftColor: OaklandDusk.brand.gold }}>
                               <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                                {pick.image_url ? (
-                                  <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
-                                ) : (
-                                  <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
-                                    <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
-                                  </View>
-                                )}
+                                <CocktailThumbnail imageUrl={pick.image_url} />
                                 <View style={{ flex: 1 }}>
                                   <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
                                   {tags.length > 0 && (
@@ -440,13 +422,7 @@ export default function BartenderScreen() {
                           return (
                             <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border, opacity: 0.7 }}>
                               <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                                {pick.image_url ? (
-                                  <Image source={{ uri: pick.image_url }} style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428" }} resizeMode="cover" />
-                                ) : (
-                                  <View style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#1A1428", alignItems: "center", justifyContent: "center" }}>
-                                    <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
-                                  </View>
-                                )}
+                                <CocktailThumbnail imageUrl={pick.image_url} />
                                 <View style={{ flex: 1 }}>
                                   <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
                                   {tags.length > 0 && (

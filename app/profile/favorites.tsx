@@ -1,9 +1,10 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import StaplesModal, { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
+import CocktailThumbnail from "@/components/CocktailThumbnail";
 import Card from "@/components/ui/Card";
 import Pill from "@/components/ui/Pill";
 import SwipeRow from "@/components/ui/SwipeRow";
@@ -256,32 +257,8 @@ export default function TabThreeScreen() {
               >
                 <Card>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    {/* Thumbnail */}
-                    {fav.image_url ? (
-                      <Image
-                        source={{ uri: fav.image_url }}
-                        style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 10,
-                          backgroundColor: "#1A1428",
-                        }}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View
-                        style={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: 10,
-                          backgroundColor: "#1A1428",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
-                      </View>
-                    )}
+                    {/* Thumbnail — tap opens lightbox */}
+                    <CocktailThumbnail imageUrl={fav.image_url} />
                     <Pressable style={{ flex: 1, marginLeft: 12 }} onPress={() => openFavorite(key)}>
                       <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
                         {title}
