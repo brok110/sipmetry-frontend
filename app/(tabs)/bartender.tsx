@@ -3,6 +3,7 @@ import StaplesModal from "@/components/StaplesModal";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
+import { usePreferences } from "@/context/preferences";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -10,6 +11,8 @@ import {
   ActivityIndicator,
   Animated,
   Modal,
+  NativeModules,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -43,6 +46,8 @@ type Pick = {
   material_score: number;
   flavor_score: number;
   anchor_score: number;
+  profile_score: number;
+  preset_match: boolean;
 };
 
 function getTasteTags(vec: Record<string, number> | null | undefined, max = 3): string[] {
@@ -158,9 +163,23 @@ function SwipeHint({ text, bounce, direction = "both" }: { text: string; bounce:
   );
 }
 
+function isChineseLocale(): boolean {
+  try {
+    if (Platform.OS === "ios") {
+      const langs = NativeModules.SettingsManager?.settings?.AppleLanguages;
+      if (Array.isArray(langs) && langs.length > 0) return String(langs[0]).toLowerCase().startsWith("zh");
+    } else if (Platform.OS === "android") {
+      const locale = NativeModules.I18nManager?.localeIdentifier;
+      if (locale) return String(locale).toLowerCase().startsWith("zh");
+    }
+  } catch {}
+  return false;
+}
+
 export default function BartenderScreen() {
   const { session } = useAuth();
   const { inventory, availableIngredientKeys } = useInventory();
+  const { preferences } = usePreferences();
 
   const pagerRef = useRef<PagerView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -187,6 +206,8 @@ export default function BartenderScreen() {
   const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedExcludes, setSelectedExcludes] = useState<string[]>([]);
   const [results, setResults] = useState<Pick[]>([]);
+  const [oneAway, setOneAway] = useState<Pick[]>([]);
+  const [hint, setHint] = useState<{ preset: string; message_en: string; message_zh: string; suggested_ingredients: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
@@ -207,13 +228,16 @@ export default function BartenderScreen() {
         body: {
           detected_ingredients: allKeys,
           base_spirits: selectedSpirits,
-          flavors: selectedFlavors,
+          style_presets: selectedFlavors,
           excludes: selectedExcludes,
+          profile_style_preset: preferences.stylePreset,
         },
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Request failed");
       setResults(data.recommendations || []);
+      setOneAway(data.one_away || []);
+      setHint(data.hint || null);
       setShowResults(true);
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
@@ -266,57 +290,154 @@ export default function BartenderScreen() {
               </Text>
             </View>
           ) : (
-            <View style={{ gap: 16 }}>
-              {results.map(pick => {
-                const tags = getTasteTags(pick.recipe_vec);
-                return (
-                  <Pressable
-                    key={pick.iba_code}
-                    onPress={() => openRecipe(pick)}
-                    style={{
-                      backgroundColor: OaklandDusk.bg.card,
-                      borderRadius: 14,
-                      padding: 16,
-                      borderWidth: 1,
-                      borderColor: OaklandDusk.bg.border,
-                    }}
-                  >
-                    <Text style={{
-                      fontSize: 20,
-                      fontWeight: "800",
-                      color: OaklandDusk.text.primary,
-                    }}>
-                      {pick.name}
-                    </Text>
+            <View style={{ gap: 12 }}>
+              {(() => {
+                const hasPreset = selectedFlavors.length > 0;
+                const hasSpirit = selectedSpirits.length > 0;
+                const readyMatched = results.filter(p => p.missing_count === 0 && (!hasPreset || p.preset_match));
+                const alsoAvailable = (hasPreset && hasSpirit)
+                  ? results.filter(p => p.missing_count === 0 && !p.preset_match)
+                  : [];
+                const missingMatched = results.filter(p => p.missing_count > 0 && (!hasPreset || p.preset_match));
+                const hasNoContent = readyMatched.length === 0 && missingMatched.length === 0 && oneAway.length === 0;
 
-                    {tags.length > 0 && (
-                      <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                        {tags.map(t => (
-                          <View key={t} style={{
-                            backgroundColor: OaklandDusk.brand.tagBg,
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 6,
-                          }}>
-                            <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
-                          </View>
-                        ))}
+                return (
+                  <>
+                    {hasPreset && hasNoContent && (
+                      <View style={{ alignItems: "center", paddingTop: 20, paddingBottom: 8 }}>
+                        <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+                          {isChineseLocale() ? "\u597D\u54C1\u5473\u3002" : "Great taste."}
+                        </Text>
+                        <Text style={{ fontSize: 14, color: OaklandDusk.text.secondary, textAlign: "center", lineHeight: 22 }}>
+                          {isChineseLocale()
+                            ? "\u770B\u770B\u4E0B\u9762\u7684\u5EFA\u8B70\uFF0C\u5E6B\u4F60\u7684\u5427\u53F0\u5347\u7D1A\u3002"
+                            : "Check below for what to add to your bar."}
+                        </Text>
                       </View>
                     )}
 
-                    {pick.style && (
-                      <Text style={{
-                        fontSize: 11,
-                        color: OaklandDusk.text.tertiary,
-                        marginTop: 8,
-                        textTransform: "capitalize",
-                      }}>
-                        {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
-                      </Text>
+                    {readyMatched.length > 0 && (
+                      <>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.text.tertiary, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                          Ready to make
+                        </Text>
+                        {readyMatched.map(pick => {
+                          const tags = getTasteTags(pick.recipe_vec);
+                          return (
+                            <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
+                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                              {tags.length > 0 && (
+                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                                  {tags.map(t => (
+                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                              {pick.style && (
+                                <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
+                                  {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
+                                </Text>
+                              )}
+                            </Pressable>
+                          );
+                        })}
+                      </>
                     )}
-                  </Pressable>
+
+                    {missingMatched.map(pick => {
+                      const tags = getTasteTags(pick.recipe_vec);
+                      return (
+                        <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
+                          <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                          {tags.length > 0 && (
+                            <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                              {tags.map(t => (
+                                <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                  <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          )}
+                          <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
+                            Missing: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+
+                    {oneAway.length > 0 && (
+                      <>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.text.tertiary, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 }}>
+                          Just 1 bottle away
+                        </Text>
+                        {oneAway.map(pick => {
+                          const tags = getTasteTags(pick.recipe_vec);
+                          return (
+                            <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(200,120,40,0.15)", borderLeftWidth: 3, borderLeftColor: OaklandDusk.brand.gold }}>
+                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                              {tags.length > 0 && (
+                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                                  {tags.map(t => (
+                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                              <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
+                                Need: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    {alsoAvailable.length > 0 && (
+                      <>
+                        <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.text.tertiary, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 }}>
+                          {isChineseLocale() ? "\u4F60\u4E5F\u80FD\u505A" : "Also in your bar"}
+                        </Text>
+                        {alsoAvailable.map(pick => {
+                          const tags = getTasteTags(pick.recipe_vec);
+                          return (
+                            <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border, opacity: 0.7 }}>
+                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                              {tags.length > 0 && (
+                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                                  {tags.map(t => (
+                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              )}
+                              {pick.style && (
+                                <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
+                                  {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
+                                </Text>
+                              )}
+                            </Pressable>
+                          );
+                        })}
+                      </>
+                    )}
+                  </>
                 );
-              })}
+              })()}
+
+              {hint && (
+                <View style={{ backgroundColor: "rgba(200,120,40,0.08)", borderWidth: 1, borderColor: "rgba(200,120,40,0.2)", borderRadius: 12, padding: 14, marginTop: 4 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: OaklandDusk.brand.gold, marginBottom: 4 }}>
+                    {isChineseLocale() ? "\uD83D\uDCA1 \u5C0F\u63D0\u793A" : "\uD83D\uDCA1 Tip"}
+                  </Text>
+                  <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary, lineHeight: 20 }}>
+                    {isChineseLocale() ? hint.message_zh : hint.message_en}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -338,6 +459,8 @@ export default function BartenderScreen() {
               setSelectedFlavors([]);
               setSelectedExcludes([]);
               setResults([]);
+              setOneAway([]);
+              setHint(null);
               setError(null);
               pagerRef.current?.setPage(0);
               setActiveIndex(0);
