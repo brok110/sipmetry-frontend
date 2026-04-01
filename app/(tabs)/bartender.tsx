@@ -184,10 +184,23 @@ export default function BartenderScreen() {
   const { preferences } = usePreferences();
 
   const pagerRef = useRef<PagerView>(null);
+  const pendingPageRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [showResults, setShowResults] = useState(false);
   const welcomeTitleOpacity = useRef(new Animated.Value(0)).current;
   const arrowBounce = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!showResults && pendingPageRef.current !== null) {
+      const target = pendingPageRef.current;
+      pendingPageRef.current = null;
+      // PagerView 剛掛載，需要等一幀讓 ref 就緒
+      requestAnimationFrame(() => {
+        pagerRef.current?.setPage(target);
+        setActiveIndex(target);
+      });
+    }
+  }, [showResults]);
 
   useEffect(() => {
     Animated.timing(welcomeTitleOpacity, {
@@ -476,16 +489,12 @@ export default function BartenderScreen() {
 
           <Pressable
             onPress={() => {
-              setShowResults(false);
-              setSelectedSpirits([]);
-              setSelectedFlavors([]);
-              setSelectedExcludes([]);
               setResults([]);
               setOneAway([]);
               setHint(null);
               setError(null);
-              pagerRef.current?.setPage(0);
-              setActiveIndex(0);
+              pendingPageRef.current = 1;
+              setShowResults(false);
             }}
             style={{
               borderWidth: 1.5,
