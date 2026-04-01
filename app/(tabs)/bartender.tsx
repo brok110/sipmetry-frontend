@@ -366,41 +366,15 @@ export default function BartenderScreen() {
                       </>
                     )}
 
-                    {missingMatched.map(pick => {
-                      const tags = getTasteTags(pick.recipe_vec);
-                      return (
-                        <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
-                          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                            <CocktailThumbnail imageUrl={pick.image_url} />
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
-                              {tags.length > 0 && (
-                                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                                  {tags.map(t => (
-                                    <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                      <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
-                                    </View>
-                                  ))}
-                                </View>
-                              )}
-                              <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
-                                Missing: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
-                              </Text>
-                            </View>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-
-                    {oneAway.length > 0 && (
+                    {(missingMatched.length > 0 || oneAway.length > 0) && (
                       <>
                         <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.text.tertiary, textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 }}>
                           Just 1 bottle away
                         </Text>
-                        {oneAway.map(pick => {
+                        {[...missingMatched, ...oneAway].map(pick => {
                           const tags = getTasteTags(pick.recipe_vec);
                           return (
-                            <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(200,120,40,0.15)", borderLeftWidth: 3, borderLeftColor: OaklandDusk.brand.gold }}>
+                            <Pressable key={pick.iba_code || pick.name} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(200,120,40,0.15)", borderLeftWidth: 3, borderLeftColor: OaklandDusk.brand.gold }}>
                               <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
                                 <CocktailThumbnail imageUrl={pick.image_url} />
                                 <View style={{ flex: 1 }}>
