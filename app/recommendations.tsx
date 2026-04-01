@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { Image, Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import OaklandDusk from "@/constants/OaklandDusk";
 import { normalizeIngredientKey } from "@/context/ontology";
@@ -24,6 +24,7 @@ type RecipeItem = {
   missing_items?: string[];
   overlap_hits?: string[];
   recipe_vec?: Record<string, any> | null;
+  image_url?: string | null;
   [key: string]: any;
 };
 
@@ -240,8 +241,35 @@ export default function RecommendationsScreen() {
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
 
+          {/* Thumbnail */}
+          {r.image_url ? (
+            <Image
+              source={{ uri: r.image_url }}
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 10,
+                backgroundColor: "#1A1428",
+              }}
+              resizeMode="cover"
+            />
+          ) : (
+            <View
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 10,
+                backgroundColor: "#1A1428",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
+            </View>
+          )}
+
           {/* Left: name + flavor tags + View recipe */}
-          <View style={{ flex: 1, paddingRight: 12, gap: 6 }}>
+          <View style={{ flex: 1, paddingRight: 12, marginLeft: 12, gap: 6 }}>
             <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.text.primary }}>
               {name}
             </Text>

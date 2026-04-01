@@ -11,6 +11,7 @@ export type FavoriteItem = {
   tags: string[];
   recipe: any;
   ingredients: string[];
+  image_url?: string | null;
   saved_at: number;
 };
 
@@ -78,6 +79,7 @@ function sanitizeFavoritesMap(raw: any): FavoritesByKey {
       ingredients: Array.isArray((v as any).ingredients)
         ? (v as any).ingredients.map((x: any) => String(x ?? "").trim()).filter(Boolean)
         : [],
+      image_url: typeof (v as any).image_url === "string" ? (v as any).image_url : null,
       saved_at: Number.isFinite((v as any).saved_at) ? Number((v as any).saved_at) : Date.now(),
     };
   }
@@ -103,6 +105,7 @@ function dbRowToFavoriteItem(row: any): FavoriteItem | null {
     ingredients: Array.isArray(data?.ingredients)
       ? data.ingredients.map((x: any) => String(x ?? "").trim()).filter(Boolean)
       : [],
+    image_url: typeof data?.image_url === "string" ? data.image_url : null,
     saved_at: row?.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };
 }
@@ -213,6 +216,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       tags: item.tags,
       recipe: item.recipe,
       ingredients: item.ingredients,
+      image_url: item.image_url || null,
     };
 
     apiFetch("/favorites", {
@@ -264,6 +268,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
       ingredients: Array.isArray(item.ingredients)
         ? item.ingredients.map((x) => String(x ?? "").trim()).filter(Boolean)
         : [],
+      image_url: typeof item.image_url === "string" ? item.image_url : null,
       saved_at: Number.isFinite(item.saved_at) ? item.saved_at : Date.now(),
     };
 
