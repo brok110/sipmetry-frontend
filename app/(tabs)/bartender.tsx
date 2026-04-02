@@ -22,7 +22,7 @@ import {
 } from "react-native";
 import PagerView from "react-native-pager-view";
 
-const BASE_SPIRITS = ["gin", "whiskey", "rum", "tequila", "vodka", "mezcal"];
+const BASE_SPIRITS = ["gin", "whiskey", "rum", "tequila", "vodka", "brandy"];
 const FLAVORS = ["Clean", "Rich", "Bitter-forward", "Sweet-tooth", "Herbal", "Fruity", "Smoky", "Sparkling"];
 const EXCLUDES = [
   { key: "too_sweet", label: "Not too sweet" },

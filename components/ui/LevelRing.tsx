@@ -48,11 +48,11 @@ export default function LevelRing({ percent, size = 36 }: LevelRingProps) {
           x={size / 2}
           y={size / 2 + 4}
           textAnchor="middle"
-          fontSize="9"
+          fontSize="8"
           fontWeight="600"
           fill={fillColor}
         >
-          {Math.round(clampedPercent)}
+          {`${Math.round(clampedPercent)}%`}
         </SvgText>
       </Svg>
     </View>
