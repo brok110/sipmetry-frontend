@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/api";
-import StaplesModal from "@/components/StaplesModal";
+import StaplesModal, { DEFAULT_STAPLES, STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import CocktailThumbnail from "@/components/CocktailThumbnail";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
@@ -227,6 +228,16 @@ export default function BartenderScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [showStaples, setShowStaples] = useState(false);
+  const [confirmedStaples, setConfirmedStaples] = useState<string[]>([]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STAPLES_STORAGE_KEY).then((raw) => {
+      try {
+        const parsed = JSON.parse(raw ?? "[]");
+        if (Array.isArray(parsed)) setConfirmedStaples(parsed);
+      } catch {}
+    });
+  }, []);
 
   const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
@@ -269,9 +280,13 @@ export default function BartenderScreen() {
         iba_code: pick.iba_code,
         source: "bartender",
         ingredients_json: encodeURIComponent(JSON.stringify(pick.ingredient_keys)),
-        scan_items_json: encodeURIComponent(JSON.stringify(
-          inventory.map(item => ({ canonical: item.ingredient_key, display: item.display_name }))
-        )),
+        scan_items_json: encodeURIComponent(JSON.stringify([
+          ...inventory.map(item => ({ canonical: item.ingredient_key, display: item.display_name })),
+          ...confirmedStaples.map((k) => ({
+            canonical: k,
+            display: DEFAULT_STAPLES.find((s) => s.ingredient_key === k)?.display_name ?? k.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+          })),
+        ])),
         missing_items_json: encodeURIComponent(JSON.stringify(pick.missing_items || [])),
         overlap_hits_json: encodeURIComponent(JSON.stringify(pick.overlap_hits || [])),
       },
@@ -793,6 +808,7 @@ export default function BartenderScreen() {
         loading={loading}
         onConfirm={(stapleKeys) => {
           setShowStaples(false);
+          setConfirmedStaples(stapleKeys);
           fetchRecommendations(stapleKeys);
         }}
         onCancel={() => setShowStaples(false)}
