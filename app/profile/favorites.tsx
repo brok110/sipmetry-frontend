@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import StaplesModal, { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
+import StaplesModal, { DEFAULT_STAPLES, STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import CocktailThumbnail from "@/components/CocktailThumbnail";
 import Card from "@/components/ui/Card";
 import Pill from "@/components/ui/Pill";
@@ -160,6 +160,25 @@ export default function TabThreeScreen() {
 
     const ibaCode = String(fav.iba_code ?? fav.recipe?.iba_code ?? "").trim();
 
+    const invItems = inventory.map((item) => ({
+      canonical: String(item.ingredient_key ?? "").trim(),
+      display: String(item.display_name ?? "").trim(),
+    })).filter((x) => x.canonical);
+
+    const stapleItems = Array.from(staplesKeys).map((k) => ({
+      canonical: k,
+      display: DEFAULT_STAPLES.find((s) => s.ingredient_key === k)?.display_name ?? k.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+    }));
+
+    const scanItemsForNav = [...invItems, ...stapleItems];
+
+    const keys = asStringList(fav.ingredients?.map?.((ing: any) => ing?.item ?? ing?.ingredient_key) ?? fav.ingredient_keys);
+    const invKeySet2 = new Set([
+      ...invItems.map((x) => x.canonical),
+      ...Array.from(staplesKeys),
+    ]);
+    const overlapForNav = keys.filter((k: string) => invKeySet2.has(k));
+
     router.push({
       pathname: "/recipe",
       params: {
@@ -169,6 +188,8 @@ export default function TabThreeScreen() {
         iba_code: ibaCode || undefined,
         recipe_json: encodeURIComponent(JSON.stringify(fav.recipe)),
         ingredients_json: encodeURIComponent(JSON.stringify(fav.ingredients)),
+        scan_items_json: encodeURIComponent(JSON.stringify(scanItemsForNav)),
+        overlap_hits_json: encodeURIComponent(JSON.stringify(overlapForNav)),
       },
     });
   };

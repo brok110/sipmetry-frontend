@@ -1,7 +1,7 @@
 import { apiFetch } from '@/lib/api'
 import * as ImagePicker from 'expo-image-picker'
 import OaklandDusk from '@/constants/OaklandDusk'
-import StaplesModal from '@/components/StaplesModal'
+import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
 import SwipeRow from '@/components/ui/SwipeRow'
@@ -700,12 +700,16 @@ export default function MyBarScreen() {
           recipes: JSON.stringify(flattened),
           ingredientCount: String(availableIngredientKeys.length),
           activeCanonical: JSON.stringify(availableIngredientKeys),
-          scanItems: JSON.stringify(
-            inventory.map((item) => ({
+          scanItems: JSON.stringify([
+            ...inventory.map((item) => ({
               canonical: item.ingredient_key,
               display: item.display_name,
-            }))
-          ),
+            })),
+            ...staplesKeys.map((k) => ({
+              canonical: k,
+              display: DEFAULT_STAPLES.find((s) => s.ingredient_key === k)?.display_name ?? k.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+            })),
+          ]),
           mode: 'inventory',
         },
       })
