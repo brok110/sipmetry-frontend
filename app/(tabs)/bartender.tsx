@@ -720,7 +720,7 @@ export default function BartenderScreen() {
                 <Pressable
                   onPress={() => {
                     setShowBottomSheet(false);
-                    router.push("/scan");
+                    router.push("/scan?intent=addToBar");
                   }}
                   style={{
                     borderWidth: 1,
@@ -748,7 +748,7 @@ export default function BartenderScreen() {
                 <Pressable
                   onPress={() => {
                     setShowBottomSheet(false);
-                    router.push("/scan");
+                    router.push("/scan?intent=addToBar");
                   }}
                   style={{
                     borderWidth: 1,
@@ -768,32 +768,6 @@ export default function BartenderScreen() {
                     </Text>
                     <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
                       Build your bar and get personal picks
-                    </Text>
-                  </View>
-                </Pressable>
-
-                <Pressable
-                  onPress={() => {
-                    setShowBottomSheet(false);
-                    router.push("/scan");
-                  }}
-                  style={{
-                    borderWidth: 1,
-                    borderColor: "rgba(200,120,40,0.25)",
-                    borderRadius: 14,
-                    padding: 16,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 14,
-                  }}
-                >
-                  <FontAwesome name="glass" size={20} color={OaklandDusk.text.secondary} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
-                      Just explore recipes
-                    </Text>
-                    <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
-                      Browse without scanning
                     </Text>
                   </View>
                 </Pressable>

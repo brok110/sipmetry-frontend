@@ -523,7 +523,7 @@ function buildActiveIngredientsFromAnalyze(data: AnalyzeImageResponse): ActiveIn
 }
 
 export default function TabOneScreen() {
-  const searchParams = useLocalSearchParams<{ photoUri?: string; photoUris?: string }>();
+  const searchParams = useLocalSearchParams<{ photoUri?: string; photoUris?: string; intent?: string }>();
   const [activeIngredients, setActiveIngredients] = useState<ActiveIngredient[]>([]);
 
   const activeCanonical = useMemo(() => {
@@ -701,6 +701,31 @@ export default function TabOneScreen() {
   // Path choice alert — fires when scan phase becomes "choice"
   useEffect(() => {
     if (scanPhase !== "choice" || multiScanResults.length === 0) return;
+
+    if (searchParams.intent === "addToBar") {
+      setScanMode("inventory");
+      (async () => {
+        if (session) {
+          for (const ing of multiScanResults) {
+            if (isAlcoholicIngredient(ing.canonical) === false) continue;
+            if (isInInventory(ing.canonical)) continue;
+            try {
+              await addInventoryItem({
+                ingredient_key: ing.canonical,
+                display_name: ing.display,
+                total_ml: 750,
+                remaining_pct: 100,
+              });
+            } catch {}
+          }
+          await refreshInventory({ silent: true });
+        }
+        setScanPhase("accumulating");
+        setBatchCompleteCount((c) => c + 1);
+      })();
+      return;
+    }
+
     const n = multiScanResults.length;
     Alert.alert(
       "What would you like to do?",
