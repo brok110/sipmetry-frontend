@@ -281,6 +281,13 @@ export default function TabTwoScreen() {
       lemon_juice: ["lime_juice"],
       lime_juice:  ["lemon_juice"],
 
+      // ── Syrup family ─────────────────────────────────────────────────────────
+      simple_syrup:  ["honey_syrup", "agave_syrup", "demerara_syrup", "rich_syrup"],
+      honey_syrup:   ["simple_syrup", "agave_syrup"],
+      agave_syrup:   ["simple_syrup", "honey_syrup"],
+      demerara_syrup: ["simple_syrup", "rich_syrup"],
+      rich_syrup:    ["simple_syrup", "demerara_syrup"],
+
       // ── Fruit liqueur ────────────────────────────────────────────────────────
       apricot_liqueur: ["peach_schnapps"],
       peach_schnapps:  ["apricot_liqueur"],

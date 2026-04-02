@@ -3,7 +3,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
-import StaplesModal from "@/components/StaplesModal";
+import StaplesModal, { DEFAULT_STAPLES } from "@/components/StaplesModal";
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import SwipeRow from "@/components/ui/SwipeRow";
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -1132,8 +1132,6 @@ export default function TabOneScreen() {
       const localeForApi = isZh ? "zh" : "en";
 
       // DEBUG: log canonicalization result before sending to backend
-      log("[DEBUG] canonicalDeduped:", canonicalDeduped);
-      log("[DEBUG] mergedIngredients:", mergedIngredients);
 
       // Stage 7: build request body with optional mood filter
       const resp = await apiFetch("/recommend-classics", {
@@ -1219,12 +1217,16 @@ export default function TabOneScreen() {
           recipes: JSON.stringify(flattened),
           ingredientCount: String(sourceIngredients.length),
           activeCanonical: JSON.stringify(canonicalDeduped),
-          scanItems: JSON.stringify(
-            (overrideIngredients ?? activeIngredients).map((x) => ({
+          scanItems: JSON.stringify([
+            ...(overrideIngredients ?? activeIngredients).map((x) => ({
               canonical: String(normalizeIngredientKey(String(x?.canonical ?? "")) || "").trim(),
               display: String(x?.display ?? "").trim(),
-            }))
-          ),
+            })),
+            ...staplesKeys.map((k) => ({
+              canonical: k,
+              display: DEFAULT_STAPLES.find((s) => s.ingredient_key === k)?.display_name ?? k.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+            })),
+          ]),
           mode,
         },
       });
