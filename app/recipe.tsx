@@ -993,13 +993,12 @@ export default function TabTwoScreen() {
             amountLabel = "n/a";
           }
 
-          // Availability indicator from My Bar + scan session overlap
           let availBadge: React.ReactNode = null;
           if (inventoryInitialized && key) {
             const remaining = invByKey[key];
             const needed = Number.isFinite(ml) ? ml! : null;
 
-            // Check if ingredient was in the scanned/detected set (from Scan results)
+            const isResolved = resolved.display !== "";
             const isInOverlap = overlapHitsSet.has(key);
 
             if (remaining !== undefined) {
@@ -1012,7 +1011,7 @@ export default function TabTwoScreen() {
                   <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ In your bar</Text>
                 );
               }
-            } else if (isInOverlap) {
+            } else if (isResolved || isInOverlap) {
               availBadge = (
                 <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ Just found</Text>
               );
