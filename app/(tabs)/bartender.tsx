@@ -521,34 +521,63 @@ export default function BartenderScreen() {
             width: 72,
             height: 72,
             borderRadius: 18,
-            backgroundColor: "rgba(200,120,40,0.12)",
+            backgroundColor: "rgba(200,120,40,0.15)",
             borderWidth: 1,
-            borderColor: "rgba(200,120,40,0.2)",
+            borderColor: "rgba(200,120,40,0.25)",
             alignItems: "center",
             justifyContent: "center",
             marginBottom: 24,
           }}>
-            <FontAwesome name="glass" size={30} color={OaklandDusk.brand.gold} />
+            <Text style={{ fontSize: 32, fontWeight: "800", color: OaklandDusk.brand.gold }}>S</Text>
           </View>
+          <Text style={{
+            fontSize: 11,
+            fontWeight: "700",
+            color: "#B8956A",
+            letterSpacing: 1.5,
+            textTransform: "uppercase",
+            marginBottom: 4,
+          }}>
+            Welcome to
+          </Text>
           <Animated.Text style={{
-            fontSize: 26,
+            fontSize: 30,
             fontWeight: "800",
-            color: OaklandDusk.text.primary,
+            color: "#E8C88A",
             textAlign: "center",
-            lineHeight: 34,
-            marginBottom: 10,
+            marginBottom: 16,
             opacity: welcomeTitleOpacity,
           }}>
-            Your personal bartender, ready when you are.
+            Sipmetry
           </Animated.Text>
           <Text style={{
+            fontSize: 20,
+            fontWeight: "700",
+            color: "#D4A55A",
+            textAlign: "center",
+            marginBottom: 6,
+          }}>
+            {(() => {
+              const h = new Date().getHours();
+              if (h < 12) return "Good morning";
+              if (h < 17) return "Good afternoon";
+              if (h < 21) return "Good evening";
+              return "Night owl mode";
+            })()}
+          </Text>
+          <Text style={{
             fontSize: 14,
-            color: OaklandDusk.text.tertiary,
+            color: "#9A8165",
             textAlign: "center",
             lineHeight: 20,
             marginBottom: 32,
           }}>
-            Swipe through a few questions {"\u2014"} or skip straight to your drink.
+            {(() => {
+              const h = new Date().getHours();
+              if (h < 17) return "What are we mixing today?";
+              if (h < 21) return "It\u2019s cocktail hour \u2014 what are we mixing?";
+              return "Let\u2019s find your nightcap.";
+            })()}
           </Text>
         </View>
 

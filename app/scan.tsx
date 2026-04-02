@@ -1912,10 +1912,6 @@ export default function TabOneScreen() {
       contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 88 }}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={{ flexDirection: "row", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "800", flex: 1, color: OaklandDusk.brand.gold }}>Sipmetry</Text>
-      </View>
-
 
       {!searchParams.photoUri && !searchParams.photoUris ? (
       <View style={{ position: "relative" }}>
