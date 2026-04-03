@@ -821,7 +821,7 @@ export default function TabOneScreen() {
               "Choose an option",
               [
                 { text: "Take a photo", onPress: () => takePhoto() },
-                { text: "Choose from library", onPress: () => pickImage() },
+                { text: "Choose from library (multi-select)", onPress: () => pickImage() },
                 { text: "Cancel", style: "cancel", onPress: () => setScanPhase("review") },
               ]
             );
@@ -1483,84 +1483,42 @@ export default function TabOneScreen() {
     setHasRecommendedLocal(false);
 
     try {
-      const pre = await preprocessImageForAnalyze(imageUri, pickedBase64, 650_000);
-      setLastUploadInfo({
-        stage: "preprocess",
-        base64_chars: pre.base64.length,
-        width: pre.width,
-        height: pre.height,
-      });
+      const SIZE_CASCADE = [650_000, 350_000, 170_000, 120_000];
+      let resp: Response | null = null;
+      let lastPreUri = imageUri;
 
-      let resp = await apiFetch("/analyze-image", {
-        session,
-        method: "POST",
-        body: { image_base64: pre.base64, return_raw: true, return_detected_items: true, return_display: true },
-      });
-
-      setLastHttpStatus(resp.status);
-
-      if (resp.status === 413) {
-        const pre2 = await preprocessImageForAnalyze(imageUri, pickedBase64, 350_000);
+      for (let attempt = 0; attempt < SIZE_CASCADE.length; attempt++) {
+        const pre = await preprocessImageForAnalyze(imageUri, pickedBase64, SIZE_CASCADE[attempt]);
         setLastUploadInfo({
-          stage: "retry_413_1",
-          base64_chars: pre2.base64.length,
-          width: pre2.width,
-          height: pre2.height,
+          stage: attempt === 0 ? "preprocess" : `retry_413_${attempt}`,
+          base64_chars: pre.base64.length,
+          width: pre.width,
+          height: pre.height,
         });
 
         resp = await apiFetch("/analyze-image", {
           session,
           method: "POST",
-          body: { image_base64: pre2.base64, return_raw: true, return_detected_items: true, return_display: true },
+          body: { image_base64: pre.base64, return_raw: true, return_detected_items: true, return_display: true },
         });
 
         setLastHttpStatus(resp.status);
 
-        if (resp.status === 413) {
-          const pre3 = await preprocessImageForAnalyze(imageUri, pickedBase64, 170_000);
-          setLastUploadInfo({
-            stage: "retry_413_2",
-            base64_chars: pre3.base64.length,
-            width: pre3.width,
-            height: pre3.height,
-          });
-
-          resp = await apiFetch("/analyze-image", {
-            session,
-            method: "POST",
-            body: { image_base64: pre3.base64, return_raw: true, return_detected_items: true, return_display: true },
-          });
-
-          setLastHttpStatus(resp.status);
-
-          if (resp.status === 413) {
-            const pre4 = await preprocessImageForAnalyze(imageUri, pickedBase64, 120_000);
-            setLastUploadInfo({
-              stage: "retry_413_3",
-              base64_chars: pre4.base64.length,
-              width: pre4.width,
-              height: pre4.height,
-            });
-
-            resp = await apiFetch("/analyze-image", {
-              session,
-              method: "POST",
-              body: { image_base64: pre4.base64, return_raw: true, return_detected_items: true, return_display: true },
-            });
-
-            setLastHttpStatus(resp.status);
-          }
+        if (attempt === 0) {
+          lastPreUri = pre.uri;
         }
+
+        if (resp.status !== 413) break;
       }
 
-      if (!resp.ok) {
-        const t = await resp.text();
-        if (resp.status === 413) {
+      if (!resp || !resp.ok) {
+        const t = resp ? await resp.text() : "No response";
+        if (resp?.status === 413) {
           throw new Error(
             "Ingredient API failed: 413 (payload too large). Please crop tighter or use a closer shot. (Tip: focus on the label area only.)"
           );
         }
-        throw new Error(`Ingredient API failed: ${resp.status} ${t}`);
+        throw new Error(`Ingredient API failed: ${resp?.status ?? "unknown"} ${t}`);
       }
 
       const respText = await resp.text();
@@ -1591,7 +1549,7 @@ export default function TabOneScreen() {
 
       setActiveIngredients(nextWithCanonicalNormalized);
       setSafety(data.safety ?? null);
-      setImageUri(pre.uri);
+      setImageUri(lastPreUri);
 
       try {
         Sentry.addBreadcrumb({
@@ -1735,7 +1693,7 @@ export default function TabOneScreen() {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Cancel", "Take a photo", "Choose from library"],
+          options: ["Cancel", "Take a photo", "Choose from library (multi-select)"],
           cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -1748,7 +1706,7 @@ export default function TabOneScreen() {
       Alert.alert("Scan bottles", "Choose an option", [
         { text: "Cancel", style: "cancel" },
         { text: "Take a photo", onPress: () => { resetScan(); takePhoto(); } },
-        { text: "Choose from library", onPress: () => { resetScan(); pickImage(); } },
+        { text: "Choose from library (multi-select)", onPress: () => { resetScan(); pickImage(); } },
       ]);
     }
   };
