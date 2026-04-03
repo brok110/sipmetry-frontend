@@ -4,7 +4,7 @@ import OaklandDusk from "@/constants/OaklandDusk";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";
 
 import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/auth";
@@ -210,6 +210,7 @@ export default function TabZeroPreferencesScreen() {
   const [draftAvoidHighProof, setDraftAvoidHighProof] = useState<boolean>(preferences.safetyMode.avoidHighProof);
   const [draftAvoidAllergens, setDraftAvoidAllergens] = useState<boolean>(preferences.safetyMode.avoidAllergens);
   const [saving, setSaving] = useState(false);
+  const saveButtonOpacity = React.useRef(new Animated.Value(1)).current;
   const [draftAvoidCaffeineAlcohol, setDraftAvoidCaffeineAlcohol] = useState<boolean>(
     preferences.safetyMode.avoidCaffeineAlcohol
   );
@@ -307,6 +308,19 @@ export default function TabZeroPreferencesScreen() {
   const save = () => {
     if (!hydrated || saving) return;
     setSaving(true);
+
+    Animated.sequence([
+      Animated.timing(saveButtonOpacity, {
+        toValue: 0.3,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(saveButtonOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     const newPrefs = {
       stylePreset: draftStyle,
@@ -491,7 +505,7 @@ export default function TabZeroPreferencesScreen() {
 
           <View style={{ gap: 4 }}>
             <SafetyToggleRow
-              label="Avoid High Proof"
+              label="Avoid Strong Drinks"
               value={draftAvoidHighProof}
               onPress={() => setDraftAvoidHighProof((v) => !v)}
               disabled={disabled}
@@ -513,22 +527,23 @@ export default function TabZeroPreferencesScreen() {
 
         {/* Save / Reset */}
         <View style={{ flexDirection: "row", gap: 10 }}>
-          <Pressable
-            onPress={save}
-            disabled={disabled || !hasChanges || saving}
-            style={{
-              flex: 1,
-              borderRadius: 10,
-              paddingVertical: 10,
-              alignItems: "center",
-              backgroundColor: OaklandDusk.brand.gold,
-              opacity: saving ? 0.4 : disabled || !hasChanges ? 0.35 : 1,
-            }}
-          >
-            <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.bg.void }}>
-              {saving ? "Saved ✓" : "Save preferences"}
-            </Text>
-          </Pressable>
+          <Animated.View style={{ flex: 1, opacity: saveButtonOpacity }}>
+            <Pressable
+              onPress={save}
+              disabled={disabled || !hasChanges || saving}
+              style={{
+                borderRadius: 10,
+                paddingVertical: 10,
+                alignItems: "center",
+                backgroundColor: OaklandDusk.brand.gold,
+                opacity: disabled || !hasChanges ? 0.35 : 1,
+              }}
+            >
+              <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.bg.void }}>
+                {saving ? "Saved ✓" : "Save preferences"}
+              </Text>
+            </Pressable>
+          </Animated.View>
 
           <Pressable
             onPress={reset}
