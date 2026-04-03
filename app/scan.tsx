@@ -827,7 +827,16 @@ export default function TabOneScreen() {
             );
           },
         },
-        { text: "Done", onPress: () => setScanPhase("review") },
+        {
+          text: "Done",
+          onPress: () => {
+            if (searchParams.intent === "addToBar") {
+              router.back();
+            } else {
+              setScanPhase("review");
+            }
+          },
+        },
       ],
       { cancelable: false }
     );
