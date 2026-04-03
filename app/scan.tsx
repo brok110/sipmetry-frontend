@@ -1514,6 +1514,7 @@ export default function TabOneScreen() {
             if (textResp.ok) {
               const textData = await textResp.json();
               setLastAnalyzeResponseJson(textData);
+              textData.detected_items = (textData.detected_items || []).filter((d: any) => d.canonical && d.canonical.trim() !== "");
               if (textData.detected_items && textData.detected_items.length > 0) {
                 ocrUsed = true;
                 data = textData as AnalyzeImageResponse;
