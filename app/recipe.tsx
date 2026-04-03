@@ -809,7 +809,7 @@ export default function TabTwoScreen() {
         .join("\n") ?? "";
 
       const title = recipeTitle || "Cocktail Recipe";
-      const message = `${title}\n\n${ingredientsList}\n\nMade with Sipmetry`;
+      const message = `${title}\n\n${ingredientsList}\n\nMade with Sipmetry\nhttps://sipmetry.app`;
 
       try {
         Sentry.addBreadcrumb({
@@ -828,6 +828,27 @@ export default function TabTwoScreen() {
       if (String(e?.message ?? "").includes("cancel")) return;
       showFeedbackToast("Couldn't share this recipe");
     }
+  };
+
+  const handleSharePress = () => {
+    if (!dbRecipe) return;
+    Alert.alert(
+      "Share Recipe",
+      recipeTitle || "Share this cocktail",
+      [
+        {
+          text: "Share as Text",
+          onPress: handleNativeShare,
+        },
+        ...(session?.access_token
+          ? [{
+              text: "Show QR Code",
+              onPress: createShareAndGo,
+            }]
+          : []),
+        { text: "Cancel", style: "cancel" as const },
+      ]
+    );
   };
 
   // Stage 9: 確認製作，扣除 My Bar 庫存
@@ -1143,7 +1164,7 @@ export default function TabTwoScreen() {
           </Text>
 
           {dbRecipe && (
-            <Pressable onPress={handleNativeShare} hitSlop={14} accessibilityLabel="Share recipe" accessibilityRole="button" style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+            <Pressable onPress={handleSharePress} hitSlop={14} accessibilityLabel="Share recipe" accessibilityRole="button" style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
               <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
             </Pressable>
           )}
