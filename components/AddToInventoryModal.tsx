@@ -45,16 +45,26 @@ export default function AddToInventoryModal({
   const [remainingPct, setRemainingPct] = useState(100)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isCustomSize, setIsCustomSize] = useState(false)
+  const [customMlText, setCustomMlText] = useState('')
 
   // 每次 Modal 開啟時重置，若有 initialTotalMl 則 pre-fill
   React.useEffect(() => {
     if (visible) {
       setName(displayName)
-      setTotalMl(
-        initialTotalMl && TOTAL_ML_OPTIONS.includes(initialTotalMl)
-          ? initialTotalMl
-          : 700
-      )
+      if (initialTotalMl && TOTAL_ML_OPTIONS.includes(initialTotalMl)) {
+        setTotalMl(initialTotalMl)
+        setIsCustomSize(false)
+        setCustomMlText('')
+      } else if (initialTotalMl && initialTotalMl >= 50 && initialTotalMl <= 5000) {
+        setTotalMl(initialTotalMl)
+        setIsCustomSize(true)
+        setCustomMlText(String(initialTotalMl))
+      } else {
+        setTotalMl(700)
+        setIsCustomSize(false)
+        setCustomMlText('')
+      }
       setRemainingPct(100)
       setError(null)
     }
@@ -64,6 +74,13 @@ export default function AddToInventoryModal({
     if (!name.trim()) {
       setError('Please enter a name')
       return
+    }
+    if (isCustomSize) {
+      const customNum = Number(customMlText)
+      if (!Number.isInteger(customNum) || customNum < 50 || customNum > 5000) {
+        setError('Bottle size must be between 50 and 5000 ml')
+        return
+      }
     }
     setLoading(true)
     setError(null)
@@ -142,21 +159,66 @@ export default function AddToInventoryModal({
           {TOTAL_ML_OPTIONS.map((ml) => (
             <Pressable
               key={ml}
-              onPress={() => setTotalMl(ml)}
+              onPress={() => {
+                setTotalMl(ml)
+                setIsCustomSize(false)
+                setCustomMlText('')
+              }}
               style={[
                 styles.mlBtn,
-                totalMl === ml && styles.mlBtnActive,
+                !isCustomSize && totalMl === ml && styles.mlBtnActive,
               ]}
             >
               <Text style={[
                 styles.mlBtnText,
-                totalMl === ml && styles.mlBtnTextActive,
+                !isCustomSize && totalMl === ml && styles.mlBtnTextActive,
               ]}>
                 {ml >= 1750 ? '1.75L' : ml >= 1000 ? '1L' : `${ml}ml`}
               </Text>
             </Pressable>
           ))}
+          <Pressable
+            onPress={() => {
+              setIsCustomSize(true)
+              setCustomMlText(TOTAL_ML_OPTIONS.includes(totalMl) ? '' : String(totalMl))
+            }}
+            style={[
+              styles.mlBtn,
+              isCustomSize && styles.mlBtnActive,
+            ]}
+          >
+            <Text style={[
+              styles.mlBtnText,
+              isCustomSize && styles.mlBtnTextActive,
+            ]}>
+              Custom
+            </Text>
+          </Pressable>
         </View>
+        {isCustomSize && (
+          <View style={{ marginTop: 8, gap: 4 }}>
+            <TextInput
+              style={styles.input}
+              value={customMlText}
+              onChangeText={(text) => {
+                const digits = text.replace(/[^0-9]/g, '')
+                setCustomMlText(digits)
+                const num = Number(digits)
+                if (num >= 50 && num <= 5000) {
+                  setTotalMl(num)
+                }
+              }}
+              placeholder="Enter ml (50\u20135000)"
+              placeholderTextColor="#888"
+              keyboardType="number-pad"
+              maxLength={4}
+              returnKeyType="done"
+            />
+            <Text style={{ fontSize: 11, color: '#888' }}>
+              50\u20135000 ml
+            </Text>
+          </View>
+        )}
 
         {/* Bottle fill */}
         <Text style={styles.label}>Remaining</Text>

@@ -289,13 +289,24 @@ function EditBottleModal({
   const [totalMl, setTotalMl] = useState(700)
   const [pct, setPct] = useState(100)
   const [saving, setSaving] = useState(false)
+  const [isCustomSize, setIsCustomSize] = useState(false)
+  const [customMlText, setCustomMlText] = useState('')
   const [guideEditBottleVisible, setGuideEditBottleVisible] = useState(false)
 
   // Sync fields when modal opens for a different item
   useEffect(() => {
     if (item) {
       setName(item.display_name)
-      setTotalMl(BOTTLE_SIZES.includes(Number(item.total_ml)) ? Number(item.total_ml) : 700)
+      const ml = Number(item.total_ml)
+      if (BOTTLE_SIZES.includes(ml)) {
+        setTotalMl(ml)
+        setIsCustomSize(false)
+        setCustomMlText('')
+      } else {
+        setTotalMl(ml)
+        setIsCustomSize(true)
+        setCustomMlText(String(ml))
+      }
       setPct(Math.round(Number(item.remaining_pct)))
       isGuideDismissed(GUIDE_KEYS.EDIT_BOTTLE).then((d) => setGuideEditBottleVisible(!d))
     }
@@ -305,6 +316,13 @@ function EditBottleModal({
     if (!item || saving) return
     const trimmed = name.trim()
     if (!trimmed) return
+    if (isCustomSize) {
+      const customNum = Number(customMlText)
+      if (!Number.isInteger(customNum) || customNum < 50 || customNum > 5000) {
+        Alert.alert('Invalid size', 'Bottle size must be between 50 and 5000 ml')
+        return
+      }
+    }
     setSaving(true)
     try {
       await onSave(item.id, { display_name: trimmed, total_ml: totalMl, remaining_pct: pct })
@@ -348,15 +366,54 @@ function EditBottleModal({
             {BOTTLE_SIZES.map((size) => (
               <Pressable
                 key={size}
-                onPress={() => setTotalMl(size)}
-                style={[modalStyles.sizePill, totalMl === size && modalStyles.sizePillActive]}
+                onPress={() => {
+                  setTotalMl(size)
+                  setIsCustomSize(false)
+                  setCustomMlText('')
+                }}
+                style={[modalStyles.sizePill, !isCustomSize && totalMl === size && modalStyles.sizePillActive]}
               >
-                <Text style={[modalStyles.sizePillText, totalMl === size && modalStyles.sizePillTextActive]}>
+                <Text style={[modalStyles.sizePillText, !isCustomSize && totalMl === size && modalStyles.sizePillTextActive]}>
                   {size < 1000 ? `${size}` : size === 1000 ? '1L' : '1.75L'}
                 </Text>
               </Pressable>
             ))}
+            <Pressable
+              onPress={() => {
+                setIsCustomSize(true)
+                setCustomMlText(BOTTLE_SIZES.includes(totalMl) ? '' : String(totalMl))
+              }}
+              style={[modalStyles.sizePill, isCustomSize && modalStyles.sizePillActive]}
+            >
+              <Text style={[modalStyles.sizePillText, isCustomSize && modalStyles.sizePillTextActive]}>
+                Custom
+              </Text>
+            </Pressable>
           </View>
+          {isCustomSize && (
+            <View style={{ marginTop: 8, gap: 4 }}>
+              <TextInput
+                style={modalStyles.input}
+                value={customMlText}
+                onChangeText={(text) => {
+                  const digits = text.replace(/[^0-9]/g, '')
+                  setCustomMlText(digits)
+                  const num = Number(digits)
+                  if (num >= 50 && num <= 5000) {
+                    setTotalMl(num)
+                  }
+                }}
+                placeholder="Enter ml (50\u20135000)"
+                placeholderTextColor="#888"
+                keyboardType="number-pad"
+                maxLength={4}
+                returnKeyType="done"
+              />
+              <Text style={{ fontSize: 11, color: '#888' }}>
+                50\u20135000 ml
+              </Text>
+            </View>
+          )}
 
           {/* Remaining */}
           <Text style={modalStyles.fieldLabel}>
