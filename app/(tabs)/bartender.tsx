@@ -261,8 +261,20 @@ export default function BartenderScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Request failed");
-      setResults(data.recommendations || []);
-      setOneAway(data.one_away || []);
+      let recs = data.recommendations || [];
+      let away = data.one_away || [];
+
+      if (preferences.safetyMode?.avoidHighProof) {
+        const isHighProof = (pick: Pick) => {
+          const strength = Number(pick.recipe_vec?.alcoholStrength ?? 0);
+          return strength > 3.5;
+        };
+        recs = recs.filter((r: Pick) => !isHighProof(r));
+        away = away.filter((r: Pick) => !isHighProof(r));
+      }
+
+      setResults(recs);
+      setOneAway(away);
       setHint(data.hint || null);
       setShowResults(true);
     } catch (e: any) {

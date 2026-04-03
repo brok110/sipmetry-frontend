@@ -6,6 +6,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
+import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/auth";
 import { useLearnedPreferences } from "@/context/learnedPreferences";
 import {
@@ -306,7 +307,8 @@ export default function TabZeroPreferencesScreen() {
   const save = () => {
     if (!hydrated || saving) return;
     setSaving(true);
-    setPreferences({
+
+    const newPrefs = {
       stylePreset: draftStyle,
       dims: {
         alcoholStrength: draftAlcohol,
@@ -318,7 +320,26 @@ export default function TabZeroPreferencesScreen() {
         avoidAllergens: draftAvoidAllergens,
         avoidCaffeineAlcohol: draftAvoidCaffeineAlcohol,
       },
-    });
+    };
+
+    setPreferences(newPrefs);
+
+    if (session?.access_token) {
+      const toScale5 = (v: number) => Math.round((v / 3) * 5 * 10) / 10;
+      apiFetch("/preferences/save", {
+        session,
+        method: "POST",
+        body: {
+          manual_vector: {
+            sweetness: toScale5(draftSweetness),
+            bitterness: toScale5(draftBitterness),
+            alcoholStrength: toScale5(draftAlcohol),
+          },
+          safety_mode: newPrefs.safetyMode,
+        },
+      }).catch((e) => console.warn("[preferences/save] sync failed:", e?.message));
+    }
+
     setTimeout(() => setSaving(false), 800);
   };
 

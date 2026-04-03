@@ -170,6 +170,11 @@ export default function ProfileScreen() {
           label="Favorites"
           onPress={() => router.push("/profile/favorites")}
         />
+        <ProfileRow
+          icon="flask"
+          label="Taste DNA"
+          onPress={() => router.push("/profile/taste-dna")}
+        />
 
         {/* Recipe unit toggle */}
         <View style={{
