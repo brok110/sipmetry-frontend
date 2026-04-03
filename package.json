@@ -30,6 +30,7 @@
     "expo-router": "~6.0.22",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
+    "expo-text-extractor": "^2.0.0",
     "expo-web-browser": "~15.0.10",
     "jsonwebtoken": "^9.0.3",
     "react": "19.1.0",
