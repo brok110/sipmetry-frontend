@@ -27,6 +27,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
+import { extractTextFromImage, isSupported as ocrIsSupported } from "expo-text-extractor";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -1483,56 +1484,107 @@ export default function TabOneScreen() {
     setHasRecommendedLocal(false);
 
     try {
-      const SIZE_CASCADE = [650_000, 350_000, 170_000, 120_000];
-      let resp: Response | null = null;
+      // ── OCR-first path: on-device text extraction → /analyze-text ────────────
+      let ocrUsed = false;
+      let data: AnalyzeImageResponse = {} as AnalyzeImageResponse;
       let lastPreUri = imageUri;
 
-      for (let attempt = 0; attempt < SIZE_CASCADE.length; attempt++) {
-        const pre = await preprocessImageForAnalyze(imageUri, pickedBase64, SIZE_CASCADE[attempt]);
-        setLastUploadInfo({
-          stage: attempt === 0 ? "preprocess" : `retry_413_${attempt}`,
-          base64_chars: pre.base64.length,
-          width: pre.width,
-          height: pre.height,
-        });
+      if (ocrIsSupported && imageUri) {
+        try {
+          console.log("[scan] attempting on-device OCR...");
+          const ocrStart = Date.now();
+          const ocrBlocks = await extractTextFromImage(imageUri);
+          const ocrText = ocrBlocks.join("\n").trim();
+          const ocrMs = Date.now() - ocrStart;
+          console.log(`[scan] OCR completed in ${ocrMs}ms, ${ocrBlocks.length} blocks, ${ocrText.length} chars`);
 
-        resp = await apiFetch("/analyze-image", {
-          session,
-          method: "POST",
-          body: { image_base64: pre.base64, return_raw: true, return_detected_items: true, return_display: true },
-        });
+          if (ocrText.length >= 20) {
+            console.log("[scan] OCR text sufficient, using /analyze-text");
+            const textResp = await apiFetch("/analyze-text", {
+              session,
+              method: "POST",
+              body: {
+                ocr_text: ocrText,
+                return_raw: true,
+                return_detected_items: true,
+                return_display: true,
+              },
+            });
+            setLastHttpStatus(textResp.status);
+            if (textResp.ok) {
+              const textData = await textResp.json();
+              setLastAnalyzeResponseJson(textData);
+              if (textData.detected_items && textData.detected_items.length > 0) {
+                ocrUsed = true;
+                data = textData as AnalyzeImageResponse;
+                console.log(`[scan] OCR path success: ${textData.detected_items.length} items detected`);
+              } else {
+                console.log("[scan] OCR path returned empty results, falling back to vision");
+              }
+            } else {
+              console.log(`[scan] /analyze-text returned ${textResp.status}, falling back to vision`);
+            }
+          } else {
+            console.log(`[scan] OCR text too short (${ocrText.length} chars), falling back to vision`);
+          }
+        } catch (ocrErr: any) {
+          console.warn("[scan] OCR failed, falling back to vision:", ocrErr?.message);
+        }
+      }
 
-        setLastHttpStatus(resp.status);
+      // ── Vision fallback: original /analyze-image path ─────────────────────────
+      if (!ocrUsed) {
+        const SIZE_CASCADE = [650_000, 350_000, 170_000, 120_000];
+        let resp: Response | null = null;
 
-        if (attempt === 0) {
-          lastPreUri = pre.uri;
+        for (let attempt = 0; attempt < SIZE_CASCADE.length; attempt++) {
+          const pre = await preprocessImageForAnalyze(imageUri, pickedBase64, SIZE_CASCADE[attempt]);
+          setLastUploadInfo({
+            stage: attempt === 0 ? "preprocess" : `retry_413_${attempt}`,
+            base64_chars: pre.base64.length,
+            width: pre.width,
+            height: pre.height,
+          });
+
+          resp = await apiFetch("/analyze-image", {
+            session,
+            method: "POST",
+            body: { image_base64: pre.base64, return_raw: true, return_detected_items: true, return_display: true },
+          });
+
+          setLastHttpStatus(resp.status);
+
+          if (attempt === 0) {
+            lastPreUri = pre.uri;
+          }
+
+          if (resp.status !== 413) break;
         }
 
-        if (resp.status !== 413) break;
-      }
-
-      if (!resp || !resp.ok) {
-        const t = resp ? await resp.text() : "No response";
-        if (resp?.status === 413) {
-          throw new Error(
-            "Ingredient API failed: 413 (payload too large). Please crop tighter or use a closer shot. (Tip: focus on the label area only.)"
-          );
+        if (!resp || !resp.ok) {
+          const t = resp ? await resp.text() : "No response";
+          if (resp?.status === 413) {
+            throw new Error(
+              "Ingredient API failed: 413 (payload too large). Please crop tighter or use a closer shot. (Tip: focus on the label area only.)"
+            );
+          }
+          throw new Error(`Ingredient API failed: ${resp?.status ?? "unknown"} ${t}`);
         }
-        throw new Error(`Ingredient API failed: ${resp?.status ?? "unknown"} ${t}`);
+
+        const respText = await resp.text();
+        setLastAnalyzeResponseText(respText);
+
+        let parsed: any = null;
+        try {
+          parsed = respText ? JSON.parse(respText) : null;
+        } catch {
+          parsed = null;
+        }
+        setLastAnalyzeResponseJson(parsed);
+
+        data = (parsed ?? {}) as AnalyzeImageResponse;
+        setImageUri(lastPreUri);
       }
-
-      const respText = await resp.text();
-      setLastAnalyzeResponseText(respText);
-
-      let parsed: any = null;
-      try {
-        parsed = respText ? JSON.parse(respText) : null;
-      } catch {
-        parsed = null;
-      }
-      setLastAnalyzeResponseJson(parsed);
-
-      const data = (parsed ?? {}) as AnalyzeImageResponse;
 
       const next = buildActiveIngredientsFromAnalyze(data);
       const nextWithCanonicalNormalized = next
@@ -1549,7 +1601,6 @@ export default function TabOneScreen() {
 
       setActiveIngredients(nextWithCanonicalNormalized);
       setSafety(data.safety ?? null);
-      setImageUri(lastPreUri);
 
       try {
         Sentry.addBreadcrumb({
