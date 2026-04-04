@@ -1,3 +1,4 @@
+import { markAgeVerified } from './_layout';
 import OaklandDusk from '@/constants/OaklandDusk';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/lib/supabase';
@@ -90,6 +91,7 @@ export default function AgeGateScreen() {
     });
     setLoading(false);
 
+    markAgeVerified();
     router.replace('/(tabs)/bartender');
   };
 

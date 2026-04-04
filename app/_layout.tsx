@@ -93,12 +93,18 @@ export default Sentry.wrap(function RootLayout() {
   );
 });
 
+let _setAgeVerified: ((v: boolean) => void) | null = null;
+export function markAgeVerified() {
+  _setAgeVerified?.(true);
+}
+
 function RootLayoutNav() {
   const { user, hydrated } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
   const [ageVerified, setAgeVerified] = useState<boolean | null>(null);
+  _setAgeVerified = setAgeVerified;
 
   useEffect(() => {
     if (!hydrated) return;
@@ -114,7 +120,7 @@ function RootLayoutNav() {
     if (!user) return;
 
     // Logged in — check age verification
-    if (ageVerified === null || ageVerified === false) {
+    if (ageVerified === null) {
       void (async () => {
         try {
           const { data, error } = await supabase
@@ -125,17 +131,7 @@ function RootLayoutNav() {
           if (error) throw error;
           setAgeVerified(!!data?.birth_year);
         } catch {
-          await new Promise(r => setTimeout(r, 1000));
-          try {
-            const { data } = await supabase
-              .from('profiles')
-              .select('birth_year')
-              .eq('user_id', user.id)
-              .maybeSingle();
-            setAgeVerified(!!data?.birth_year);
-          } catch {
-            setAgeVerified(false);
-          }
+          setAgeVerified(false);
         }
       })();
       return;
