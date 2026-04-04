@@ -13,6 +13,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Linking,
   Modal,
   Platform,
@@ -344,9 +345,13 @@ function EditBottleModal({
       animationType="slide"
       onRequestClose={onClose}
     >
-      <Pressable style={modalStyles.overlay} onPress={onClose}>
-        <Pressable style={modalStyles.sheet} onPress={(e) => e.stopPropagation()}>
-          <Text style={modalStyles.title}>Edit Bottle</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Pressable style={modalStyles.overlay} onPress={onClose}>
+          <Pressable style={modalStyles.sheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={modalStyles.title}>Edit Bottle</Text>
 
           {/* Name */}
           <Text style={modalStyles.fieldLabel}>Name</Text>
@@ -403,14 +408,14 @@ function EditBottleModal({
                     setTotalMl(num)
                   }
                 }}
-                placeholder="Enter ml (50\u20135000)"
+                placeholder="e.g. 200"
                 placeholderTextColor="#888"
                 keyboardType="number-pad"
                 maxLength={4}
                 returnKeyType="done"
               />
               <Text style={{ fontSize: 11, color: '#888' }}>
-                50\u20135000 ml
+                50 – 5000 ml
               </Text>
             </View>
           )}
@@ -456,6 +461,7 @@ function EditBottleModal({
           </View>
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
