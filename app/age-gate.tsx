@@ -1,13 +1,13 @@
 import OaklandDusk from '@/constants/OaklandDusk';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/lib/supabase';
+import { Picker } from '@react-native-picker/picker';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
@@ -37,6 +37,16 @@ function isLegalAge(birthYear: number, birthMonth: number, legalAge: number): bo
 }
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+const CURRENT_YEAR = new Date().getFullYear();
+const YEARS = Array.from({ length: CURRENT_YEAR - 1900 + 1 }, (_, i) => CURRENT_YEAR - i);
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 export default function AgeGateScreen() {
@@ -48,10 +58,8 @@ export default function AgeGateScreen() {
   const regionCode = locale.split('-').pop()?.toUpperCase() ?? 'US';
   const legalAge = getLegalAge(regionCode);
 
-  const currentYear = new Date().getFullYear();
-
-  const [yearText, setYearText] = useState('');
-  const [month, setMonth] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [inputError, setInputError] = useState<string | null>(null);
@@ -59,21 +67,16 @@ export default function AgeGateScreen() {
   const handleContinue = async () => {
     setInputError(null);
 
-    const birthYear = parseInt(yearText, 10);
-    if (
-      isNaN(birthYear) ||
-      birthYear < 1900 ||
-      birthYear > currentYear
-    ) {
-      setInputError('Please enter a valid birth year (YYYY).');
+    if (selectedYear === null) {
+      setInputError('Please select your birth year.');
       return;
     }
-    if (month === null) {
+    if (selectedMonth === null) {
       setInputError('Please select your birth month.');
       return;
     }
 
-    if (!isLegalAge(birthYear, month, legalAge)) {
+    if (!isLegalAge(selectedYear, selectedMonth, legalAge)) {
       setBlocked(true);
       return;
     }
@@ -82,12 +85,17 @@ export default function AgeGateScreen() {
     setLoading(true);
     await supabase.from('profiles').upsert({
       user_id: user!.id,
-      birth_year: birthYear,
+      birth_year: selectedYear,
       region_code: regionCode,
     });
     setLoading(false);
 
     router.replace('/(tabs)/bartender');
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.replace('/login');
   };
 
   // -------------------------------------------------------------------------
@@ -104,7 +112,7 @@ export default function AgeGateScreen() {
             alignItems: 'center',
             justifyContent: 'center',
             padding: 32,
-            gap: 24,
+            gap: 16,
           }}
         >
           <Text
@@ -119,16 +127,25 @@ export default function AgeGateScreen() {
           </Text>
           <Text
             style={{
-              fontSize: 20,
-              fontWeight: '700',
-              color: OaklandDusk.semantic.error,
+              fontSize: 18,
+              color: OaklandDusk.text.secondary,
+              textAlign: 'center',
+              lineHeight: 26,
+            }}
+          >
+            We'll be here when you turn {legalAge}.
+          </Text>
+          <Text
+            style={{
+              fontSize: 18,
+              color: OaklandDusk.text.secondary,
               textAlign: 'center',
             }}
           >
-            Come back when you're {legalAge}!
+            See you then!
           </Text>
           <Pressable
-            onPress={() => signOut()}
+            onPress={handleSignOut}
             style={{
               backgroundColor: OaklandDusk.bg.surface,
               borderRadius: 12,
@@ -136,10 +153,11 @@ export default function AgeGateScreen() {
               paddingHorizontal: 32,
               borderWidth: 1,
               borderColor: OaklandDusk.bg.border,
+              marginTop: 8,
             }}
           >
             <Text style={{ color: OaklandDusk.text.secondary, fontWeight: '700' }}>
-              Sign Out
+              Sign out
             </Text>
           </Pressable>
         </View>
@@ -148,7 +166,7 @@ export default function AgeGateScreen() {
   }
 
   // -------------------------------------------------------------------------
-  // Normal state — age input form
+  // Normal state — age input form with dual dropdown pickers
   // -------------------------------------------------------------------------
   return (
     <>
@@ -164,58 +182,66 @@ export default function AgeGateScreen() {
           Verify your age
         </Text>
         <Text style={{ color: OaklandDusk.text.secondary, marginBottom: 8 }}>
-          Sipmetry is for legal drinking age. Enter your birth year and month.
+          Enter your birth year and month to continue.
         </Text>
 
-        {/* Birth year input */}
-        <TextInput
-          value={yearText}
-          onChangeText={setYearText}
-          placeholder="Birth year (YYYY)"
-          placeholderTextColor={OaklandDusk.text.tertiary}
-          keyboardType="number-pad"
-          maxLength={4}
-          style={{
-            borderWidth: 1,
-            borderColor: OaklandDusk.bg.border,
-            borderRadius: 12,
-            paddingHorizontal: 14,
-            paddingVertical: 12,
-            backgroundColor: OaklandDusk.bg.surface,
-            color: OaklandDusk.text.primary,
-          }}
-        />
-
-        {/* Birth month picker (1–12) */}
-        <Text style={{ color: OaklandDusk.text.secondary, marginTop: 4 }}>
-          Birth month
-        </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <Pressable
-              key={m}
-              onPress={() => setMonth(m)}
+        {/* Dual dropdown row */}
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {/* Year picker */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12, marginBottom: 6 }}>
+              Year
+            </Text>
+            <View
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 10,
                 borderWidth: 1,
-                borderColor: month === m ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
-                backgroundColor: month === m ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
-                alignItems: 'center',
-                justifyContent: 'center',
+                borderColor: OaklandDusk.bg.border,
+                borderRadius: 12,
+                backgroundColor: OaklandDusk.bg.surface,
+                overflow: 'hidden',
               }}
             >
-              <Text
-                style={{
-                  color: month === m ? OaklandDusk.bg.void : OaklandDusk.text.primary,
-                  fontWeight: '700',
-                }}
+              <Picker
+                selectedValue={selectedYear}
+                onValueChange={(value) => setSelectedYear(value)}
+                style={{ color: OaklandDusk.text.primary, height: 180 }}
+                itemStyle={{ color: OaklandDusk.text.primary, fontSize: 18 }}
               >
-                {m}
-              </Text>
-            </Pressable>
-          ))}
+                <Picker.Item label="—" value={null} color={OaklandDusk.text.tertiary} />
+                {YEARS.map((y) => (
+                  <Picker.Item key={y} label={String(y)} value={y} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+
+          {/* Month picker */}
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12, marginBottom: 6 }}>
+              Month
+            </Text>
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: OaklandDusk.bg.border,
+                borderRadius: 12,
+                backgroundColor: OaklandDusk.bg.surface,
+                overflow: 'hidden',
+              }}
+            >
+              <Picker
+                selectedValue={selectedMonth}
+                onValueChange={(value) => setSelectedMonth(value)}
+                style={{ color: OaklandDusk.text.primary, height: 180 }}
+                itemStyle={{ color: OaklandDusk.text.primary, fontSize: 18 }}
+              >
+                <Picker.Item label="—" value={null} color={OaklandDusk.text.tertiary} />
+                {MONTHS.map((name, i) => (
+                  <Picker.Item key={i + 1} label={name} value={i + 1} />
+                ))}
+              </Picker>
+            </View>
+          </View>
         </View>
 
         {inputError ? (
