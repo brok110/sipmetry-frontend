@@ -117,18 +117,25 @@ function RootLayoutNav() {
     if (ageVerified === null || ageVerified === false) {
       void (async () => {
         try {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from('profiles')
             .select('birth_year')
             .eq('user_id', user.id)
-            .single();
-          const verified = !!data?.birth_year;
-          setAgeVerified(verified);
-          if (verified && (firstSegment === 'age-gate' || firstSegment === 'login')) {
-            router.replace('/(tabs)/bartender');
-          }
+            .maybeSingle();
+          if (error) throw error;
+          setAgeVerified(!!data?.birth_year);
         } catch {
-          if (ageVerified !== false) setAgeVerified(false);
+          await new Promise(r => setTimeout(r, 1000));
+          try {
+            const { data } = await supabase
+              .from('profiles')
+              .select('birth_year')
+              .eq('user_id', user.id)
+              .maybeSingle();
+            setAgeVerified(!!data?.birth_year);
+          } catch {
+            setAgeVerified(false);
+          }
         }
       })();
       return;
