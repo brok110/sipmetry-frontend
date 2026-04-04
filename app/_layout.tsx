@@ -114,7 +114,7 @@ function RootLayoutNav() {
     if (!user) return;
 
     // Logged in — check age verification
-    if (ageVerified === null) {
+    if (ageVerified === null || ageVerified === false) {
       void (async () => {
         try {
           const { data } = await supabase
@@ -122,9 +122,13 @@ function RootLayoutNav() {
             .select('birth_year')
             .eq('user_id', user.id)
             .single();
-          setAgeVerified(!!data?.birth_year);
+          const verified = !!data?.birth_year;
+          setAgeVerified(verified);
+          if (verified && (firstSegment === 'age-gate' || firstSegment === 'login')) {
+            router.replace('/(tabs)/bartender');
+          }
         } catch {
-          setAgeVerified(false);
+          if (ageVerified !== false) setAgeVerified(false);
         }
       })();
       return;
