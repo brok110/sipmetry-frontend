@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Sipmetry**
-Last updated: March 21, 2026
+Last updated: April 3, 2026
 
 Sipmetry ("we", "our", or "the app") is a cocktail recommendation and bar management app. This Privacy Policy explains what data we collect, how we use it, and your rights regarding that data.
 
@@ -9,6 +9,9 @@ Sipmetry ("we", "our", or "the app") is a cocktail recommendation and bar manage
 
 ### Account Information
 When you create an account, we collect your email address and authentication credentials. If you sign in with Apple, we receive only the information Apple provides, which may include a private relay email address. We fully respect your choice to use Apple's "Hide My Email" feature and will never attempt to discover or request your real email address beyond what Apple provides.
+
+### Age Verification
+During your first sign-in, we collect your birth year and device region (country code) to verify that you meet the legal drinking age in your jurisdiction. Your birth year is stored in our database for age verification and aggregate analytics (such as understanding the age distribution of our users). Your birth month is used only for the one-time age calculation and is not stored. We do not collect your full date of birth.
 
 ### Bar Inventory
 You can add bottles to your personal inventory. This data is stored in our database and used solely to generate personalized cocktail recommendations.
@@ -80,7 +83,7 @@ We use industry-standard security measures to protect your data, including encry
 
 ## 6. Children's Privacy
 
-Sipmetry is an alcohol-related application rated 17+ and is not intended for use by anyone under the age of 17. We do not knowingly collect personal information from children or minors. If you believe a minor has provided us with personal data, please contact us and we will promptly delete it.
+Sipmetry is an alcohol-related application and is not intended for use by anyone under the legal drinking age in their jurisdiction. The app includes an age verification step that prevents underage users from accessing the app. We do not knowingly collect personal information from children or minors. If you believe a minor has provided us with personal data, please contact us and we will promptly delete it.
 
 ## 7. Your Rights
 
@@ -143,6 +146,7 @@ The following table summarizes the data categories collected by Sipmetry as they
 | Data Category | Data Type | Usage | Linked to Identity | Tracking |
 |---|---|---|---|---|
 | Contact Info | Email Address | App Functionality | Yes | No |
+| Demographics | Age (birth year) and Region (country code) | App Functionality, Analytics | Yes | No |
 | User Content | Photos (camera/library) | App Functionality | No (not stored) | No |
 | User Content | Other User Content (inventory, favorites, preferences) | App Functionality, Product Personalization | Yes | No |
 | Usage Data | Product Interaction (likes, dislikes, feedback) | App Functionality, Product Personalization | Yes | No |

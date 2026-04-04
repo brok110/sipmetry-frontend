@@ -1,7 +1,7 @@
 # Terms of Service
 
 **Sipmetry**
-Last updated: March 21, 2026
+Last updated: April 3, 2026
 
 By using Sipmetry ("the app"), you agree to these Terms of Service. If you do not agree, please do not use the app.
 
@@ -28,7 +28,7 @@ We reserve the right to remove any user-submitted content (such as feedback or l
 
 ## 4. Age Requirement
 
-Sipmetry is intended for users aged 17 and older. By using the app, you confirm that you meet this age requirement. Sipmetry does not encourage or facilitate the purchase or consumption of alcohol by minors.
+Sipmetry requires users to meet the legal drinking age in their jurisdiction (21 in the United States, 20 in Japan, 18 in most other countries). The app includes an age verification step at sign-up. By using the app, you confirm that you meet the applicable age requirement. Sipmetry does not encourage or facilitate the purchase or consumption of alcohol by minors.
 
 ## 5. AI-Generated Content and Alcohol Safety
 
