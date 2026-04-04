@@ -3,13 +3,14 @@ import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import OaklandDusk from '@/constants/OaklandDusk';
+import { supabase } from '@/lib/supabase';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { FavoritesProvider } from '@/context/favorites';
 import { FeedbackProvider } from '@/context/feedback';
@@ -97,16 +98,49 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
 
+  const [ageVerified, setAgeVerified] = useState<boolean | null>(null);
+
   useEffect(() => {
     if (!hydrated) return;
+
     const firstSegment = segments[0];
     const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile';
+
     if (!user && inAuthArea) {
       router.replace('/login');
-    } else if (user && firstSegment === 'login') {
+      return;
+    }
+
+    if (!user) return;
+
+    // Logged in — check age verification
+    if (ageVerified === null) {
+      void (async () => {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('birth_year')
+            .eq('user_id', user.id)
+            .single();
+          setAgeVerified(!!data?.birth_year);
+        } catch {
+          setAgeVerified(false);
+        }
+      })();
+      return;
+    }
+
+    if (!ageVerified && firstSegment !== 'age-gate') {
+      router.replace('/age-gate');
+    } else if (ageVerified && (firstSegment === 'login' || firstSegment === 'age-gate')) {
       router.replace('/(tabs)/bartender');
     }
-  }, [user, hydrated, segments]);
+  }, [user, hydrated, segments, ageVerified]);
+
+  // Reset ageVerified when user signs out and signs back in
+  useEffect(() => {
+    if (!user) setAgeVerified(null);
+  }, [user]);
 
   const OaklandDuskNavTheme = {
     ...DarkTheme,
@@ -195,6 +229,7 @@ function RootLayoutNav() {
             </Pressable>
           ),
         }} />
+        <Stack.Screen name="age-gate" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>

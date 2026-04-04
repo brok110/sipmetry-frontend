@@ -1,7 +1,6 @@
 import { useAuth } from '@/context/auth'
 import OaklandDusk from '@/constants/OaklandDusk'
 import * as AppleAuthentication from 'expo-apple-authentication'
-import { useRouter } from 'expo-router'
 import React, { useState } from 'react'
 import {
   Platform, Pressable, ScrollView,
@@ -10,8 +9,6 @@ import {
 
 export default function LoginScreen() {
   const { signInWithEmail, signUpWithEmail, signInWithApple } = useAuth()
-  const router = useRouter()
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isSignUp, setIsSignUp] = useState(false)
@@ -32,9 +29,8 @@ export default function LoginScreen() {
     setLoading(false)
     if (error) {
       setError(error)
-    } else {
-      router.replace('/(tabs)/bartender')
     }
+    // nav guard handles post-login navigation
   }
 
   const handleApple = async () => {
@@ -43,7 +39,7 @@ export default function LoginScreen() {
     const { error } = await signInWithApple()
     setLoading(false)
     if (error) setError(error)
-    else router.replace('/(tabs)/bartender')
+    // nav guard handles post-login navigation
   }
 
   return (
