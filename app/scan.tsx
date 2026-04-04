@@ -4,7 +4,7 @@ import { apiFetch } from "@/lib/api";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
 import StaplesModal, { DEFAULT_STAPLES } from "@/components/StaplesModal";
-import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, isGoldenPathStepReady } from "@/components/GuideBubble";
 import SwipeRow from "@/components/ui/SwipeRow";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useAuth } from "@/context/auth";
@@ -27,7 +27,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
-import { extractTextFromImage, isSupported as ocrIsSupported } from "expo-text-extractor";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -614,6 +613,8 @@ export default function TabOneScreen() {
 
   // Guide #4
   const [guideCocktailsVisible, setGuideCocktailsVisible] = useState(false);
+  const [gpStep3Visible, setGpStep3Visible] = useState(false);
+  const [gpStep4Visible, setGpStep4Visible] = useState(false);
   const { session } = useAuth();
   const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem } = useInventory();
 
@@ -665,7 +666,19 @@ export default function TabOneScreen() {
     isGuideDismissed(GUIDE_KEYS.COCKTAILS).then((dismissed) => {
       setGuideCocktailsVisible(!dismissed);
     });
+    isGoldenPathStepReady(3).then((ready) => {
+      if (ready) setGpStep3Visible(true);
+    });
   }, []);
+
+  // GP step 4: check when entering review phase
+  useEffect(() => {
+    if (scanPhase === "review") {
+      isGoldenPathStepReady(4).then((ready) => {
+        if (ready) setGpStep4Visible(true);
+      });
+    }
+  }, [scanPhase]);
 
   // Auto-analyze when image is ready
   useEffect(() => {
@@ -708,7 +721,7 @@ export default function TabOneScreen() {
       (async () => {
         if (session) {
           for (const ing of multiScanResults) {
-            if (isAlcoholicIngredient(ing.canonical) === false) continue;
+            if (isAlcoholicIngredient(ing.canonical) !== true) continue;
             if (isInInventory(ing.canonical)) continue;
             try {
               await addInventoryItem({
@@ -738,7 +751,7 @@ export default function TabOneScreen() {
             setScanMode("inventory");
             if (session) {
               for (const ing of multiScanResults) {
-                if (isAlcoholicIngredient(ing.canonical) === false) continue;
+                if (isAlcoholicIngredient(ing.canonical) !== true) continue;
                 if (isInInventory(ing.canonical)) continue;
                 try {
                   await addInventoryItem({
@@ -830,9 +843,14 @@ export default function TabOneScreen() {
         },
         {
           text: "Done",
-          onPress: () => {
+          onPress: async () => {
             if (searchParams.intent === "addToBar") {
-              router.back();
+              const gpPending = await isGoldenPathStepReady(4);
+              if (gpPending) {
+                setScanPhase("review");
+              } else {
+                router.back();
+              }
             } else {
               setScanPhase("review");
             }
@@ -1484,57 +1502,11 @@ export default function TabOneScreen() {
     setHasRecommendedLocal(false);
 
     try {
-      // ── OCR-first path: on-device text extraction → /analyze-text ────────────
-      let ocrUsed = false;
       let data: AnalyzeImageResponse = {} as AnalyzeImageResponse;
       let lastPreUri = imageUri;
 
-      if (ocrIsSupported && imageUri) {
-        try {
-          console.log("[scan] attempting on-device OCR...");
-          const ocrStart = Date.now();
-          const ocrBlocks = await extractTextFromImage(imageUri);
-          const ocrText = ocrBlocks.join("\n").trim();
-          const ocrMs = Date.now() - ocrStart;
-          console.log(`[scan] OCR completed in ${ocrMs}ms, ${ocrBlocks.length} blocks, ${ocrText.length} chars`);
-
-          if (ocrText.length >= 20) {
-            console.log("[scan] OCR text sufficient, using /analyze-text");
-            const textResp = await apiFetch("/analyze-text", {
-              session,
-              method: "POST",
-              body: {
-                ocr_text: ocrText,
-                return_raw: true,
-                return_detected_items: true,
-                return_display: true,
-              },
-            });
-            setLastHttpStatus(textResp.status);
-            if (textResp.ok) {
-              const textData = await textResp.json();
-              setLastAnalyzeResponseJson(textData);
-              textData.detected_items = (textData.detected_items || []).filter((d: any) => d.canonical && d.canonical.trim() !== "");
-              if (textData.detected_items && textData.detected_items.length > 0) {
-                ocrUsed = true;
-                data = textData as AnalyzeImageResponse;
-                console.log(`[scan] OCR path success: ${textData.detected_items.length} items detected`);
-              } else {
-                console.log("[scan] OCR path returned empty results, falling back to vision");
-              }
-            } else {
-              console.log(`[scan] /analyze-text returned ${textResp.status}, falling back to vision`);
-            }
-          } else {
-            console.log(`[scan] OCR text too short (${ocrText.length} chars), falling back to vision`);
-          }
-        } catch (ocrErr: any) {
-          console.warn("[scan] OCR failed, falling back to vision:", ocrErr?.message);
-        }
-      }
-
-      // ── Vision fallback: original /analyze-image path ─────────────────────────
-      if (!ocrUsed) {
+      // ── Vision path: /analyze-image ─────────────────────────────────────────
+      {
         const SIZE_CASCADE = [650_000, 350_000, 170_000, 120_000];
         let resp: Response | null = null;
 
@@ -1738,6 +1710,8 @@ export default function TabOneScreen() {
   const handleScanBottles = () => {
     dismissGuide(GUIDE_KEYS.SCAN);
     setGuideScanVisible(false);
+    dismissGuide(GUIDE_KEYS.GP_STEP_3);
+    setGpStep3Visible(false);
 
     // resetScan() is deferred to when the user actually commits to a new scan.
     // This way pressing Cancel leaves the previous session intact so the user
@@ -1934,11 +1908,12 @@ export default function TabOneScreen() {
 
       {!searchParams.photoUri && !searchParams.photoUris ? (
       <View style={{ position: "relative" }}>
-        <GuideBubble
-          storageKey={GUIDE_KEYS.SCAN}
-          text={isZh ? "點這裡開始！" : "Tap here to start!"}
-          visible={guideScanVisible}
-          onDismiss={() => setGuideScanVisible(false)}
+        <HintBubble
+          storageKey={GUIDE_KEYS.GP_STEP_3}
+          visible={gpStep3Visible}
+          onDismiss={() => setGpStep3Visible(false)}
+          hintType="tap"
+          hintColor="charcoal"
         />
         <Pressable
           onPress={handleScanBottles}
@@ -2138,8 +2113,7 @@ export default function TabOneScreen() {
                         {session ? (
                           (() => {
                             const alcoholic = isAlcoholicIngredient(ing.canonical);
-                            log(`[bar-filter] canonical="${ing.canonical}" alcoholic=${alcoholic}`);
-                            if (alcoholic === false) return null;
+                            if (alcoholic !== true) return null;
                             if (!isInInventory(ing.canonical)) return null;
 
                             // BYPASSED: auto-add replaces manual add-to-bar flow
@@ -2323,16 +2297,19 @@ export default function TabOneScreen() {
         borderTopWidth: 0.5, borderTopColor: OaklandDusk.bg.border,
       }}>
         <View style={{ position: "relative" }}>
-          <GuideBubble
-            storageKey={GUIDE_KEYS.COCKTAILS}
-            text={isZh ? "看你的雞尾酒！" : "See your cocktails!"}
-            visible={guideCocktailsVisible && activeIngredients.length > 0}
-            onDismiss={() => setGuideCocktailsVisible(false)}
+          <HintBubble
+            storageKey={GUIDE_KEYS.GP_STEP_4}
+            visible={gpStep4Visible && activeIngredients.length > 0}
+            onDismiss={() => setGpStep4Visible(false)}
+            hintType="tap"
+            hintColor="charcoal"
           />
           <Pressable
             onPress={() => {
               dismissGuide(GUIDE_KEYS.COCKTAILS);
               setGuideCocktailsVisible(false);
+              dismissGuide(GUIDE_KEYS.GP_STEP_4);
+              setGpStep4Visible(false);
               setShowStaplesModal(true);
             }}
             style={{ backgroundColor: OaklandDusk.brand.gold, paddingVertical: 14, borderRadius: 12, alignItems: "center" }}
@@ -2463,11 +2440,12 @@ export default function TabOneScreen() {
           </ScrollView>
           <View style={{ gap: 8, marginTop: 14 }}>
             <View style={{ position: "relative" }}>
-              <GuideBubble
+              <HintBubble
                 storageKey={GUIDE_KEYS.ADD_BAR}
-                text={isZh ? "儲存你的瓶子！" : "Save your bottles!"}
                 visible={guideAddBarVisible}
                 onDismiss={() => setGuideAddBarVisible(false)}
+                hintType="tap"
+                hintColor="charcoal"
               />
               <Pressable onPress={handleAddAllToBar} style={{
                 backgroundColor: OaklandDusk.brand.gold,
