@@ -1,4 +1,5 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import HintBubble, { GUIDE_KEYS, TapPulse, dismissGuide, isGoldenPathStepReady, isGuideDismissed } from "@/components/GuideBubble";
 import { useNavigation } from "@react-navigation/native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -377,10 +378,39 @@ export default function TabTwoScreen() {
   const [madeDrinkState, setMadeDrinkState] = useState<MadeDrinkState>('idle');
   const [madeDrinkLoading, setMadeDrinkLoading] = useState(false);
   const [servings, setServings] = useState(1);
+  const [gpStep6Visible, setGpStep6Visible] = useState(false);
+  const [shareHintVisible, setShareHintVisible] = useState(false);
+  const [favHintVisible, setFavHintVisible] = useState(false);
   const madeDrinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Stage 4: Track whether user took any positive action during this visit
   const hadPositiveActionRef = useRef(false);
+
+  // Recipe hints — sequential chain: I made this → Share → Favorites
+  // On mount, only show the first hint in the chain that hasn't been dismissed yet.
+  useEffect(() => {
+    (async () => {
+      // Step 1: "I made this" (GP_STEP_6)
+      const gpReady = await isGoldenPathStepReady(6);
+      if (gpReady) {
+        setGpStep6Visible(true);
+        return; // Show only this one, wait for dismiss
+      }
+
+      // Step 2: Share — only if GP_STEP_6 already dismissed
+      const shareDismissed = await isGuideDismissed(GUIDE_KEYS.RECIPE_SHARE);
+      if (!shareDismissed) {
+        setShareHintVisible(true);
+        return; // Show only this one
+      }
+
+      // Step 3: Favorites — only if Share already dismissed
+      const favDismissed = await isGuideDismissed(GUIDE_KEYS.RECIPE_FAV);
+      if (!favDismissed) {
+        setFavHintVisible(true);
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -853,6 +883,14 @@ export default function TabTwoScreen() {
 
   // Stage 9: 確認製作，扣除 My Bar 庫存
   const handleMadeDrink = async () => {
+    if (gpStep6Visible) {
+      dismissGuide(GUIDE_KEYS.GP_STEP_6);
+      setGpStep6Visible(false);
+      // Chain: show share hint next
+      isGuideDismissed(GUIDE_KEYS.RECIPE_SHARE).then((d) => {
+        if (!d) setShareHintVisible(true);
+      });
+    }
     if (!session?.access_token) {
       Alert.alert('Sign in required', 'Please sign in to track your usage.')
       return
@@ -948,12 +986,11 @@ export default function TabTwoScreen() {
                   });
                 } catch {}
                 setMadeDrinkState('done');
-                // 3 秒後完全隱藏按鈕
                 if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);
                 madeDrinkTimerRef.current = setTimeout(() => {
                   setMadeDrinkState('hidden');
                   madeDrinkTimerRef.current = null;
-                }, 3000);
+                }, 1500);
               } catch (e: any) {
                 Alert.alert('Error', e?.message ?? 'Failed to update inventory')
               } finally {
@@ -1164,14 +1201,52 @@ export default function TabTwoScreen() {
           </Text>
 
           {dbRecipe && (
-            <Pressable onPress={handleSharePress} hitSlop={14} accessibilityLabel="Share recipe" accessibilityRole="button" style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-              <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
-            </Pressable>
+            <View style={{ position: "relative" }}>
+              <HintBubble
+                storageKey={GUIDE_KEYS.RECIPE_SHARE}
+                visible={shareHintVisible}
+                onDismiss={() => {
+                  setShareHintVisible(false);
+                  // Chain: show favorites hint next
+                  isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
+                    if (!d) setFavHintVisible(true);
+                  });
+                }}
+                hintType="tap"
+                hintColor="skyblue"
+              />
+              <Pressable onPress={() => {
+                if (shareHintVisible) {
+                  dismissGuide(GUIDE_KEYS.RECIPE_SHARE);
+                  setShareHintVisible(false);
+                  // Chain: show favorites hint next
+                  isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
+                    if (!d) setFavHintVisible(true);
+                  });
+                }
+                handleSharePress();
+              }} hitSlop={14} accessibilityLabel="Share recipe" accessibilityRole="button" style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+                <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
+              </Pressable>
+            </View>
           )}
 
-          <Pressable onPress={onToggleFavorite} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-            <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />
-          </Pressable>
+          <View style={{ position: "relative" }}>
+            {favHintVisible && !isFav && (
+              <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
+                <TapPulse color="skyblue" />
+              </View>
+            )}
+            <Pressable onPress={() => {
+              if (favHintVisible) {
+                setFavHintVisible(false);
+                dismissGuide(GUIDE_KEYS.RECIPE_FAV);
+              }
+              onToggleFavorite();
+            }} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
+              <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />
+            </Pressable>
+          </View>
         </View>
 
         {tasteTags.length > 0 ? (
@@ -1317,28 +1392,43 @@ export default function TabTwoScreen() {
 
         {/* Primary CTA: Make this cocktail */}
         {session && dbRecipe && madeDrinkState !== 'hidden' ? (
-          <Pressable
-            onPress={handleMadeDrink}
-            disabled={madeDrinkLoading || madeDrinkState === 'done'}
-            style={{
-              borderRadius: 12,
-              paddingVertical: 16,
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: madeDrinkState === 'done' ? '#6F8F7C' : '#D4A030',
-              flexDirection: 'row',
-              gap: 8,
-              marginTop: 8,
-              opacity: madeDrinkLoading ? 0.7 : 1,
-            }}
-          >
-            {madeDrinkLoading
-              ? <ActivityIndicator size="small" color={madeDrinkState === 'done' ? '#FFF' : '#1A1A2E'} />
-              : null}
-            <Text style={{ fontWeight: '900', color: madeDrinkState === 'done' ? '#FFF' : '#1A1A2E', fontSize: 18 }}>
-              {madeDrinkState === 'done' ? 'Logged!' : 'I made this'}
-            </Text>
-          </Pressable>
+          <View style={{ position: "relative" }}>
+            <HintBubble
+              storageKey={GUIDE_KEYS.GP_STEP_6}
+              visible={gpStep6Visible && madeDrinkState === 'idle'}
+              onDismiss={() => {
+                setGpStep6Visible(false);
+                // Chain: show share hint next
+                isGuideDismissed(GUIDE_KEYS.RECIPE_SHARE).then((d) => {
+                  if (!d) setShareHintVisible(true);
+                });
+              }}
+              hintType="tap"
+              hintColor="charcoal"
+            />
+            <Pressable
+              onPress={handleMadeDrink}
+              disabled={madeDrinkLoading || madeDrinkState === 'done'}
+              style={{
+                borderRadius: 12,
+                paddingVertical: 16,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: madeDrinkState === 'done' ? '#6F8F7C' : '#D4A030',
+                flexDirection: 'row',
+                gap: 8,
+                marginTop: 8,
+                opacity: madeDrinkLoading ? 0.7 : 1,
+              }}
+            >
+              {madeDrinkLoading
+                ? <ActivityIndicator size="small" color={madeDrinkState === 'done' ? '#FFF' : '#1A1A2E'} />
+                : null}
+              <Text style={{ fontWeight: '900', color: madeDrinkState === 'done' ? '#FFF' : '#1A1A2E', fontSize: 18 }}>
+                {madeDrinkState === 'done' ? 'Logged!' : 'I made this'}
+              </Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {error ? (
