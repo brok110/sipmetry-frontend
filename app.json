@@ -54,7 +54,8 @@
           "project": "react-native",
           "organization": "sipmetry"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true

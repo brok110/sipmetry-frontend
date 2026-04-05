@@ -2,7 +2,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
-import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
+import { GUIDE_KEYS, TapPulse, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
 
 import { apiFetch } from "@/lib/api";
 
@@ -55,10 +55,16 @@ export default function ProfileScreen() {
   const [deleting, setDeleting] = useState(false);
 
   // Guide bubble state (Stage 7)
-  const [guideProfilePrefsVisible, setGuideProfilePrefsVisible] = useState(false);
+  const [guidePrefsRowVisible, setGuidePrefsRowVisible] = useState(false);
+  const [guideFavsRowVisible, setGuideFavsRowVisible] = useState(false);
 
   useEffect(() => {
-    isGuideDismissed(GUIDE_KEYS.PROFILE_PREFS).then((d) => setGuideProfilePrefsVisible(!d));
+    isGuideDismissed(GUIDE_KEYS.PROFILE_PREFS_ROW).then((d) => {
+      if (!d) setGuidePrefsRowVisible(true);
+    });
+    isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
+      if (!d) setGuideFavsRowVisible(true);
+    });
   }, []);
 
   const handleDeleteAccount = useCallback(() => {
@@ -149,27 +155,41 @@ export default function ProfileScreen() {
       {/* Menu items */}
       <View style={{ gap: 8 }}>
         <View style={{ position: "relative" }}>
-          <GuideBubble
-            storageKey={GUIDE_KEYS.PROFILE_PREFS}
-            text="Set your taste here!"
-            visible={guideProfilePrefsVisible}
-            onDismiss={() => setGuideProfilePrefsVisible(false)}
-          />
+          {guidePrefsRowVisible && (
+            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
+              <TapPulse color="skyblue" />
+            </View>
+          )}
           <ProfileRow
             icon="sliders"
             label="Preferences"
             onPress={() => {
-              dismissGuide(GUIDE_KEYS.PROFILE_PREFS);
-              setGuideProfilePrefsVisible(false);
+              if (guidePrefsRowVisible) {
+                setGuidePrefsRowVisible(false);
+                dismissGuide(GUIDE_KEYS.PROFILE_PREFS_ROW);
+              }
               router.push("/profile/preferences");
             }}
           />
         </View>
-        <ProfileRow
-          icon="heart"
-          label="Favorites"
-          onPress={() => router.push("/profile/favorites")}
-        />
+        <View style={{ position: "relative" }}>
+          {guideFavsRowVisible && (
+            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
+              <TapPulse color="skyblue" />
+            </View>
+          )}
+          <ProfileRow
+            icon="heart"
+            label="Favorites"
+            onPress={() => {
+              if (guideFavsRowVisible) {
+                setGuideFavsRowVisible(false);
+                dismissGuide(GUIDE_KEYS.PROFILE_FAVS_ROW);
+              }
+              router.push("/profile/favorites");
+            }}
+          />
+        </View>
         <ProfileRow
           icon="flask"
           label="Taste DNA"

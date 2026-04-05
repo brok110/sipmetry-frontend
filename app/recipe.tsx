@@ -9,6 +9,7 @@ import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/context/auth";
 import { apiFetch } from "@/lib/api";
+import { SoundService } from "@/lib/sounds";
 
 import * as Clipboard from "expo-clipboard";
 
@@ -986,6 +987,7 @@ export default function TabTwoScreen() {
                   });
                 } catch {}
                 setMadeDrinkState('done');
+                SoundService.play('cheers');
                 if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);
                 madeDrinkTimerRef.current = setTimeout(() => {
                   setMadeDrinkState('hidden');

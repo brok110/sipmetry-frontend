@@ -3,7 +3,7 @@ import Slider from "@react-native-community/slider";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
-import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";
 
 import { apiFetch } from "@/lib/api";
@@ -369,11 +369,12 @@ export default function TabZeroPreferencesScreen() {
 
         {/* Flavor card */}
         <View style={{ position: "relative" }}>
-          <GuideBubble
+          <HintBubble
             storageKey={GUIDE_KEYS.PREFS_STYLE}
-            text="Pick your style!"
             visible={guidePrefsStyleVisible}
             onDismiss={() => setGuidePrefsStyleVisible(false)}
+            hintType="tap"
+            hintColor="skyblue"
           />
           <View
             style={{

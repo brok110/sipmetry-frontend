@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady } from "@/components/GuideBubble";
 import { Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -78,6 +79,13 @@ export default function RecommendationsScreen() {
 
   // Restock picks — top 2 primary suggestions, shown in sticky footer (inventory mode only)
   const [restockPicks, setRestockPicks] = useState<any[]>([]);
+  const [gpStep5Visible, setGpStep5Visible] = useState(false);
+
+  useEffect(() => {
+    isGoldenPathStepReady(5).then((ready) => {
+      if (ready) setGpStep5Visible(true);
+    });
+  }, []);
 
   useEffect(() => {
     if (!isInventoryMode || !session) return;
@@ -156,6 +164,11 @@ export default function RecommendationsScreen() {
   };
 
   const openRecipe = (r: RecipeItem, idx: number) => {
+    // Dismiss GP step 5 if showing
+    if (gpStep5Visible) {
+      dismissGuide(GUIDE_KEYS.GP_STEP_5);
+      setGpStep5Visible(false);
+    }
     const code = String(r?.iba_code ?? "").trim();
     const name = String(r?.name ?? "Recipe").trim() || "Recipe";
     const recipeHash = String(r?.recipe_hash ?? "").trim();
@@ -399,7 +412,18 @@ export default function RecommendationsScreen() {
           <>
             <SectionHeader title="Ready to make" count={ready.length} />
             {ready.map((r, i) => (
-              <RecipeCard key={`ready-${i}`} r={r} idx={i} isFirstCard={false} />
+              <View key={`ready-${i}`} style={i === 0 ? { position: "relative" } : undefined}>
+                {i === 0 && (
+                  <HintBubble
+                    storageKey={GUIDE_KEYS.GP_STEP_5}
+                    visible={gpStep5Visible}
+                    onDismiss={() => setGpStep5Visible(false)}
+                    hintType="tap"
+                    hintColor="skyblue"
+                  />
+                )}
+                <RecipeCard r={r} idx={i} isFirstCard={false} />
+              </View>
             ))}
 
             {/* Inventory mode: no ready cocktails empty state */}

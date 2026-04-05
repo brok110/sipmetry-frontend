@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady } from "@/components/GuideBubble";
 import StaplesModal, { DEFAULT_STAPLES, STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CocktailThumbnail from "@/components/CocktailThumbnail";
@@ -228,6 +229,7 @@ export default function BartenderScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [showStaples, setShowStaples] = useState(false);
+  const [gpStep1Visible, setGpStep1Visible] = useState(false);
   const [confirmedStaples, setConfirmedStaples] = useState<string[]>([]);
 
   useEffect(() => {
@@ -524,7 +526,14 @@ export default function BartenderScreen() {
         style={{ flex: 1 }}
         initialPage={0}
         onPageSelected={(e) => {
-          setActiveIndex(e.nativeEvent.position);
+          const pos = e.nativeEvent.position;
+          setActiveIndex(pos);
+          if (pos === PAGE_COUNT - 1) {
+            // Reached Avoid page — check if GP step 1 should show
+            isGoldenPathStepReady(1).then((ready) => {
+              if (ready) setGpStep1Visible(true);
+            });
+          }
         }}
       >
         {/* Page 0: Welcome */}
@@ -675,9 +684,22 @@ export default function BartenderScreen() {
         </Text>
       )}
 
-      <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 }}>
+      <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12, position: "relative" }}>
+        <HintBubble
+          storageKey={GUIDE_KEYS.GP_STEP_1}
+          visible={gpStep1Visible}
+          onDismiss={() => setGpStep1Visible(false)}
+          hintType="tap"
+          hintColor="charcoal"
+        />
         <Pressable
-          onPress={() => setShowBottomSheet(true)}
+          onPress={() => {
+            if (gpStep1Visible) {
+              dismissGuide(GUIDE_KEYS.GP_STEP_1);
+              setGpStep1Visible(false);
+            }
+            setShowBottomSheet(true);
+          }}
           disabled={loading}
           style={{
             backgroundColor: OaklandDusk.brand.gold,
@@ -788,6 +810,8 @@ export default function BartenderScreen() {
               <View style={{ gap: 12 }}>
                 <Pressable
                   onPress={() => {
+                    // Auto-dismiss GP step 2 so step 3 can unlock on Scan page
+                    dismissGuide(GUIDE_KEYS.GP_STEP_2);
                     setShowBottomSheet(false);
                     router.push("/scan?intent=addToBar");
                   }}

@@ -14,7 +14,7 @@ import {
 import * as Sentry from "@sentry/react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/context/auth";
-import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
@@ -92,9 +92,11 @@ export default function CartScreen() {
 
   // Guide bubble state
   const [guideCartVisible, setGuideCartVisible] = useState(false);
+  const [guideRestockFindVisible, setGuideRestockFindVisible] = useState(false);
 
   useEffect(() => {
     isGuideDismissed(GUIDE_KEYS.CART).then((d) => setGuideCartVisible(!d));
+    isGuideDismissed(GUIDE_KEYS.RESTOCK_FIND).then((d) => setGuideRestockFindVisible(!d));
   }, []);
 
   // Auto-fetch when navigated from Recommendations with autoFetch=true
@@ -224,12 +226,12 @@ export default function CartScreen() {
       {/* Load button (first time) — guide #8 */}
       {!hasFetched && !loading && (
         <View style={{ position: "relative", zIndex: 20, overflow: "visible" }}>
-          <GuideBubble
+          <HintBubble
             storageKey={GUIDE_KEYS.CART}
-            text="Tap to see suggestions!"
             visible={guideCartVisible}
             onDismiss={() => setGuideCartVisible(false)}
-            position="below"
+            hintType="tap"
+            hintColor="charcoal"
           />
           <Pressable
             onPress={() => {
@@ -452,8 +454,25 @@ export default function CartScreen() {
               )}
 
               {/* Row 5: Buy CTA */}
+              {i === 0 && (
+                <View style={{ position: "relative" }}>
+                  <HintBubble
+                    storageKey={GUIDE_KEYS.RESTOCK_FIND}
+                    visible={guideRestockFindVisible}
+                    onDismiss={() => setGuideRestockFindVisible(false)}
+                    hintType="tap"
+                    hintColor="charcoal"
+                  />
+                </View>
+              )}
               <Pressable
-                onPress={() => handleBuy(s)}
+                onPress={() => {
+                  if (i === 0 && guideRestockFindVisible) {
+                    dismissGuide(GUIDE_KEYS.RESTOCK_FIND);
+                    setGuideRestockFindVisible(false);
+                  }
+                  handleBuy(s);
+                }}
                 style={{
                   flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
                   backgroundColor: isTop ? OaklandDusk.brand.gold : "transparent",

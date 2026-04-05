@@ -19,6 +19,7 @@ import { InventoryProvider } from '@/context/inventory';
 import { LearnedPreferencesProvider } from '@/context/learnedPreferences';
 import { LowStockAlertProvider } from '@/context/lowStockAlert';
 import { PreferencesProvider } from '@/context/preferences';
+import { SoundService } from '@/lib/sounds';
 import * as Sentry from '@sentry/react-native';
 
 Sentry.init({
@@ -105,6 +106,11 @@ function RootLayoutNav() {
 
   const [ageVerified, setAgeVerified] = useState<boolean | null>(null);
   _setAgeVerified = setAgeVerified;
+
+  useEffect(() => {
+    SoundService.preload();
+    return () => { SoundService.unloadAll(); };
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;

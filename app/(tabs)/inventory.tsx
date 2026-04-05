@@ -2,7 +2,7 @@ import { apiFetch } from '@/lib/api'
 import * as ImagePicker from 'expo-image-picker'
 import OaklandDusk from '@/constants/OaklandDusk'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
-import GuideBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
 import SwipeRow from '@/components/ui/SwipeRow'
 import { useAuth } from '@/context/auth'
@@ -425,13 +425,12 @@ function EditBottleModal({
             Remaining — {previewMl}ml ({pct}%)
           </Text>
           <View style={{ position: "relative" }}>
-            <GuideBubble
+            <HintBubble
               storageKey={GUIDE_KEYS.EDIT_BOTTLE}
-              text="Drag to set remaining level!"
               visible={guideEditBottleVisible}
               onDismiss={() => setGuideEditBottleVisible(false)}
-              position="above"
-              align="center"
+              hintType="swipe"
+              hintColor="skyblue"
             />
             <HorizontalPctSlider
               value={pct}
@@ -544,13 +543,12 @@ function InventoryCardWithGuide({
   return (
     <View style={{ position: "relative" }}>
       {isFirstCard && !guideSwipeDismissed && (
-        <GuideBubble
+        <HintBubble
           storageKey={GUIDE_KEYS.MYBAR_SWIPE}
-          text="Swipe left to edit or remove!"
           visible={!guideSwipeDismissed}
           onDismiss={onSwipeOpen}
-          align="right"
-          position="below"
+          hintType="swipe"
+          hintColor="skyblue"
         />
       )}
       <InventoryCard
@@ -930,11 +928,12 @@ export default function MyBarScreen() {
             Scan your bottles to start building your bar.
           </Text>
           <View style={{ position: 'relative', width: '100%', marginTop: 12 }}>
-            <GuideBubble
+            <HintBubble
               storageKey={GUIDE_KEYS.MYBAR_EMPTY}
-              text="Scan your bottles to get started!"
               visible={guideMyBarEmptyVisible}
               onDismiss={() => setGuideMyBarEmptyVisible(false)}
+              hintType="tap"
+              hintColor="skyblue"
             />
             <Pressable
               onPress={() => {
@@ -1044,11 +1043,12 @@ export default function MyBarScreen() {
         borderTopColor: OaklandDusk.bg.border,
       }}>
         <View style={{ position: 'relative' }}>
-          <GuideBubble
+          <HintBubble
             storageKey={GUIDE_KEYS.MYBAR_CTA}
-            text="See what you can make!"
             visible={guideMyBarCtaVisible}
             onDismiss={() => setGuideMyBarCtaVisible(false)}
+            hintType="tap"
+            hintColor="charcoal"
           />
           <Pressable
             onPress={() => {

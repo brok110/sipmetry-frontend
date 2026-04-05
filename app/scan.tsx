@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
+import { SoundService } from "@/lib/sounds";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
 import StaplesModal, { DEFAULT_STAPLES } from "@/components/StaplesModal";
@@ -641,6 +642,10 @@ export default function TabOneScreen() {
     if (!session) return;
     fetchCategoryMap(session).then(() => setCategoryMapReady(true)).catch(() => setCategoryMapReady(true));
   }, [session]);
+
+  useEffect(() => {
+    return () => { SoundService.stop('scanning'); };
+  }, []);
 
   const SCAN_COUNT_KEY = "sipmetry_scan_count";
   const PHOTO_TIPS_THRESHOLD = 3;
@@ -1489,6 +1494,7 @@ export default function TabOneScreen() {
 
     setLoading(true);
     setStage("identifying ingredients");
+    SoundService.playLoop('scanning');
     setLastHttpStatus(null);
     setLastUploadInfo(null);
     setLastAnalyzeResponseText(null);
@@ -1558,6 +1564,8 @@ export default function TabOneScreen() {
         data = (parsed ?? {}) as AnalyzeImageResponse;
         setImageUri(lastPreUri);
       }
+
+      SoundService.stop('scanning');
 
       const next = buildActiveIngredientsFromAnalyze(data);
       const nextWithCanonicalNormalized = next
@@ -1659,6 +1667,7 @@ export default function TabOneScreen() {
     } catch (e: any) {
       setError(e?.message ?? "Failed to analyze image.");
       setStage("idle");
+      SoundService.stop('scanning');
       // Clear queue on error so stale photos don't carry over
       imageQueueRef.current = [];
     } finally {
