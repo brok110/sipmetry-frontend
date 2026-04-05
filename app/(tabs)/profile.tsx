@@ -9,6 +9,7 @@ import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/auth";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useUnitPreference } from "@/hooks/useUnitPreference";
+import { SoundService } from '@/lib/sounds';
 
 function ProfileRow({
   icon,
@@ -42,6 +43,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const { unit: displayUnit, setUnit: setDisplayUnit } = useUnitPreference();
+  const [soundsEnabled, setSoundsEnabled] = useState(true);
   const userEmail = session?.user?.email;
   const isZh = useMemo(() => {
     try {
@@ -65,6 +67,7 @@ export default function ProfileScreen() {
     isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
       if (!d) setGuideFavsRowVisible(true);
     });
+    setSoundsEnabled(SoundService.isEnabled());
   }, []);
 
   const handleDeleteAccount = useCallback(() => {
@@ -248,6 +251,46 @@ export default function ProfileScreen() {
               }}>ml</Text>
             </Pressable>
           </View>
+        </View>
+
+        {/* Sound Effects toggle */}
+        <View style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 12,
+          paddingHorizontal: 14,
+          borderRadius: 12,
+          backgroundColor: OaklandDusk.bg.card,
+        }}>
+          <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
+            Sound Effects
+          </Text>
+          <Pressable
+            onPress={() => {
+              const next = !soundsEnabled;
+              setSoundsEnabled(next);
+              SoundService.setEnabled(next);
+            }}
+            style={{
+              width: 44,
+              height: 26,
+              borderRadius: 999,
+              padding: 3,
+              backgroundColor: soundsEnabled ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
+              justifyContent: "center",
+            }}
+          >
+            <View
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: 999,
+                backgroundColor: OaklandDusk.text.primary,
+                alignSelf: soundsEnabled ? "flex-end" : "flex-start",
+              }}
+            />
+          </Pressable>
         </View>
 
         <Pressable

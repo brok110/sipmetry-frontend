@@ -1,4 +1,5 @@
-import { Audio } from 'expo-av';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SoundName = 'cheers' | 'scanning';
 
@@ -7,37 +8,47 @@ const SOUND_FILES: Record<SoundName, any> = {
   scanning: require('@/assets/sounds/martini_shake_pour_1s-10s.mp3'),
 };
 
+const SOUNDS_ENABLED_KEY = 'sipmetry:sounds_enabled';
+
 class SoundServiceClass {
-  private sounds: Partial<Record<SoundName, Audio.Sound>> = {};
+  private players: Partial<Record<SoundName, AudioPlayer>> = {};
   private enabled: boolean = true;
+  private fadeTimer: ReturnType<typeof setTimeout> | null = null;
 
   async preload(): Promise<void> {
     try {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
+      await setAudioModeAsync({
+        playsInSilentMode: true,
+        shouldPlayInBackground: false,
       });
     } catch (e) {
       console.warn('[SoundService] Failed to set audio mode:', e);
     }
 
+    // Restore user preference
+    try {
+      const stored = await AsyncStorage.getItem(SOUNDS_ENABLED_KEY);
+      if (stored === 'false') this.enabled = false;
+    } catch {}
+
     for (const [name, file] of Object.entries(SOUND_FILES)) {
       try {
-        const { sound } = await Audio.Sound.createAsync(file);
-        this.sounds[name as SoundName] = sound;
+        const player = createAudioPlayer(file);
+        this.players[name as SoundName] = player;
       } catch (e) {
-        console.warn(`[SoundService] Failed to load ${name}:`, e);
+        console.warn(`[SoundService] Failed to create player ${name}:`, e);
       }
     }
   }
 
   async play(name: SoundName): Promise<void> {
     if (!this.enabled) return;
-    const sound = this.sounds[name];
-    if (!sound) return;
+    const player = this.players[name];
+    if (!player) return;
     try {
-      await sound.setPositionAsync(0);
-      await sound.playAsync();
+      player.volume = 1.0;
+      player.seekTo(0);
+      player.play();
     } catch (e) {
       console.warn(`[SoundService] Failed to play ${name}:`, e);
     }
@@ -45,42 +56,63 @@ class SoundServiceClass {
 
   async playLoop(name: SoundName): Promise<void> {
     if (!this.enabled) return;
-    const sound = this.sounds[name];
-    if (!sound) return;
+    const player = this.players[name];
+    if (!player) return;
     try {
-      await sound.setIsLoopingAsync(true);
-      await sound.setPositionAsync(0);
-      await sound.setVolumeAsync(0);
-      await sound.setRateAsync(0.7, true);
-      await sound.playAsync();
+      player.volume = 0;
+      player.loop = true;
+      player.seekTo(0);
+      player.play();
+
+      // Fade in over 3 seconds (10 steps × 300ms)
       const steps = [0.05, 0.1, 0.18, 0.28, 0.4, 0.52, 0.65, 0.78, 0.9, 1.0];
-      for (const vol of steps) {
-        await new Promise(r => setTimeout(r, 300));
-        await sound.setVolumeAsync(vol).catch(() => {});
-      }
+      let stepIndex = 0;
+      this.clearFadeTimer();
+      const doStep = () => {
+        if (stepIndex >= steps.length) return;
+        try { player.volume = steps[stepIndex]; } catch {}
+        stepIndex++;
+        if (stepIndex < steps.length) {
+          this.fadeTimer = setTimeout(doStep, 300);
+        }
+      };
+      this.fadeTimer = setTimeout(doStep, 300);
     } catch (e) {
       console.warn(`[SoundService] Failed to loop ${name}:`, e);
     }
   }
 
   async stop(name: SoundName): Promise<void> {
-    const sound = this.sounds[name];
-    if (!sound) return;
+    this.clearFadeTimer();
+    const player = this.players[name];
+    if (!player) return;
     try {
-      await sound.stopAsync();
-      await sound.setIsLoopingAsync(false);
+      player.pause();
+      player.loop = false;
+      player.seekTo(0);
     } catch (e) {
       console.warn(`[SoundService] Failed to stop ${name}:`, e);
     }
   }
 
-  setEnabled(value: boolean): void {
+  private clearFadeTimer(): void {
+    if (this.fadeTimer) {
+      clearTimeout(this.fadeTimer);
+      this.fadeTimer = null;
+    }
+  }
+
+  async setEnabled(value: boolean): Promise<void> {
     this.enabled = value;
     if (!value) {
-      for (const sound of Object.values(this.sounds)) {
-        sound?.stopAsync().catch(() => {});
+      this.clearFadeTimer();
+      for (const player of Object.values(this.players)) {
+        try { player?.pause(); } catch {}
       }
     }
+    try {
+      await AsyncStorage.setItem(SOUNDS_ENABLED_KEY, String(value));
+    } catch {}
   }
 
   isEnabled(): boolean {
@@ -88,12 +120,11 @@ class SoundServiceClass {
   }
 
   async unloadAll(): Promise<void> {
-    for (const sound of Object.values(this.sounds)) {
-      try {
-        await sound?.unloadAsync();
-      } catch {}
+    this.clearFadeTimer();
+    for (const player of Object.values(this.players)) {
+      try { player?.release(); } catch {}
     }
-    this.sounds = {};
+    this.players = {};
   }
 }
 
