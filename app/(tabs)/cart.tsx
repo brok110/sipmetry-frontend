@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/context/auth";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { useFavorites } from "@/context/favorites";
+import { useInventory } from "@/context/inventory";
 import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -63,6 +64,7 @@ export default function CartScreen() {
   const { session } = useAuth();
   const { favoritesByKey } = useFavorites();
   const feedback = useFeedback() as any;
+  const { inventory } = useInventory();
   const params = useLocalSearchParams<{ autoFetch?: string }>();
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -399,7 +401,16 @@ export default function CartScreen() {
                             if (ibaCode) {
                               router.push({
                                 pathname: "/recipe",
-                                params: { iba_code: ibaCode, from: "restock" },
+                                params: {
+                                  iba_code: ibaCode,
+                                  from: "restock",
+                                  scan_items_json: encodeURIComponent(JSON.stringify(
+                                    inventory.map(item => ({
+                                      canonical: item.ingredient_key,
+                                      display: item.display_name,
+                                    }))
+                                  )),
+                                },
                               });
                             }
                           }}
