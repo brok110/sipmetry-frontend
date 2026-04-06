@@ -96,6 +96,10 @@ export default function CartScreen() {
   const [guideCartVisible, setGuideCartVisible] = useState(false);
   const [guideRestockFindVisible, setGuideRestockFindVisible] = useState(false);
 
+  // Track which ingredients user has tapped "Notify Me" for (this session)
+  const [notifiedKeys, setNotifiedKeys] = useState<Set<string>>(new Set());
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   useEffect(() => {
     isGuideDismissed(GUIDE_KEYS.CART).then((d) => setGuideCartVisible(!d));
     isGuideDismissed(GUIDE_KEYS.RESTOCK_FIND).then((d) => setGuideRestockFindVisible(!d));
@@ -196,6 +200,54 @@ export default function CartScreen() {
     [session]
   );
 
+  // Notify Me: record waitlist + show toast + open Google Shopping
+  const handleNotifyMe = useCallback(
+    async (suggestion: Suggestion) => {
+      // 1. Record waitlist (fire-and-forget)
+      apiFetch("/purchase-waitlist", {
+        session,
+        method: "POST",
+        body: {
+          ingredient_key: suggestion.ingredient_key,
+          display_name: suggestion.display_name,
+          source: "restock",
+        },
+      }).catch(() => {});
+
+      // 2. Also record affiliate click for backwards compatibility
+      apiFetch("/affiliate/click", {
+        session,
+        method: "POST",
+        body: {
+          ingredient_key: suggestion.ingredient_key,
+          source: "restock",
+          buy_url: suggestion.buy_url,
+        },
+      }).catch(() => {});
+
+      // 3. Mark as notified (for UI feedback)
+      setNotifiedKeys((prev) => new Set(prev).add(suggestion.ingredient_key));
+
+      // 4. Show toast
+      setToastMessage("Got it — we'll let you know when purchasing is available.");
+
+      // 5. Open Google Shopping after short delay
+      setTimeout(async () => {
+        if (suggestion.buy_url) {
+          try {
+            await Linking.openURL(suggestion.buy_url);
+          } catch {
+            // ignore
+          }
+        }
+      }, 1200);
+
+      // 6. Auto-dismiss toast
+      setTimeout(() => setToastMessage(null), 3500);
+    },
+    [session]
+  );
+
   // Not logged in
   if (!session) {
     return (
@@ -210,6 +262,7 @@ export default function CartScreen() {
   }
 
   return (
+    <View style={{ flex: 1, position: "relative" }}>
     <ScrollView
       style={{ backgroundColor: OaklandDusk.bg.void }}
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
@@ -482,21 +535,35 @@ export default function CartScreen() {
                     dismissGuide(GUIDE_KEYS.RESTOCK_FIND);
                     setGuideRestockFindVisible(false);
                   }
-                  handleBuy(s);
+                  handleNotifyMe(s);
                 }}
                 style={{
                   flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                  backgroundColor: isTop ? OaklandDusk.brand.gold : "transparent",
-                  borderWidth: isTop ? 0 : 1, borderColor: OaklandDusk.brand.gold,
+                  backgroundColor: notifiedKeys.has(s.ingredient_key)
+                    ? "transparent"
+                    : isTop ? OaklandDusk.brand.gold : "transparent",
+                  borderWidth: 1,
+                  borderColor: notifiedKeys.has(s.ingredient_key)
+                    ? "rgba(74,222,128,0.3)"
+                    : isTop ? OaklandDusk.brand.gold : OaklandDusk.brand.gold,
                   borderRadius: 10, paddingVertical: 12, marginTop: 2,
+                  opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
                 }}
               >
-                <FontAwesome name="external-link" size={13} color={isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold} />
+                <FontAwesome
+                  name={notifiedKeys.has(s.ingredient_key) ? "check" : "bell-o"}
+                  size={13}
+                  color={notifiedKeys.has(s.ingredient_key)
+                    ? "#4ade80"
+                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
+                />
                 <Text style={{
                   fontSize: 14, fontWeight: "700",
-                  color: isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
+                  color: notifiedKeys.has(s.ingredient_key)
+                    ? "#4ade80"
+                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
                 }}>
-                  Find {s.display_name}
+                  {notifiedKeys.has(s.ingredient_key) ? "You're on the list" : "Notify Me"}
                 </Text>
               </Pressable>
             </View>
@@ -613,18 +680,29 @@ export default function CartScreen() {
 
                     {/* CTA: outline style */}
                     <Pressable
-                      onPress={() => handleBuy(s)}
+                      onPress={() => handleNotifyMe(s)}
                       style={{
+                        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
                         borderWidth: 1,
-                        borderColor: "rgba(200,120,40,0.2)",
+                        borderColor: notifiedKeys.has(s.ingredient_key)
+                          ? "rgba(74,222,128,0.2)"
+                          : "rgba(200,120,40,0.2)",
                         borderRadius: 10,
                         paddingVertical: 11,
-                        alignItems: "center",
                         marginTop: 2,
+                        opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
                       }}
                     >
-                      <Text style={{ fontSize: 14, fontWeight: "700", color: OaklandDusk.brand.gold }}>
-                        Find {s.display_name}
+                      <FontAwesome
+                        name={notifiedKeys.has(s.ingredient_key) ? "check" : "bell-o"}
+                        size={12}
+                        color={notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
+                      />
+                      <Text style={{
+                        fontSize: 14, fontWeight: "700",
+                        color: notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
+                      }}>
+                        {notifiedKeys.has(s.ingredient_key) ? "You're on the list" : "Notify Me"}
                       </Text>
                     </Pressable>
                   </View>
@@ -643,5 +721,24 @@ export default function CartScreen() {
         </Text>
       )}
     </ScrollView>
+
+      {/* Toast notification */}
+      {toastMessage && (
+        <View style={{
+          position: "absolute", bottom: 40, left: 20, right: 20,
+          backgroundColor: "#0E0B1A",
+          borderWidth: 1, borderColor: "rgba(74,222,128,0.3)",
+          borderRadius: 12, paddingVertical: 14, paddingHorizontal: 18,
+          flexDirection: "row", alignItems: "center", gap: 10,
+          shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+        }}>
+          <FontAwesome name="check-circle" size={16} color="#4ade80" />
+          <Text style={{ fontSize: 13, color: "#F2E8D8", flex: 1 }}>
+            {toastMessage}
+          </Text>
+        </View>
+      )}
+    </View>
   );
 }
