@@ -1,6 +1,7 @@
 import { apiFetch } from '@/lib/api'
 import * as ImagePicker from 'expo-image-picker'
 import OaklandDusk from '@/constants/OaklandDusk'
+import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
@@ -287,7 +288,7 @@ function EditBottleModal({
   onSave: (id: string, updates: { display_name: string; total_ml: number; remaining_pct: number }) => Promise<void>
 }) {
   const [name, setName] = useState('')
-  const [totalMl, setTotalMl] = useState(700)
+  const [totalMl, setTotalMl] = useState(DEFAULT_BOTTLE_ML)
   const [pct, setPct] = useState(100)
   const [saving, setSaving] = useState(false)
   const [isCustomSize, setIsCustomSize] = useState(false)
