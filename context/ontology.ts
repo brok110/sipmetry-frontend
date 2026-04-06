@@ -4,7 +4,8 @@ import { log, warn } from "@/lib/logger";
 
 export type IngredientKey = string;
 
-export type FlavorLevel = 0 | 1 | 2 | 3;
+/** 0–5 scale matching backend recipe_flavor_vectors and user_preferences. */
+export type FlavorLevel = number;
 export type MaybeFlavorLevel = FlavorLevel | null;
 
 export type FlavorKey =
@@ -56,6 +57,12 @@ export const EMPTY_FLAVOR_VECTOR: FlavorVector = {
 
 export type PartialFlavorVector = Partial<Record<FlavorKey, FlavorLevel>>;
 
+/**
+ * Local flavor-lookup aliases. NOT canonical key mapping.
+ * Backend smartCanonicalize is the SSoT for canonical keys.
+ * These map user-facing names → INGREDIENT_FLAVOR_MAP lookup keys.
+ * e.g. "lime juice" → "lime" (because INGREDIENT_FLAVOR_MAP has "lime", not "lime_juice")
+ */
 const INGREDIENT_ALIASES: Record<IngredientKey, IngredientKey> = {
   "lime juice": "lime",
   "lemon juice": "lemon",
@@ -76,45 +83,38 @@ const INGREDIENT_ALIASES: Record<IngredientKey, IngredientKey> = {
 };
 
 export const INGREDIENT_FLAVOR_MAP: Record<IngredientKey, PartialFlavorVector> = {
-  gin: { alcoholStrength: 2, aromaIntensity: 2, herbal: 1 },
-  vodka: { alcoholStrength: 2, aromaIntensity: 0, body: 1 },
-  rum: { alcoholStrength: 2, sweetness: 1, fruity: 1, body: 1 },
-  tequila: { alcoholStrength: 2, aromaIntensity: 2, herbal: 1 },
-  whiskey: { alcoholStrength: 3, body: 2, aromaIntensity: 2 },
-  bourbon: { alcoholStrength: 3, sweetness: 1, body: 2, aromaIntensity: 2 },
-  mezcal: { alcoholStrength: 3, smoky: 3, aromaIntensity: 2 },
-  brandy: { alcoholStrength: 2, fruity: 1, body: 2 },
+  gin:    { alcoholStrength: 3, aromaIntensity: 3, herbal: 2 },
+  vodka:  { alcoholStrength: 3, aromaIntensity: 0, body: 1.5 },
+  rum:    { alcoholStrength: 3, sweetness: 1.5, fruity: 1.5, body: 1.5 },
+  tequila:{ alcoholStrength: 3, aromaIntensity: 3, herbal: 1.5 },
+  whiskey:{ alcoholStrength: 4.5, body: 3, aromaIntensity: 3 },
+  bourbon:{ alcoholStrength: 4.5, sweetness: 1.5, body: 3, aromaIntensity: 3 },
+  mezcal: { alcoholStrength: 4.5, smoky: 5, aromaIntensity: 3 },
+  brandy: { alcoholStrength: 3, fruity: 1.5, body: 3 },
 
-  lime: { sourness: 3, aromaIntensity: 1 },
-  lemon: { sourness: 3, aromaIntensity: 1 },
-  orange: { sourness: 1, sweetness: 1, fruity: 2, aromaIntensity: 1 },
-  grapefruit: { sourness: 2, bitterness: 1, fruity: 2, aromaIntensity: 1 },
-  yuzu: { sourness: 3, aromaIntensity: 2, fruity: 2 },
-  umeboshi: { sourness: 3, aromaIntensity: 2, fruity: 1, body: 1 },
+  lime:       { sourness: 5, aromaIntensity: 1.5 },
+  lemon:      { sourness: 5, aromaIntensity: 1.5 },
+  orange:     { sourness: 1.5, sweetness: 1.5, fruity: 3, aromaIntensity: 1.5 },
+  grapefruit: { sourness: 3, bitterness: 1.5, fruity: 3, aromaIntensity: 1.5 },
+  yuzu:       { sourness: 5, aromaIntensity: 3, fruity: 3 },
+  umeboshi:   { sourness: 5, aromaIntensity: 3, fruity: 1.5, body: 1.5 },
 
-  "simple syrup": { sweetness: 3, body: 1 },
-  honey: { sweetness: 3, body: 2, aromaIntensity: 1 },
-  "maple syrup": { sweetness: 3, body: 2 },
+  "simple syrup": { sweetness: 5, body: 1.5 },
+  honey:          { sweetness: 5, body: 3, aromaIntensity: 1.5 },
+  "maple syrup":  { sweetness: 5, body: 3 },
 
-  campari: { bitterness: 3, sweetness: 1, aromaIntensity: 2 },
-  vermouth: { sweetness: 1, bitterness: 1, aromaIntensity: 2, herbal: 1 },
-  "sweet vermouth": { sweetness: 2, bitterness: 1, aromaIntensity: 2, herbal: 1 },
-  "dry vermouth": { sweetness: 0, bitterness: 1, aromaIntensity: 2, herbal: 1 },
+  campari:          { bitterness: 5, sweetness: 1.5, aromaIntensity: 3 },
+  vermouth:         { sweetness: 1.5, bitterness: 1.5, aromaIntensity: 3, herbal: 1.5 },
+  "sweet vermouth": { sweetness: 3, bitterness: 1.5, aromaIntensity: 3, herbal: 1.5 },
+  "dry vermouth":   { sweetness: 0, bitterness: 1.5, aromaIntensity: 3, herbal: 1.5 },
+  "coffee liqueur": { sweetness: 3, bitterness: 1.5, aromaIntensity: 3, body: 1.5, alcoholStrength: 1.5 },
 
-  "coffee liqueur": {
-    sweetness: 2,
-    bitterness: 1,
-    aromaIntensity: 2,
-    body: 1,
-    alcoholStrength: 1,
-  },
+  "soda water":  { fizz: 5, body: 0 },
+  "tonic water": { fizz: 5, bitterness: 1.5, sweetness: 1.5 },
+  "ginger beer": { fizz: 5, spicy: 3, sweetness: 3 },
 
-  "soda water": { fizz: 3, body: 0 },
-  "tonic water": { fizz: 3, bitterness: 1, sweetness: 1 },
-  "ginger beer": { fizz: 3, spicy: 2, sweetness: 2 },
-
-  mint: { herbal: 3, aromaIntensity: 3 },
-  basil: { herbal: 3, aromaIntensity: 2 },
+  mint:  { herbal: 5, aromaIntensity: 5 },
+  basil: { herbal: 5, aromaIntensity: 3 },
 };
 
 function stripEdgeNoise(s: string): string {
@@ -169,7 +169,7 @@ export function aggregateIngredientVectors(
 
       const prev = result[k];
       if (prev === null) result[k] = v;
-      else result[k] = Math.max(prev, v) as FlavorLevel;
+      else result[k] = Math.max(prev, v);
     });
   }
 
@@ -195,77 +195,14 @@ export function getUnknownIngredients(
 
 export type PreferencePreset = "Balanced" | "Boozy" | "Citrus" | "Herbal" | "Sweet";
 
+/** @deprecated Prefer backend PREF_STYLE_PRESETS_JSON for scoring.
+ *  These are only used for local compareFlavorVectors display. */
 export const PRESET_VECTORS: Record<PreferencePreset, StrictFlavorVector> = {
-  Balanced: {
-    sweetness: 1,
-    sourness: 1,
-    bitterness: 1,
-    alcoholStrength: 1,
-    aromaIntensity: 1,
-    herbal: 1,
-    fruity: 1,
-    smoky: 0,
-    body: 1,
-    fizz: 0,
-    floral: 0,
-    spicy: 0,
-  },
-  Boozy: {
-    sweetness: 0,
-    sourness: 0,
-    bitterness: 1,
-    alcoholStrength: 3,
-    aromaIntensity: 1,
-    herbal: 0,
-    fruity: 0,
-    smoky: 0,
-    body: 2,
-    fizz: 0,
-    floral: 0,
-    spicy: 0,
-  },
-  Citrus: {
-    sweetness: 0,
-    sourness: 3,
-    bitterness: 0,
-    alcoholStrength: 1,
-    aromaIntensity: 2,
-    herbal: 0,
-    fruity: 2,
-    smoky: 0,
-    body: 0,
-    fizz: 0,
-    floral: 0,
-    spicy: 0,
-  },
-  Herbal: {
-    sweetness: 0,
-    sourness: 0,
-    bitterness: 1,
-    alcoholStrength: 1,
-    aromaIntensity: 2,
-    herbal: 3,
-    fruity: 0,
-    smoky: 0,
-    body: 1,
-    fizz: 0,
-    floral: 1,
-    spicy: 0,
-  },
-  Sweet: {
-    sweetness: 3,
-    sourness: 0,
-    bitterness: 0,
-    alcoholStrength: 1,
-    aromaIntensity: 1,
-    herbal: 0,
-    fruity: 1,
-    smoky: 0,
-    body: 2,
-    fizz: 0,
-    floral: 0,
-    spicy: 0,
-  },
+  Balanced: { sweetness:1.5, sourness:1.5, bitterness:1.5, alcoholStrength:1.5, aromaIntensity:1.5, herbal:1.5, fruity:1.5, smoky:0, body:1.5, fizz:0, floral:0, spicy:0 },
+  Boozy:    { sweetness:0, sourness:0, bitterness:1.5, alcoholStrength:5, aromaIntensity:1.5, herbal:0, fruity:0, smoky:0, body:3, fizz:0, floral:0, spicy:0 },
+  Citrus:   { sweetness:0, sourness:5, bitterness:0, alcoholStrength:1.5, aromaIntensity:3, herbal:0, fruity:3, smoky:0, body:0, fizz:0, floral:0, spicy:0 },
+  Herbal:   { sweetness:0, sourness:0, bitterness:1.5, alcoholStrength:1.5, aromaIntensity:3, herbal:5, fruity:0, smoky:0, body:1.5, fizz:0, floral:1.5, spicy:0 },
+  Sweet:    { sweetness:5, sourness:0, bitterness:0, alcoholStrength:1.5, aromaIntensity:1.5, herbal:0, fruity:1.5, smoky:0, body:3, fizz:0, floral:0, spicy:0 },
 };
 
 export type FlavorWeights = Record<FlavorKey, number>;
@@ -278,11 +215,11 @@ export const DEFAULT_FLAVOR_WEIGHTS: FlavorWeights = {
   aromaIntensity: 1.1,
   herbal: 1,
   fruity: 1,
-  smoky: 0.9,
+  smoky: 1,
   body: 1,
-  fizz: 0.9,
-  floral: 0.9,
-  spicy: 0.9,
+  fizz: 1,
+  floral: 1,
+  spicy: 1,
 };
 
 function clamp01(n: number): number {
@@ -513,7 +450,7 @@ function tieBreak(
   const fruity = num(v.fruity) ?? 0;
 
   if ((a === "Rich" && b === "Sparkling") || (a === "Sparkling" && b === "Rich")) {
-    const chosen = body >= 2 || alcohol >= 2 ? "Rich" : "Sparkling";
+    const chosen = body >= 3 || alcohol >= 3 ? "Rich" : "Sparkling";
     return { chosen, tieBroken: true };
   }
 
@@ -526,12 +463,12 @@ function tieBreak(
   }
 
   if ((a === "Clean" && b === "Rich") || (a === "Rich" && b === "Clean")) {
-    const chosen = (fizz >= 1 || sour >= 2) && body <= 1 ? "Clean" : "Rich";
+    const chosen = (fizz >= 2 || sour >= 3) && body <= 2 ? "Clean" : "Rich";
     return { chosen, tieBroken: true };
   }
 
   if ((a === "Clean" && b === "Sparkling") || (a === "Sparkling" && b === "Clean")) {
-    const chosen = fizz >= 2 ? "Sparkling" : "Clean";
+    const chosen = fizz >= 3 ? "Sparkling" : "Clean";
     return { chosen, tieBroken: true };
   }
 
@@ -547,8 +484,8 @@ export function pickStyleWord(
   v: FlavorVector,
   opts?: { minScore?: number; tieThreshold?: number }
 ): PickStyleResult {
-  const minScore = typeof opts?.minScore === "number" ? opts.minScore : 2.0;
-  const tieThreshold = typeof opts?.tieThreshold === "number" ? opts.tieThreshold : 0.4;
+  const minScore = typeof opts?.minScore === "number" ? opts.minScore : 3.3;
+  const tieThreshold = typeof opts?.tieThreshold === "number" ? opts.tieThreshold : 0.7;
 
   const scores = scoreStyles(v);
   const best = pickBestStyle(scores);
@@ -596,26 +533,11 @@ export function pickStyleWord(
 
 const LEVEL_WORDS: Record<
   "alcoholStrength" | "sweetness" | "bitterness",
-  Record<FlavorLevel, string>
+  Record<number, string>
 > = {
-  alcoholStrength: {
-    0: "Soft",
-    1: "Medium",
-    2: "Boozy",
-    3: "Extra Boozy",
-  },
-  sweetness: {
-    0: "Dry",
-    1: "Semi-sweet",
-    2: "Sweet",
-    3: "Very Sweet",
-  },
-  bitterness: {
-    0: "Smooth",
-    1: "Slight Bitter",
-    2: "Bitter",
-    3: "Very Bitter",
-  },
+  alcoholStrength: { 0:"Soft", 1:"Light", 2:"Medium", 3:"Boozy", 4:"Strong", 5:"Extra Boozy" },
+  sweetness:       { 0:"Dry", 1:"Off-dry", 2:"Semi-sweet", 3:"Sweet", 4:"Rich Sweet", 5:"Very Sweet" },
+  bitterness:      { 0:"Smooth", 1:"Hint of Bitter", 2:"Slight Bitter", 3:"Bitter", 4:"Bold Bitter", 5:"Very Bitter" },
 };
 
 export type FourWordDescriptor = {
@@ -652,19 +574,19 @@ export function buildFourWordDescriptor(v: FlavorVector): FourWordDescriptor {
   };
 
   if (typeof a === "number") {
-    const w = LEVEL_WORDS.alcoholStrength[a];
-    out.alcoholStrength = w;
-    words.push(w);
+    const idx = Math.min(5, Math.max(0, Math.round(a)));
+    const w = LEVEL_WORDS.alcoholStrength[idx];
+    if (w) { out.alcoholStrength = w; words.push(w); }
   }
   if (typeof s === "number") {
-    const w = LEVEL_WORDS.sweetness[s];
-    out.sweetness = w;
-    words.push(w);
+    const idx = Math.min(5, Math.max(0, Math.round(s)));
+    const w = LEVEL_WORDS.sweetness[idx];
+    if (w) { out.sweetness = w; words.push(w); }
   }
   if (typeof b === "number") {
-    const w = LEVEL_WORDS.bitterness[b];
-    out.bitterness = w;
-    words.push(w);
+    const idx = Math.min(5, Math.max(0, Math.round(b)));
+    const w = LEVEL_WORDS.bitterness[idx];
+    if (w) { out.bitterness = w; words.push(w); }
   }
 
   out.words = words.slice(0, 4);
