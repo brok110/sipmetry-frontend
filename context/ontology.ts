@@ -371,7 +371,7 @@ export function scoreStyles(v: FlavorVector): Record<StyleKey, number | null> {
   const clean = hasAny(sour, fizz, aroma, body, smoky, bitter)
     ? (sour !== null ? 1.0 * sour : 0) +
       (fizz !== null ? 0.6 * fizz : 0) +
-      (aroma !== null ? 0.3 * aroma : 0) -
+      (aroma !== null ? 0.4 * aroma : 0) -
       (body !== null ? 0.4 * body : 0) -
       (smoky !== null ? 0.8 * smoky : 0) -
       (bitter !== null ? 0.2 * bitter : 0)
@@ -379,7 +379,7 @@ export function scoreStyles(v: FlavorVector): Record<StyleKey, number | null> {
 
   const rich =
     body !== null
-      ? 1.0 * body + (alcohol !== null ? 0.3 * alcohol : 0) + (fizz !== null ? -0.5 * fizz : 0)
+      ? 0.8 * body + (alcohol !== null ? 0.3 * alcohol : 0) + (fizz !== null ? -0.5 * fizz : 0)
       : null;
 
   const bitterForward =
@@ -394,12 +394,12 @@ export function scoreStyles(v: FlavorVector): Record<StyleKey, number | null> {
     sweet !== null
       ? 1.0 * sweet +
         (body !== null ? 0.2 * body : 0) +
-        (fruity !== null ? 0.1 * fruity : 0) +
+        (fruity !== null ? 0.2 * fruity : 0) +
         (bitter !== null ? -0.2 * bitter : 0)
       : null;
 
   const herbalStyle = herbal !== null ? 1.0 * herbal + (aroma !== null ? 0.2 * aroma : 0) : null;
-  const fruityStyle = fruity !== null ? 1.0 * fruity + (aroma !== null ? 0.2 * aroma : 0) : null;
+  const fruityStyle = fruity !== null ? 1.0 * fruity + (aroma !== null ? 0.2 * aroma : 0) + (sweet !== null ? 0.2 * sweet : 0) : null;
   const smokyStyle = smoky !== null ? 1.2 * smoky + (aroma !== null ? 0.1 * aroma : 0) : null;
   const sparkling = fizz !== null ? 1.0 * fizz : null;
 
@@ -484,7 +484,7 @@ export function pickStyleWord(
   v: FlavorVector,
   opts?: { minScore?: number; tieThreshold?: number }
 ): PickStyleResult {
-  const minScore = typeof opts?.minScore === "number" ? opts.minScore : 3.3;
+  const minScore = typeof opts?.minScore === "number" ? opts.minScore : 1.5;
   const tieThreshold = typeof opts?.tieThreshold === "number" ? opts.tieThreshold : 0.7;
 
   const scores = scoreStyles(v);
