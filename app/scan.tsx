@@ -1,6 +1,7 @@
 import { Stack, useLocalSearchParams } from "expo-router";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { apiFetch } from "@/lib/api";
+import { getTasteTags } from "@/lib/tasteTags";
 import { SoundService } from "@/lib/sounds";
 import { log, warn } from "@/lib/logger";
 import AddToInventoryModal from "@/components/AddToInventoryModal";
@@ -8,6 +9,7 @@ import StaplesModal, { DEFAULT_STAPLES } from "@/components/StaplesModal";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, isGoldenPathStepReady } from "@/components/GuideBubble";
 import SwipeRow from "@/components/ui/SwipeRow";
 import OaklandDusk from "@/constants/OaklandDusk";
+import { DEFAULT_BOTTLE_ML } from "@/constants/defaults";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
@@ -135,23 +137,6 @@ type ActiveIngredient = {
   confidence?: "high" | "low";
 };
 
-function getTasteTags(vec: Record<string, any> | null | undefined, max = 4): string[] {
-  if (!vec) return [];
-  const tags: string[] = [];
-  const v = (k: string) => Number(vec[k] ?? 0);
-  if (v("alcoholStrength") >= 2.0) tags.push("Strong");
-  else if (v("alcoholStrength") >= 1.0) tags.push("Medium");
-  else if (v("alcoholStrength") > 0) tags.push("Light");
-  if (v("sweetness") >= 0.5) tags.push("Sweet");
-  if (v("sourness") >= 0.5) tags.push("Sour");
-  if (v("bitterness") >= 0.5) tags.push("Bitter");
-  if (v("fruity") >= 0.5) tags.push("Fruity");
-  if (v("herbal") >= 0.3) tags.push("Herbal");
-  if (v("smoky") >= 0.5) tags.push("Smoky");
-  if (v("fizz") >= 0.5) tags.push("Fizzy");
-  if (v("body") >= 1.0) tags.push("Full-bodied");
-  return tags.slice(0, max);
-}
 
 function dedupeCaseInsensitive(list: string[]) {
   const seen = new Set<string>();
@@ -732,7 +717,7 @@ export default function TabOneScreen() {
               await addInventoryItem({
                 ingredient_key: ing.canonical,
                 display_name: ing.display,
-                total_ml: 750,
+                total_ml: DEFAULT_BOTTLE_ML,
                 remaining_pct: 100,
               });
             } catch {}
@@ -762,7 +747,7 @@ export default function TabOneScreen() {
                   await addInventoryItem({
                     ingredient_key: ing.canonical,
                     display_name: ing.display,
-                    total_ml: 750,
+                    total_ml: DEFAULT_BOTTLE_ML,
                     remaining_pct: 100,
                   });
                 } catch {}
@@ -1626,7 +1611,7 @@ export default function TabOneScreen() {
             await addInventoryItem({
               ingredient_key: ing.canonical,
               display_name: ing.display,
-              total_ml: 750,
+              total_ml: DEFAULT_BOTTLE_ML,
               remaining_pct: 100,
             });
           } catch {}
@@ -2246,7 +2231,7 @@ export default function TabOneScreen() {
                         await addInventoryItem({
                           ingredient_key: ing.canonical,
                           display_name: ing.display,
-                          total_ml: 750,
+                          total_ml: DEFAULT_BOTTLE_ML,
                           remaining_pct: 100,
                         });
                       } catch {}

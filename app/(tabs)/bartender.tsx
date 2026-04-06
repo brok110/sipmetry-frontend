@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api";
+import { getTasteTags } from "@/lib/tasteTags";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady } from "@/components/GuideBubble";
 import StaplesModal, { DEFAULT_STAPLES, STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -54,20 +55,6 @@ type Pick = {
   image_url?: string | null;
 };
 
-function getTasteTags(vec: Record<string, number> | null | undefined, max = 3): string[] {
-  if (!vec) return [];
-  const dimLabels: Record<string, string> = {
-    sweetness: "Sweet", sourness: "Sour", bitterness: "Bitter",
-    alcoholStrength: "Strong", aromaIntensity: "Aromatic", herbal: "Herbal",
-    fruity: "Fruity", smoky: "Smoky", body: "Full-bodied", fizz: "Fizzy",
-  };
-  return Object.entries(dimLabels)
-    .map(([k, label]) => ({ label, val: Number(vec[k] || 0) }))
-    .filter(d => d.val >= 3)
-    .sort((a, b) => b.val - a.val)
-    .slice(0, max)
-    .map(d => d.label);
-}
 
 function Tag({
   label,

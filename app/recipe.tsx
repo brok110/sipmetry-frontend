@@ -9,6 +9,7 @@ import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/context/auth";
 import { apiFetch } from "@/lib/api";
+import { getTasteTags } from "@/lib/tasteTags";
 import { SoundService } from "@/lib/sounds";
 
 import * as Clipboard from "expo-clipboard";
@@ -51,23 +52,6 @@ type DbRecipe = {
   recipe_vec?: Record<string, any> | null;
 };
 
-function getTasteTags(vec: Record<string, any> | null | undefined, max = 4): string[] {
-  if (!vec) return [];
-  const tags: string[] = [];
-  const v = (k: string) => Number(vec[k] ?? 0);
-  if (v("alcoholStrength") >= 2.0) tags.push("Strong");
-  else if (v("alcoholStrength") >= 1.0) tags.push("Medium");
-  else if (v("alcoholStrength") > 0) tags.push("Light");
-  if (v("sweetness") >= 0.5) tags.push("Sweet");
-  if (v("sourness") >= 0.5) tags.push("Sour");
-  if (v("bitterness") >= 0.5) tags.push("Bitter");
-  if (v("fruity") >= 0.5) tags.push("Fruity");
-  if (v("herbal") >= 0.3) tags.push("Herbal");
-  if (v("smoky") >= 0.5) tags.push("Smoky");
-  if (v("fizz") >= 0.5) tags.push("Fizzy");
-  if (v("body") >= 1.0) tags.push("Full-bodied");
-  return tags.slice(0, max);
-}
 
 export default function TabTwoScreen() {
 

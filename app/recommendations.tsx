@@ -8,6 +8,7 @@ import OaklandDusk from "@/constants/OaklandDusk";
 import { normalizeIngredientKey } from "@/context/ontology";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiFetch } from "@/lib/api";
+import { getTasteTags } from "@/lib/tasteTags";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
@@ -44,22 +45,6 @@ function bucketLabel(bucket: Bucket): string {
   return "2 missing";
 }
 
-function getTasteTags(vec: Record<string, any> | null | undefined, max = 3): string[] {
-  if (!vec) return [];
-  const tags: string[] = [];
-  const v = (k: string) => Number(vec[k] ?? 0);
-  if (v("alcoholStrength") >= 2.0) tags.push("Strong");
-  else if (v("alcoholStrength") >= 1.0) tags.push("Medium");
-  else if (v("alcoholStrength") > 0) tags.push("Light");
-  if (v("sweetness") >= 0.5) tags.push("Sweet");
-  if (v("sourness") >= 0.5) tags.push("Sour");
-  if (v("bitterness") >= 0.5) tags.push("Bitter");
-  if (v("fruity") >= 0.5) tags.push("Fruity");
-  if (v("herbal") >= 0.3) tags.push("Herbal");
-  if (v("smoky") >= 0.5) tags.push("Smoky");
-  if (v("fizz") >= 0.5) tags.push("Fizzy");
-  return tags.slice(0, max);
-}
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
