@@ -237,89 +237,9 @@ export default function TabTwoScreen() {
     const k = String(ingredientKey || "").trim().toLowerCase();
     if (!k) return { display: "", substitute: false };
 
+    // Direct match from scan display names
     const direct = scanDisplayByCanonical[k];
     if (direct) return { display: direct, substitute: false };
-
-    // 2) identity fallbacks: scan label uses a different key than the DB ingredient_key
-    //    (e.g. scan sees "tequila_blanco" but user scanned "tequila" and vice versa)
-    //    Note: server-side recommendation already handles family/type matching via
-    //    identityMap; this is UI-only display name resolution for the recipe screen.
-    //    Kept in sync with ingredient_ontology alternatives (Stage 14 Part 5).
-    const identityFallbacks: Record<string, string[]> = {
-      // ── Tequila family ──────────────────────────────────────────────────────
-      tequila_blanco:   ["tequila", "tequila_reposado", "mezcal"],
-      tequila:          ["tequila_blanco", "tequila_reposado"],
-      tequila_reposado: ["tequila_blanco", "tequila", "tequila_anejo"],
-      tequila_anejo:    ["tequila_reposado", "tequila_blanco", "tequila"],
-      mezcal:           ["tequila_blanco"],
-
-      // ── Orange liqueur family ────────────────────────────────────────────────
-      triple_sec:     ["cointreau", "orange_curacao", "grand_marnier", "combier"],
-      cointreau:      ["triple_sec", "orange_curacao", "grand_marnier", "combier"],
-      orange_curacao: ["triple_sec", "cointreau", "grand_marnier", "combier"],
-      grand_marnier:  ["cointreau", "triple_sec", "orange_curacao"],
-      combier:        ["cointreau", "triple_sec", "orange_curacao"],
-      orange_liqueur: ["orange_curacao", "triple_sec", "cointreau", "grand_marnier"],
-
-      // ── Whiskey family ───────────────────────────────────────────────────────
-      bourbon:       ["irish_whiskey", "rye_whiskey"],
-      irish_whiskey: ["bourbon", "rye_whiskey"],
-      rye_whiskey:   ["bourbon"],
-
-      // ── Sparkling wine ───────────────────────────────────────────────────────
-      champagne: ["prosecco"],
-      prosecco:  ["champagne"],
-
-      // ── Herbal liqueur ───────────────────────────────────────────────────────
-      green_chartreuse:  ["yellow_chartreuse"],
-      yellow_chartreuse: ["green_chartreuse"],
-
-      // ── Rum family ───────────────────────────────────────────────────────────
-      gold_rum: ["aged_rum", "dark_rum"],
-      aged_rum: ["gold_rum", "dark_rum"],
-      dark_rum: ["aged_rum", "gold_rum"],
-
-      // ── Citrus ───────────────────────────────────────────────────────────────
-      lemon_juice: ["lime_juice"],
-      lime_juice:  ["lemon_juice"],
-
-      // ── Syrup family ─────────────────────────────────────────────────────────
-      simple_syrup:  ["honey_syrup", "agave_syrup", "demerara_syrup", "rich_syrup"],
-      honey_syrup:   ["simple_syrup", "agave_syrup"],
-      agave_syrup:   ["simple_syrup", "honey_syrup"],
-      demerara_syrup: ["simple_syrup", "rich_syrup"],
-      rich_syrup:    ["simple_syrup", "demerara_syrup"],
-
-      // ── Fruit liqueur ────────────────────────────────────────────────────────
-      apricot_liqueur: ["peach_schnapps"],
-      peach_schnapps:  ["apricot_liqueur"],
-
-      // ── Base spirits (light alternatives) ───────────────────────────────────
-      gin:       ["vodka"],
-      white_rum: ["vodka"],
-
-      // ── Bitters alias ────────────────────────────────────────────────────────
-      peychaud_s_bitters: ["peychaud_bitters"],
-      peychaud_bitters:   ["peychaud_s_bitters"],
-    };
-
-    const alts = identityFallbacks[k] ?? [];
-    for (const alt of alts) {
-      const hit = scanDisplayByCanonical[String(alt || "").trim().toLowerCase()];
-      if (hit) return { display: hit, substitute: true };
-    }
-
-    for (const [scanKey, scanDisplay] of Object.entries(scanDisplayByCanonical)) {
-      const sk = String(scanKey || "").trim().toLowerCase();
-      if (!sk || !scanDisplay) continue;
-
-      if (k === sk) return { display: scanDisplay, substitute: false };
-      if (k.startsWith(sk + "_") || sk.startsWith(k + "_")) return { display: scanDisplay, substitute: true };
-
-      if ((k.includes("tequila") && sk.includes("tequila")) || (k.includes("curacao") && sk.includes("curacao"))) {
-        return { display: scanDisplay, substitute: true };
-      }
-    }
 
     return { display: "", substitute: false };
   };
@@ -337,6 +257,16 @@ export default function TabTwoScreen() {
   const { favoritesByKey, toggleFavorite } = useFavorites();
   const { inventory, initialized: inventoryInitialized, refreshInventory, recordInventoryUse } = useInventory();
   const { track } = useInteractions();
+
+  // Server-driven ingredient availability (SSoT)
+  type IngredientAvailability = {
+    ingredient_key: string;
+    status: "in_bar" | "substitute" | "missing";
+    matched_by: string | null;
+    matched_display: string | null;
+    remaining_volume: number | null;
+  };
+  const [ingredientAvailability, setIngredientAvailability] = useState<Record<string, IngredientAvailability> | null>(null);
 
   const { session } = useAuth();
   const { unit: displayUnit } = useUnitPreference();
@@ -516,6 +446,41 @@ export default function TabTwoScreen() {
       alive = false;
     };
   }, [ibaCode]);
+
+  // Fetch server-computed ingredient availability (SSoT)
+  useEffect(() => {
+    if (!ibaCode || !session) {
+      setIngredientAvailability(null);
+      return;
+    }
+
+    let alive = true;
+
+    apiFetch('/recipe-availability', {
+      session,
+      method: 'POST',
+      body: { iba_code: ibaCode },
+    })
+      .then(r => {
+        if (!r.ok) throw new Error(`availability ${r.status}`);
+        return r.json();
+      })
+      .then(data => {
+        if (!alive) return;
+        const map: Record<string, IngredientAvailability> = {};
+        for (const ing of (data?.ingredients ?? [])) {
+          if (ing?.ingredient_key) {
+            map[ing.ingredient_key] = ing;
+          }
+        }
+        setIngredientAvailability(map);
+      })
+      .catch(() => {
+        if (alive) setIngredientAvailability(null);
+      });
+
+    return () => { alive = false; };
+  }, [ibaCode, session]);
 
   const recipe = dbRecipe ?? legacyRecipe;
 
@@ -1027,8 +992,14 @@ export default function TabTwoScreen() {
         {sorted.map((it, i) => {
           const key = String(it?.item ?? "").trim();
           const resolved = resolveDisplayForIngredientKey(key);
-          const name = (resolved.display || humanizeKey(key) || "unknown").trim();
-          const isSubstitute = resolved.substitute;
+          const serverInfo = ingredientAvailability?.[key];
+          // Server substitute takes priority over scan-based resolve
+          const isSubstitute = serverInfo?.status === "substitute" || resolved.substitute;
+          const name = (
+            serverInfo?.status === "substitute" && serverInfo.matched_display
+              ? serverInfo.matched_display
+              : resolved.display || humanizeKey(key) || "unknown"
+          ).trim();
           const isOptional = Boolean(it?.is_optional);
 
           const ml =
@@ -1054,15 +1025,38 @@ export default function TabTwoScreen() {
           }
 
           let availBadge: React.ReactNode = null;
-          if (inventoryInitialized && key) {
-            const remaining = invByKey[key];
+
+          if (ingredientAvailability && key) {
+            // Server-driven availability (SSoT)
+            const info = ingredientAvailability[key];
             const needed = Number.isFinite(ml) ? ml! : null;
 
-            const isResolved = resolved.display !== "";
-            const isInOverlap = overlapHitsSet.has(key);
-
+            if (!info || info.status === "missing") {
+              availBadge = (
+                <Text style={{ color: OaklandDusk.semantic.error, fontSize: 12 }}> ✗ Missing</Text>
+              );
+            } else if (info.status === "in_bar") {
+              if (needed !== null && info.remaining_volume !== null && info.remaining_volume < needed) {
+                availBadge = (
+                  <Text style={{ color: '#D97706', fontSize: 12 }}> ⚠ Running low ({info.remaining_volume}ml left)</Text>
+                );
+              } else {
+                availBadge = (
+                  <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ In your bar</Text>
+                );
+              }
+            } else if (info.status === "substitute") {
+              availBadge = (
+                <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ Have {info.matched_display}</Text>
+              );
+            }
+          } else if (inventoryInitialized && key) {
+            // Fallback: no server availability (unauthenticated or fetch failed)
+            // Use exact inventory match only — no substitute inference
+            const remaining = invByKey[key];
             if (remaining !== undefined) {
-              if (needed !== null && remaining < needed) {
+              const needed2 = Number.isFinite(ml) ? ml! : null;
+              if (needed2 !== null && remaining < needed2) {
                 availBadge = (
                   <Text style={{ color: '#D97706', fontSize: 12 }}> ⚠ Running low ({remaining}ml left)</Text>
                 );
@@ -1071,15 +1065,8 @@ export default function TabTwoScreen() {
                   <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ In your bar</Text>
                 );
               }
-            } else if (isResolved || isInOverlap) {
-              availBadge = (
-                <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ Just found</Text>
-              );
-            } else {
-              availBadge = (
-                <Text style={{ color: OaklandDusk.semantic.error, fontSize: 12 }}> ✗ Missing</Text>
-              );
             }
+            // NOTE: Don't show "Missing" in fallback — we lack full matching context
           }
 
           // Build "Originally: Gin" label for substitute ingredients
