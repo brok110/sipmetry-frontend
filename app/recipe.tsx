@@ -7,6 +7,7 @@ import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Share, Text,
 
 import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import { useAuth } from "@/context/auth";
 import { apiFetch } from "@/lib/api";
 import { getTasteTags } from "@/lib/tasteTags";
@@ -251,6 +252,7 @@ export default function TabTwoScreen() {
     remaining_volume: number | null;
   };
   const [ingredientAvailability, setIngredientAvailability] = useState<Record<string, IngredientAvailability> | null>(null);
+  const [confirmedStaplesSet, setConfirmedStaplesSet] = useState<Set<string>>(new Set());
 
   const { session } = useAuth();
   const { unit: displayUnit } = useUnitPreference();
@@ -440,16 +442,30 @@ export default function TabTwoScreen() {
 
     let alive = true;
 
-    apiFetch('/recipe-availability', {
-      session,
-      method: 'POST',
-      body: { iba_code: ibaCode },
-    })
-      .then(r => {
+    const fetchAvailability = async () => {
+      // Read confirmed staples from AsyncStorage so the backend knows about them
+      let confirmedStaples: string[] = [];
+      try {
+        const val = await AsyncStorage.getItem(STAPLES_STORAGE_KEY);
+        if (val) {
+          const parsed = JSON.parse(val);
+          if (Array.isArray(parsed)) confirmedStaples = parsed;
+        }
+      } catch {}
+
+      setConfirmedStaplesSet(new Set(confirmedStaples));
+
+      try {
+        const r = await apiFetch('/recipe-availability', {
+          session,
+          method: 'POST',
+          body: {
+            iba_code: ibaCode,
+            confirmed_staples: confirmedStaples,
+          },
+        });
         if (!r.ok) throw new Error(`availability ${r.status}`);
-        return r.json();
-      })
-      .then(data => {
+        const data = await r.json();
         if (!alive) return;
         const map: Record<string, IngredientAvailability> = {};
         for (const ing of (data?.ingredients ?? [])) {
@@ -458,10 +474,12 @@ export default function TabTwoScreen() {
           }
         }
         setIngredientAvailability(map);
-      })
-      .catch(() => {
+      } catch {
         if (alive) setIngredientAvailability(null);
-      });
+      }
+    };
+
+    fetchAvailability();
 
     return () => { alive = false; };
   }, [ibaCode, session]);
@@ -1026,7 +1044,9 @@ export default function TabTwoScreen() {
                 );
               } else {
                 availBadge = (
-                  <Text style={{ color: '#22C55E', fontSize: 12 }}> ✓ In your bar</Text>
+                  <Text style={{ color: '#22C55E', fontSize: 12 }}>
+                    {confirmedStaplesSet.has(key) ? ' \u2713' : ' \u2713 In your bar'}
+                  </Text>
                 );
               }
             } else if (info.status === "substitute") {
