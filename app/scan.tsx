@@ -833,18 +833,7 @@ export default function TabOneScreen() {
         },
         {
           text: "Done",
-          onPress: async () => {
-            if (searchParams.intent === "addToBar") {
-              const gpPending = await isGoldenPathStepReady(4);
-              if (gpPending) {
-                setScanPhase("review");
-              } else {
-                router.back();
-              }
-            } else {
-              setScanPhase("review");
-            }
-          },
+          onPress: () => setScanPhase("review"),
         },
       ],
       { cancelable: false }
