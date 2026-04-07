@@ -3,7 +3,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -19,6 +18,7 @@ import { useFavorites } from "@/context/favorites";
 import { useInventory } from "@/context/inventory";
 import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
+import { openUrl } from "@/lib/openUrl";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 
@@ -96,7 +96,7 @@ export default function CartScreen() {
   const [guideCartVisible, setGuideCartVisible] = useState(false);
   const [guideRestockFindVisible, setGuideRestockFindVisible] = useState(false);
 
-  // Track which ingredients user has tapped "Notify Me" for (this session)
+  // Track which ingredients user has tapped "I Want This" for (this session)
   const [notifiedKeys, setNotifiedKeys] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -191,7 +191,7 @@ export default function CartScreen() {
       // Open buy URL
       if (suggestion.buy_url) {
         try {
-          await Linking.openURL(suggestion.buy_url);
+          openUrl(suggestion.buy_url);
         } catch {
           // ignore
         }
@@ -229,13 +229,13 @@ export default function CartScreen() {
       setNotifiedKeys((prev) => new Set(prev).add(suggestion.ingredient_key));
 
       // 4. Show toast
-      setToastMessage("Got it — we'll let you know when purchasing is available.");
+      setToastMessage("Noted \u2014 we'll help you find it soon.");
 
       // 5. Open Google Shopping after short delay
       setTimeout(async () => {
         if (suggestion.buy_url) {
           try {
-            await Linking.openURL(suggestion.buy_url);
+            openUrl(suggestion.buy_url);
           } catch {
             // ignore
           }
@@ -551,7 +551,7 @@ export default function CartScreen() {
                 }}
               >
                 <FontAwesome
-                  name={notifiedKeys.has(s.ingredient_key) ? "check" : "bell-o"}
+                  name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
                   size={13}
                   color={notifiedKeys.has(s.ingredient_key)
                     ? "#4ade80"
@@ -563,7 +563,7 @@ export default function CartScreen() {
                     ? "#4ade80"
                     : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
                 }}>
-                  {notifiedKeys.has(s.ingredient_key) ? "You're on the list" : "Notify Me"}
+                  {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
                 </Text>
               </Pressable>
             </View>
@@ -694,7 +694,7 @@ export default function CartScreen() {
                       }}
                     >
                       <FontAwesome
-                        name={notifiedKeys.has(s.ingredient_key) ? "check" : "bell-o"}
+                        name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
                         size={12}
                         color={notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
                       />
@@ -702,7 +702,7 @@ export default function CartScreen() {
                         fontSize: 14, fontWeight: "700",
                         color: notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
                       }}>
-                        {notifiedKeys.has(s.ingredient_key) ? "You're on the list" : "Notify Me"}
+                        {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
                       </Text>
                     </Pressable>
                   </View>

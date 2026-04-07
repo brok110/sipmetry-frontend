@@ -1,7 +1,8 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { openUrl } from '@/lib/openUrl';
 import { GUIDE_KEYS, TapPulse, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
 
 import { apiFetch } from "@/lib/api";
@@ -339,7 +340,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => Linking.openURL("https://brok110.github.io/sipmetry-frontend/privacy")}
+          onPress={() => openUrl("https://brok110.github.io/sipmetry-frontend/privacy")}
           style={{
             flexDirection: "row",
             alignItems: "center",
@@ -358,7 +359,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Pressable
-          onPress={() => Linking.openURL("https://brok110.github.io/sipmetry-frontend/terms")}
+          onPress={() => openUrl("https://brok110.github.io/sipmetry-frontend/terms")}
           style={{
             flexDirection: "row",
             alignItems: "center",

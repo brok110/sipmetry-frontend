@@ -1,5 +1,6 @@
-import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+let audioModule: typeof import('expo-audio') | null = null;
 
 type SoundName = 'cheers' | 'scanning';
 
@@ -11,13 +12,20 @@ const SOUND_FILES: Record<SoundName, any> = {
 const SOUNDS_ENABLED_KEY = 'sipmetry:sounds_enabled';
 
 class SoundServiceClass {
-  private players: Partial<Record<SoundName, AudioPlayer>> = {};
+  private players: Partial<Record<SoundName, any>> = {};
   private enabled: boolean = true;
   private fadeTimer: ReturnType<typeof setTimeout> | null = null;
 
   async preload(): Promise<void> {
     try {
-      await setAudioModeAsync({
+      audioModule = await import('expo-audio');
+    } catch (e) {
+      console.warn('[SoundService] expo-audio not available (expected in Expo Go):', e);
+      return;
+    }
+
+    try {
+      await audioModule.setAudioModeAsync({
         playsInSilentMode: true,
         shouldPlayInBackground: false,
       });
@@ -33,7 +41,7 @@ class SoundServiceClass {
 
     for (const [name, file] of Object.entries(SOUND_FILES)) {
       try {
-        const player = createAudioPlayer(file);
+        const player = audioModule.createAudioPlayer(file);
         this.players[name as SoundName] = player;
       } catch (e) {
         console.warn(`[SoundService] Failed to create player ${name}:`, e);

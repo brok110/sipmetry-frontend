@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api'
+import { openUrl } from '@/lib/openUrl'
 import * as ImagePicker from 'expo-image-picker'
 import OaklandDusk from '@/constants/OaklandDusk'
 import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
@@ -15,7 +16,6 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -498,7 +498,7 @@ function InventoryCard({
         <View style={styles.cardHeader}>
           {/* Info */}
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Pressable onPress={() => Linking.openURL(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.display_name + ' bottle')}`)}>
+            <Pressable onPress={() => openUrl(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.display_name + ' bottle')}`)}>
               <Text style={styles.cardName} numberOfLines={1}>
                 {item.display_name}
               </Text>

@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady } from "@/components/GuideBubble";
-import { Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, Text, View } from "react-native";
 
 import OaklandDusk from "@/constants/OaklandDusk";
 import { normalizeIngredientKey } from "@/context/ontology";
@@ -385,20 +385,51 @@ export default function RecommendationsScreen() {
         )}
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 140 }}>
-        {recipes.length === 0 ? (
+      <FlatList
+        data={allCards}
+        keyExtractor={(item, index) => `${item.r.bucket}-${index}`}
+        contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 140 }}
+        ListEmptyComponent={
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
             <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>No matches found</Text>
             <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
               Try scanning more bottles or adding ingredients to your bar.
             </Text>
           </View>
-        ) : (
+        }
+        ListHeaderComponent={
           <>
-            <SectionHeader title="Ready to make" count={ready.length} />
-            {ready.map((r, i) => (
-              <View key={`ready-${i}`} style={i === 0 ? { position: "relative" } : undefined}>
-                {i === 0 && (
+            {recipes.length > 0 && <SectionHeader title="Ready to make" count={ready.length} />}
+            {ready.length === 0 && isInventoryMode && recipes.length > 0 ? (
+              <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
+                <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>You're close!</Text>
+                <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
+                  Add one more bottle to your bar and you'll start unlocking cocktails.
+                </Text>
+              </View>
+            ) : null}
+          </>
+        }
+        renderItem={({ item, index }) => {
+          const prevBucket = index > 0 ? allCards[index - 1].r.bucket : null;
+          const currentBucket = item.r.bucket;
+          let sectionHeader = null;
+
+          if (!isInventoryMode) {
+            if (currentBucket === "one_missing" && prevBucket !== "one_missing") {
+              sectionHeader = <SectionHeader title="1 ingredient away" count={oneMissing.length} />;
+            } else if (currentBucket === "two_missing" && prevBucket !== "two_missing") {
+              sectionHeader = <SectionHeader title="2 ingredients away" count={twoMissing.length} />;
+            }
+          }
+
+          if (isInventoryMode && currentBucket !== "ready") return null;
+
+          return (
+            <>
+              {sectionHeader}
+              {index === 0 ? (
+                <View style={{ position: "relative" }}>
                   <HintBubble
                     storageKey={GUIDE_KEYS.GP_STEP_5}
                     visible={gpStep5Visible}
@@ -406,52 +437,22 @@ export default function RecommendationsScreen() {
                     hintType="tap"
                     hintColor="skyblue"
                   />
-                )}
-                <RecipeCard r={r} idx={i} isFirstCard={false} />
-              </View>
-            ))}
-
-            {/* Inventory mode: no ready cocktails empty state */}
-            {ready.length === 0 && isInventoryMode ? (
-              <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
-                <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>
-                  You're close!
-                </Text>
-                <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
-                  Add one more bottle to your bar and you'll start unlocking cocktails.
-                </Text>
-              </View>
-            ) : null}
-
-
-            {/* 1 missing / 2 missing — only shown in quick_look mode (or no mode) */}
-            {!isInventoryMode && (
-              <>
-                <SectionHeader title="1 ingredient away" count={oneMissing.length} />
-                {oneMissing.map((r, i) => (
-                  <RecipeCard
-                    key={`one-${i}`}
-                    r={r}
-                    idx={ready.length + i}
-                    isFirstCard={ready.length + i === firstMissingCardGlobalIdx}
-                  />
-                ))}
-
-                <SectionHeader title="2 ingredients away" count={twoMissing.length} />
-                {twoMissing.map((r, i) => (
-                  <RecipeCard
-                    key={`two-${i}`}
-                    r={r}
-                    idx={ready.length + oneMissing.length + i}
-                    isFirstCard={ready.length + oneMissing.length + i === firstMissingCardGlobalIdx}
-                  />
-                ))}
-              </>
-            )}
-
-          </>
-        )}
-      </ScrollView>
+                  <RecipeCard r={item.r} idx={item.globalIdx} isFirstCard={false} />
+                </View>
+              ) : (
+                <RecipeCard
+                  r={item.r}
+                  idx={item.globalIdx}
+                  isFirstCard={item.globalIdx === firstMissingCardGlobalIdx}
+                />
+              )}
+            </>
+          );
+        }}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={5}
+      />
 
       {/* Sticky footer: Smart Restock CTA + Unlock insight */}
       {recipes.length > 0 && (oneMissing.length > 0 || twoMissing.length > 0) && (
