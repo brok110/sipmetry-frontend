@@ -14,6 +14,7 @@ export default function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmationSent, setConfirmationSent] = useState(false)
 
   const handleEmail = async () => {
     if (!email || !password) {
@@ -29,8 +30,10 @@ export default function LoginScreen() {
     setLoading(false)
     if (error) {
       setError(error)
+    } else if (isSignUp) {
+      setConfirmationSent(true)
     }
-    // nav guard handles post-login navigation
+    // nav guard handles post-login navigation for sign in
   }
 
   const handleApple = async () => {
@@ -48,6 +51,44 @@ export default function LoginScreen() {
       contentContainerStyle={{ padding: 24, gap: 16, paddingTop: 80 }}
     >
       <Text style={{ fontSize: 28, fontWeight: '900', color: OaklandDusk.brand.gold }}>Sipmetry</Text>
+
+      {confirmationSent && (
+        <>
+          <View style={{ alignItems: 'center', paddingTop: 40, gap: 16 }}>
+            <Text style={{ fontSize: 22, fontWeight: '700', color: OaklandDusk.text.primary, textAlign: 'center' }}>
+              Check your inbox
+            </Text>
+            <Text style={{ color: OaklandDusk.text.secondary, textAlign: 'center', lineHeight: 22 }}>
+              We sent a confirmation link to{'\n'}
+              <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '600' }}>{email}</Text>
+              {'\n\n'}Tap the link in the email to activate your account.
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => {
+              setConfirmationSent(false)
+              setIsSignUp(false)
+              setError(null)
+            }}
+            style={{
+              borderWidth: 1,
+              borderColor: OaklandDusk.bg.border,
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: 'center',
+              marginTop: 24,
+            }}
+          >
+            <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '600' }}>
+              Back to Sign In
+            </Text>
+          </Pressable>
+        </>
+      )}
+
+      {!confirmationSent && (
+        <>
       <Text style={{ color: OaklandDusk.text.secondary, marginBottom: 8 }}>
         {isSignUp ? 'Create your account' : 'Sign in to continue'}
       </Text>
@@ -139,6 +180,8 @@ export default function LoginScreen() {
           />
         </View>
       ) : null}
+        </>
+      )}
 
     </ScrollView>
   )
