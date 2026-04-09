@@ -6,6 +6,7 @@ import { Picker } from '@react-native-picker/picker';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
+  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -84,12 +85,17 @@ export default function AgeGateScreen() {
 
     // Passed — upsert profile and navigate
     setLoading(true);
-    await supabase.from('profiles').upsert({
+    const { error } = await supabase.from('profiles').upsert({
       user_id: user!.id,
       birth_year: selectedYear,
       region_code: regionCode,
     });
     setLoading(false);
+
+    if (error) {
+      Alert.alert('Error', 'Failed to save your profile. Please try again.');
+      return;
+    }
 
     markAgeVerified();
     router.replace('/(tabs)/bartender');
