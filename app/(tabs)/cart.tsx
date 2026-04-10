@@ -266,6 +266,7 @@ export default function CartScreen() {
     <ScrollView
       style={{ backgroundColor: OaklandDusk.bg.void }}
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={fetchSuggestions} tintColor={OaklandDusk.brand.gold} />
       }

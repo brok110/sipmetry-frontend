@@ -805,6 +805,7 @@ export default function MyBarScreen() {
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
     <ScrollView
       contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }

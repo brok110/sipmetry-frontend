@@ -298,7 +298,7 @@ export default function BartenderScreen() {
   if (showResults) {
     return (
       <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
           <Text style={{
             fontSize: 26,
             fontWeight: "800",
@@ -590,7 +590,7 @@ export default function BartenderScreen() {
         </View>
 
         {/* Page 1: Base Spirit */}
-        <ScrollView key="1" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        <ScrollView key="1" contentContainerStyle={{ padding: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             What base spirit sounds good?
           </Text>
@@ -610,7 +610,7 @@ export default function BartenderScreen() {
         </ScrollView>
 
         {/* Page 2: Flavor */}
-        <ScrollView key="2" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        <ScrollView key="2" contentContainerStyle={{ padding: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             What flavors are you feeling?
           </Text>
@@ -630,7 +630,7 @@ export default function BartenderScreen() {
         </ScrollView>
 
         {/* Page 3: Avoid */}
-        <ScrollView key="3" contentContainerStyle={{ padding: 20, paddingBottom: 120 }}>
+        <ScrollView key="3" contentContainerStyle={{ padding: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
           <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
             Anything to avoid?
           </Text>

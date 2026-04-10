@@ -364,7 +364,7 @@ export default function TabZeroPreferencesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      <ScrollView contentContainerStyle={{ padding: 14, gap: 8, paddingBottom: 30 }}>
+      <ScrollView contentContainerStyle={{ padding: 14, gap: 8, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
         <Text style={{ fontSize: 20, fontWeight: "700", color: OaklandDusk.text.primary }}>Taste profile</Text>
 
         {/* Flavor card */}

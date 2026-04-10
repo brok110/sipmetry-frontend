@@ -237,6 +237,7 @@ export default function TabThreeScreen() {
       <ScrollView
         style={{ backgroundColor: OaklandDusk.bg.void }}
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
       >
       <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary, marginBottom: 16 }}>
         Favorites

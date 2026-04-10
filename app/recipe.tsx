@@ -1126,6 +1126,7 @@ export default function TabTwoScreen() {
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, gap: 12 }}
+          keyboardShouldPersistTaps="handled"
         >
           <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>Recipe</Text>
           <Text style={{ color: OaklandDusk.text.secondary }}>No recipe selected. Go back to Scan and tap "View".</Text>
@@ -1182,6 +1183,7 @@ export default function TabTwoScreen() {
         },
       }} />
       <ScrollView
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
           padding: 16,
           gap: 12,

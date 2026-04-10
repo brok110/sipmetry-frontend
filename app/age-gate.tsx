@@ -178,6 +178,7 @@ export default function AgeGateScreen() {
       <ScrollView
         style={{ backgroundColor: OaklandDusk.bg.void }}
         contentContainerStyle={{ padding: 24, gap: 16, paddingTop: 80 }}
+        keyboardShouldPersistTaps="handled"
       >
         <Text style={{ fontSize: 28, fontWeight: '900', color: OaklandDusk.brand.gold }}>
           Sipmetry

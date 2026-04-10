@@ -80,7 +80,7 @@ export default function FeedbackScreen() {
       style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} keyboardShouldPersistTaps="handled">
         <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
           {isZh ? "選擇類別" : "Category"}
         </Text>

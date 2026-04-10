@@ -42,7 +42,7 @@ export default function TabFourScreen() {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
       <Text style={{ fontSize: 22, fontWeight: "900" }}>Share Recipe</Text>
 
       <Text style={{ color: "#555" }}>

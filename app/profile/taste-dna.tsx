@@ -255,7 +255,7 @@ export default function TasteDNAScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 40 }}>
+    <ScrollView contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       {/* Header */}
       <View style={{ alignItems: "center", gap: 4 }}>
         <Text style={{ fontSize: 24, fontWeight: "900" }}>

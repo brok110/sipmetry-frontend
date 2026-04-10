@@ -126,6 +126,7 @@ export default function ProfileScreen() {
     <ScrollView
       style={{ backgroundColor: OaklandDusk.bg.void }}
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+      keyboardShouldPersistTaps="handled"
     >
       {/* Avatar / email card */}
       <View style={{
