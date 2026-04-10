@@ -136,17 +136,17 @@ function SwipeHint({ text, bounce, direction = "both" }: { text: string; bounce:
   const showLeft = direction === "left" || direction === "both";
   const showRight = direction === "right" || direction === "both";
   return (
-    <Animated.View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, opacity: 0.55 }}>
+    <Animated.View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, opacity: 0.8 }}>
       {showLeft && (
-        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 18, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
+        <Animated.Text style={{ color: '#E8C88A', fontSize: 22, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
           {"\u2190"}
         </Animated.Text>
       )}
-      <Text style={{ color: OaklandDusk.text.secondary, fontSize: 18, fontWeight: "500", letterSpacing: 0.5 }}>
+      <Text style={{ color: '#E8C88A', fontSize: 20, fontWeight: "700", letterSpacing: 0.5 }}>
         {text}
       </Text>
       {showRight && (
-        <Animated.Text style={{ color: OaklandDusk.text.secondary, fontSize: 18, transform: [{ translateX: bounce }] }}>
+        <Animated.Text style={{ color: '#E8C88A', fontSize: 22, transform: [{ translateX: bounce }] }}>
           {"\u2192"}
         </Animated.Text>
       )}
@@ -404,7 +404,7 @@ export default function BartenderScreen() {
                                       ))}
                                     </View>
                                   )}
-                                  <Text style={{ fontSize: 11, color: OaklandDusk.accent.crimson, marginTop: 8 }}>
+                                  <Text style={{ fontSize: 12, color: OaklandDusk.brand.sundown, fontWeight: '500', marginTop: 8 }}>
                                     Need: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
                                   </Text>
                                 </View>
@@ -656,7 +656,7 @@ export default function BartenderScreen() {
         <SwipeHint
           text={activeIndex === 0 ? "swipe to start" : activeIndex === PAGE_COUNT - 1 ? "swipe back" : "swipe for more"}
           bounce={arrowBounce}
-          direction={activeIndex === 0 ? "right" : activeIndex === PAGE_COUNT - 1 ? "left" : "both"}
+          direction={activeIndex === 0 ? "left" : activeIndex === PAGE_COUNT - 1 ? "left" : "both"}
         />
       </View>
 
@@ -671,39 +671,41 @@ export default function BartenderScreen() {
         </Text>
       )}
 
-      <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12, position: "relative" }}>
-        <HintBubble
-          storageKey={GUIDE_KEYS.GP_STEP_1}
-          visible={gpStep1Visible}
-          onDismiss={() => setGpStep1Visible(false)}
-          hintType="tap"
-          hintColor="charcoal"
-        />
-        <Pressable
-          onPress={() => {
-            if (gpStep1Visible) {
-              dismissGuide(GUIDE_KEYS.GP_STEP_1);
-              setGpStep1Visible(false);
-            }
-            setShowBottomSheet(true);
-          }}
-          disabled={loading}
-          style={{
-            backgroundColor: OaklandDusk.brand.gold,
-            paddingVertical: 14,
-            borderRadius: 12,
-            alignItems: "center",
-          }}
-        >
-          {loading ? (
-            <ActivityIndicator color={OaklandDusk.bg.void} />
-          ) : (
-            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-              Let's make a drink
-            </Text>
-          )}
-        </Pressable>
-      </View>
+      {activeIndex > 0 && (
+        <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12, position: "relative" }}>
+          <HintBubble
+            storageKey={GUIDE_KEYS.GP_STEP_1}
+            visible={gpStep1Visible}
+            onDismiss={() => setGpStep1Visible(false)}
+            hintType="tap"
+            hintColor="charcoal"
+          />
+          <Pressable
+            onPress={() => {
+              if (gpStep1Visible) {
+                dismissGuide(GUIDE_KEYS.GP_STEP_1);
+                setGpStep1Visible(false);
+              }
+              setShowBottomSheet(true);
+            }}
+            disabled={loading}
+            style={{
+              backgroundColor: OaklandDusk.brand.gold,
+              paddingVertical: 14,
+              borderRadius: 12,
+              alignItems: "center",
+            }}
+          >
+            {loading ? (
+              <ActivityIndicator color={OaklandDusk.bg.void} />
+            ) : (
+              <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
+                Let's make a drink
+              </Text>
+            )}
+          </Pressable>
+        </View>
+      )}
 
       <Modal
         visible={showBottomSheet}

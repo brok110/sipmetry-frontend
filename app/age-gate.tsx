@@ -60,7 +60,7 @@ export default function AgeGateScreen() {
   const regionCode = locale.split('-').pop()?.toUpperCase() ?? 'US';
   const legalAge = getLegalAge(regionCode);
 
-  const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(CURRENT_YEAR - legalAge);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -69,10 +69,6 @@ export default function AgeGateScreen() {
   const handleContinue = async () => {
     setInputError(null);
 
-    if (selectedYear === null) {
-      setInputError('Please select your birth year.');
-      return;
-    }
     if (selectedMonth === null) {
       setInputError('Please select your birth month.');
       return;
@@ -215,7 +211,6 @@ export default function AgeGateScreen() {
                 style={{ color: OaklandDusk.text.primary, height: 180 }}
                 itemStyle={{ color: OaklandDusk.text.primary, fontSize: 18 }}
               >
-                <Picker.Item label="—" value={null} color={OaklandDusk.text.tertiary} />
                 {YEARS.map((y) => (
                   <Picker.Item key={y} label={String(y)} value={y} />
                 ))}

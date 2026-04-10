@@ -1035,7 +1035,7 @@ export default function TabTwoScreen() {
 
             if (!info || info.status === "missing") {
               availBadge = (
-                <Text style={{ color: OaklandDusk.semantic.error, fontSize: 12 }}> ✗ Missing</Text>
+                <Text style={{ color: OaklandDusk.brand.sundown, fontSize: 13, fontWeight: '500' }}> ✗ Missing</Text>
               );
             } else if (info.status === "in_bar") {
               if (needed !== null && info.remaining_volume !== null && info.remaining_volume < needed) {
