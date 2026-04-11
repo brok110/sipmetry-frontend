@@ -53,6 +53,7 @@ type Pick = {
   profile_score: number;
   preset_match: boolean;
   image_url?: string | null;
+  explain?: string;
 };
 
 
@@ -225,7 +226,6 @@ export default function BartenderScreen() {
   const [confirmedStaples, setConfirmedStaples] = useState<string[]>([]);
   const [initialPageReady, setInitialPageReady] = useState(false);
   const [skipWelcome, setSkipWelcome] = useState(false);
-  const [showWhyThis, setShowWhyThis] = useState(false);
 
   // Check if returning user to skip Welcome page
   useEffect(() => {
@@ -433,6 +433,11 @@ export default function BartenderScreen() {
                                     <Text style={{ fontSize: isHeroPick ? 24 : 20, fontWeight: "800", color: OaklandDusk.text.primary }}>
                                       {pick.name}
                                     </Text>
+                                    {pick.explain ? (
+                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 4 }}>
+                                        {pick.explain}
+                                      </Text>
+                                    ) : null}
                                     {tags.length > 0 && (
                                       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                                         {tags.map(t => (
@@ -450,31 +455,18 @@ export default function BartenderScreen() {
                                   </View>
                                 </View>
                                 {isHeroPick && (
-                                  <>
-                                    <Pressable
-                                      onPress={(e) => { e.stopPropagation(); openRecipe(pick); }}
-                                      style={{
-                                        marginTop: 14,
-                                        backgroundColor: OaklandDusk.brand.gold,
-                                        paddingVertical: 12,
-                                        borderRadius: 12,
-                                        alignItems: "center",
-                                      }}
-                                    >
-                                      <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>Make this</Text>
-                                    </Pressable>
-                                    <Pressable
-                                      onPress={(e) => { e.stopPropagation(); setShowWhyThis(v => !v); }}
-                                      style={{ marginTop: 10, alignItems: "center" }}
-                                    >
-                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>Why this?</Text>
-                                    </Pressable>
-                                    {showWhyThis && (
-                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 6, lineHeight: 18 }}>
-                                        {tags.join(", ") || "Recommended for you"}
-                                      </Text>
-                                    )}
-                                  </>
+                                  <Pressable
+                                    onPress={(e) => { e.stopPropagation(); openRecipe(pick); }}
+                                    style={{
+                                      marginTop: 14,
+                                      backgroundColor: OaklandDusk.brand.gold,
+                                      paddingVertical: 12,
+                                      borderRadius: 12,
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>Make this</Text>
+                                  </Pressable>
                                 )}
                               </Pressable>
                             </View>
@@ -526,6 +518,11 @@ export default function BartenderScreen() {
                                     <Text style={{ fontSize: isHeroPick ? 24 : 20, fontWeight: "800", color: OaklandDusk.text.primary }}>
                                       {pick.name}
                                     </Text>
+                                    {pick.explain ? (
+                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 4 }}>
+                                        {pick.explain}
+                                      </Text>
+                                    ) : null}
                                     {tags.length > 0 && (
                                       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                                         {tags.map(t => (
@@ -541,31 +538,18 @@ export default function BartenderScreen() {
                                   </View>
                                 </View>
                                 {isHeroPick && (
-                                  <>
-                                    <Pressable
-                                      onPress={(e) => { e.stopPropagation(); openRecipe(pick); }}
-                                      style={{
-                                        marginTop: 14,
-                                        backgroundColor: OaklandDusk.brand.gold,
-                                        paddingVertical: 12,
-                                        borderRadius: 12,
-                                        alignItems: "center",
-                                      }}
-                                    >
-                                      <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>Make this</Text>
-                                    </Pressable>
-                                    <Pressable
-                                      onPress={(e) => { e.stopPropagation(); setShowWhyThis(v => !v); }}
-                                      style={{ marginTop: 10, alignItems: "center" }}
-                                    >
-                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>Why this?</Text>
-                                    </Pressable>
-                                    {showWhyThis && (
-                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 6, lineHeight: 18 }}>
-                                        {tags.join(", ") || "Recommended for you"}
-                                      </Text>
-                                    )}
-                                  </>
+                                  <Pressable
+                                    onPress={(e) => { e.stopPropagation(); openRecipe(pick); }}
+                                    style={{
+                                      marginTop: 14,
+                                      backgroundColor: OaklandDusk.brand.gold,
+                                      paddingVertical: 12,
+                                      borderRadius: 12,
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>Make this</Text>
+                                  </Pressable>
                                 )}
                               </Pressable>
                             </View>
@@ -587,6 +571,11 @@ export default function BartenderScreen() {
                                 <CocktailThumbnail imageUrl={pick.image_url} />
                                 <View style={{ flex: 1 }}>
                                   <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
+                                  {pick.explain ? (
+                                    <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 4 }}>
+                                      {pick.explain}
+                                    </Text>
+                                  ) : null}
                                   {tags.length > 0 && (
                                     <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
                                       {tags.map(t => (
