@@ -225,6 +225,7 @@ export default function BartenderScreen() {
   const [confirmedStaples, setConfirmedStaples] = useState<string[]>([]);
   const [initialPageReady, setInitialPageReady] = useState(false);
   const [skipWelcome, setSkipWelcome] = useState(false);
+  const [showWhyThis, setShowWhyThis] = useState(false);
 
   // Check if returning user to skip Welcome page
   useEffect(() => {
@@ -397,30 +398,86 @@ export default function BartenderScreen() {
                           Ready to make
                         </Text>
                         {readyMatched.map(pick => {
+                          const isHeroPick = results.length > 0 && pick.iba_code === results[0].iba_code;
                           const tags = getTasteTags(pick.recipe_vec);
                           return (
-                            <Pressable key={pick.iba_code} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: OaklandDusk.bg.border }}>
-                              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                                <CocktailThumbnail imageUrl={pick.image_url} />
-                                <View style={{ flex: 1 }}>
-                                  <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
-                                  {tags.length > 0 && (
-                                    <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                                      {tags.map(t => (
-                                        <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                          <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
-                                        </View>
-                                      ))}
-                                    </View>
-                                  )}
-                                  {pick.style && (
-                                    <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
-                                      {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
-                                    </Text>
-                                  )}
+                            <View key={pick.iba_code} style={isHeroPick ? { position: "relative", marginTop: 4 } : {}}>
+                              {isHeroPick && (
+                                <View style={{
+                                  position: "absolute",
+                                  top: -1,
+                                  right: 12,
+                                  backgroundColor: OaklandDusk.brand.gold,
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 3,
+                                  borderBottomLeftRadius: 8,
+                                  borderBottomRightRadius: 8,
+                                  zIndex: 2,
+                                }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "800", color: OaklandDusk.bg.void }}>#1 pick</Text>
                                 </View>
-                              </View>
-                            </Pressable>
+                              )}
+                              <Pressable
+                                onPress={() => openRecipe(pick)}
+                                style={{
+                                  backgroundColor: OaklandDusk.bg.card,
+                                  borderRadius: 14,
+                                  padding: 16,
+                                  borderWidth: isHeroPick ? 1.5 : 1,
+                                  borderColor: isHeroPick ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
+                                }}
+                              >
+                                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                                  <CocktailThumbnail imageUrl={pick.image_url} size={isHeroPick ? 96 : undefined} />
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: isHeroPick ? 24 : 20, fontWeight: "800", color: OaklandDusk.text.primary }}>
+                                      {pick.name}
+                                    </Text>
+                                    {tags.length > 0 && (
+                                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                                        {tags.map(t => (
+                                          <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                            <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                          </View>
+                                        ))}
+                                      </View>
+                                    )}
+                                    {!isHeroPick && pick.style && (
+                                      <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, marginTop: 8, textTransform: "capitalize" }}>
+                                        {pick.style}{pick.glass ? ` \u00B7 ${pick.glass}` : ""}
+                                      </Text>
+                                    )}
+                                  </View>
+                                </View>
+                                {isHeroPick && (
+                                  <>
+                                    <Pressable
+                                      onPress={(e) => { e.stopPropagation(); openRecipe(pick); }}
+                                      style={{
+                                        marginTop: 14,
+                                        backgroundColor: OaklandDusk.brand.gold,
+                                        paddingVertical: 12,
+                                        borderRadius: 12,
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>Make this</Text>
+                                    </Pressable>
+                                    <Pressable
+                                      onPress={(e) => { e.stopPropagation(); setShowWhyThis(v => !v); }}
+                                      style={{ marginTop: 10, alignItems: "center" }}
+                                    >
+                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>Why this?</Text>
+                                    </Pressable>
+                                    {showWhyThis && (
+                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 6, lineHeight: 18 }}>
+                                        {tags.join(", ") || "Recommended for you"}
+                                      </Text>
+                                    )}
+                                  </>
+                                )}
+                              </Pressable>
+                            </View>
                           );
                         })}
                       </>
@@ -432,28 +489,86 @@ export default function BartenderScreen() {
                           Just 1 bottle away
                         </Text>
                         {[...missingMatched, ...oneAway].map(pick => {
+                          const isHeroPick = results.length > 0 && pick.iba_code === results[0].iba_code;
                           const tags = getTasteTags(pick.recipe_vec);
                           return (
-                            <Pressable key={pick.iba_code || pick.name} onPress={() => openRecipe(pick)} style={{ backgroundColor: OaklandDusk.bg.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "rgba(200,120,40,0.15)", borderLeftWidth: 3, borderLeftColor: OaklandDusk.brand.gold }}>
-                              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
-                                <CocktailThumbnail imageUrl={pick.image_url} />
-                                <View style={{ flex: 1 }}>
-                                  <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>{pick.name}</Text>
-                                  {tags.length > 0 && (
-                                    <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
-                                      {tags.map(t => (
-                                        <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
-                                          <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
-                                        </View>
-                                      ))}
-                                    </View>
-                                  )}
-                                  <Text style={{ fontSize: 12, color: OaklandDusk.brand.sundown, fontWeight: '500', marginTop: 8 }}>
-                                    Need: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
-                                  </Text>
+                            <View key={pick.iba_code || pick.name} style={isHeroPick ? { position: "relative", marginTop: 4 } : {}}>
+                              {isHeroPick && (
+                                <View style={{
+                                  position: "absolute",
+                                  top: -1,
+                                  right: 12,
+                                  backgroundColor: OaklandDusk.brand.gold,
+                                  paddingHorizontal: 10,
+                                  paddingVertical: 3,
+                                  borderBottomLeftRadius: 8,
+                                  borderBottomRightRadius: 8,
+                                  zIndex: 2,
+                                }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "800", color: OaklandDusk.bg.void }}>#1 pick</Text>
                                 </View>
-                              </View>
-                            </Pressable>
+                              )}
+                              <Pressable
+                                onPress={() => openRecipe(pick)}
+                                style={{
+                                  backgroundColor: OaklandDusk.bg.card,
+                                  borderRadius: 14,
+                                  padding: 16,
+                                  borderWidth: isHeroPick ? 1.5 : 1,
+                                  borderColor: isHeroPick ? OaklandDusk.brand.gold : "rgba(200,120,40,0.15)",
+                                  borderLeftWidth: isHeroPick ? 1.5 : 3,
+                                  borderLeftColor: isHeroPick ? OaklandDusk.brand.gold : OaklandDusk.brand.gold,
+                                }}
+                              >
+                                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
+                                  <CocktailThumbnail imageUrl={pick.image_url} size={isHeroPick ? 96 : undefined} />
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: isHeroPick ? 24 : 20, fontWeight: "800", color: OaklandDusk.text.primary }}>
+                                      {pick.name}
+                                    </Text>
+                                    {tags.length > 0 && (
+                                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                                        {tags.map(t => (
+                                          <View key={t} style={{ backgroundColor: OaklandDusk.brand.tagBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                                            <Text style={{ fontSize: 11, color: OaklandDusk.brand.gold }}>{t}</Text>
+                                          </View>
+                                        ))}
+                                      </View>
+                                    )}
+                                    <Text style={{ fontSize: 12, color: OaklandDusk.brand.sundown, fontWeight: "500", marginTop: 8 }}>
+                                      Need: {(pick.missing_items || []).map(k => k.replace(/_/g, " ")).join(", ")}
+                                    </Text>
+                                  </View>
+                                </View>
+                                {isHeroPick && (
+                                  <>
+                                    <Pressable
+                                      onPress={(e) => { e.stopPropagation(); openRecipe(pick); }}
+                                      style={{
+                                        marginTop: 14,
+                                        backgroundColor: OaklandDusk.brand.gold,
+                                        paddingVertical: 12,
+                                        borderRadius: 12,
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>Make this</Text>
+                                    </Pressable>
+                                    <Pressable
+                                      onPress={(e) => { e.stopPropagation(); setShowWhyThis(v => !v); }}
+                                      style={{ marginTop: 10, alignItems: "center" }}
+                                    >
+                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>Why this?</Text>
+                                    </Pressable>
+                                    {showWhyThis && (
+                                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 6, lineHeight: 18 }}>
+                                        {tags.join(", ") || "Recommended for you"}
+                                      </Text>
+                                    )}
+                                  </>
+                                )}
+                              </Pressable>
+                            </View>
                           );
                         })}
                       </>
@@ -543,7 +658,7 @@ export default function BartenderScreen() {
             }}
           >
             <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.bg.void }}>
-              Try another drink
+              Show me another
             </Text>
           </Pressable>
         </View>

@@ -274,7 +274,7 @@ export default function RecommendationsScreen() {
                 alignSelf: "flex-start",
               }}
             >
-              <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>View recipe</Text>
+              <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>Make this</Text>
               <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary }}>›</Text>
             </Pressable>
           </View>
