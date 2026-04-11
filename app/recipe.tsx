@@ -239,7 +239,7 @@ export default function TabTwoScreen() {
   }, [params.iba_code, legacyRecipe]);
 
   const { ratingsByKey, setRating, clearRating } = useFeedback();
-  const { favoritesByKey, toggleFavorite } = useFavorites();
+  const { favoritesByKey, toggleFavorite, isAtLimit: favoritesAtLimit } = useFavorites();
   const { inventory, initialized: inventoryInitialized, refreshInventory, recordInventoryUse } = useInventory();
   const { track } = useInteractions();
 
@@ -683,8 +683,18 @@ export default function TabTwoScreen() {
   };
 
   const onToggleFavorite = () => {
-    // Stage 1: track favorite/unfavorite
     const wasFav = !!favoritesByKey?.[recipeKey];
+
+    // Guard: show alert if user tries to add when already at the 50-recipe limit
+    if (!wasFav && favoritesAtLimit) {
+      Alert.alert(
+        "Favorites full",
+        "You've reached the 50-recipe limit. Remove a favorite to add a new one."
+      );
+      return;
+    }
+
+    // Stage 1: track favorite/unfavorite
     track({
       recipe_key: recipeKey,
       interaction_type: wasFav ? "unfavorite" : "favorite",

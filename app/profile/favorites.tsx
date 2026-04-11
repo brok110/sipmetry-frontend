@@ -11,8 +11,10 @@ import SwipeRow from "@/components/ui/SwipeRow";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useFeedback } from "@/context/feedback";
 import { aggregateIngredientVectors, buildFourWordDescriptor } from "@/context/ontology";
+import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useInventory } from "@/context/inventory";
+import { apiFetchJson } from "@/lib/api";
 import { getTasteTags } from "@/lib/tasteTags";
 
 function asStringList(v: any): string[] {
@@ -73,6 +75,7 @@ function buildSubtitleFromStyleAndDescriptor(style: string, descriptor: any): st
 
 export default function TabThreeScreen() {
   const router = useRouter();
+  const { session } = useAuth();
   const { favoritesByKey, removeFavorite } = useFavorites();
   const { inventory, initialized: inventoryInitialized } = useInventory();
 
@@ -95,6 +98,12 @@ export default function TabThreeScreen() {
     }
     return s;
   }, [inventory, inventoryInitialized]);
+
+  // ── Server availability (SSoT for missing count) ───────────────
+  const [availabilityMap, setAvailabilityMap] = useState<
+    Record<string, { missing_count: number; missing_keys: string[] }>
+  >({});
+  const [availLoading, setAvailLoading] = useState(false);
 
   // ── Staples awareness ──────────────────────────────────────────
   const [staplesKeys, setStaplesKeys] = useState<Set<string>>(new Set());
@@ -120,6 +129,34 @@ export default function TabThreeScreen() {
       .catch(() => setStaplesLoaded(true));
   }, [favoritesList.length]);
 
+  // Fetch server-computed availability whenever favorites, inventory, or staples change.
+  // Falls back gracefully to frontend logic if the request fails or user is logged out.
+  useEffect(() => {
+    if (!session || favoritesList.length === 0 || !staplesLoaded) return;
+
+    const recipe_keys = favoritesList
+      .map((fav: any) => String(fav.recipe_key || ""))
+      .filter(Boolean);
+    if (recipe_keys.length === 0) return;
+
+    const confirmed_staples = Array.from(staplesKeys);
+
+    setAvailLoading(true);
+    apiFetchJson<{ results: Record<string, { missing_count: number; missing_keys: string[] }> }>(
+      "/recipe-availability-batch",
+      { method: "POST", session, body: { recipe_keys, confirmed_staples } }
+    )
+      .then((data) => {
+        setAvailabilityMap(data.results ?? {});
+      })
+      .catch(() => {
+        // Network error or not logged in — keep whatever map we had; fallback renders
+      })
+      .finally(() => {
+        setAvailLoading(false);
+      });
+  }, [favoritesList.length, session, staplesLoaded, inventory]);
+
   const handleStaplesConfirm = (selectedKeys: string[]) => {
     setStaplesKeys(new Set(selectedKeys));
     setShowStaplesModal(false);
@@ -130,6 +167,18 @@ export default function TabThreeScreen() {
   };
 
   const getAvailability = (fav: any): { ready: boolean; missingCount: number } | null => {
+    const key = String(fav?.recipe_key || "");
+
+    // Prefer server-computed availability (substitute-aware, same logic as recipe detail)
+    const serverResult = availabilityMap[key];
+    if (serverResult) {
+      return {
+        ready: serverResult.missing_count === 0,
+        missingCount: serverResult.missing_count,
+      };
+    }
+
+    // Fallback: server data not yet loaded or user is logged out — use frontend logic
     if (!invKeySet) return null;
     const keys = extractIngredientsFromAnyRecipe(fav?.recipe);
     if (keys.length === 0) return null;

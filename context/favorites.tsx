@@ -116,8 +116,7 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
 
   const { session } = useAuth();
 
-  // Favorites are unlimited (token-based limits removed — invisible progression)
-  const favoriteLimit = Infinity;
+  const favoriteLimit = 50;
 
   // ── Hydration from AsyncStorage (runs once on mount) ────────────────────────
   useEffect(() => {
@@ -285,7 +284,11 @@ export function FavoritesProvider({ children }: { children: React.ReactNode }) {
         return next;
       }
 
-      // Adding
+      // Adding — enforce limit
+      const currentCount = Object.keys(prev).length;
+      if (currentCount >= favoriteLimit) {
+        return prev; // At limit — caller shows Alert via isAtLimit; no state change
+      }
       dbAdd(normalized);
       return { ...prev, [normalized.recipe_key]: normalized };
     });
