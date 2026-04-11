@@ -481,30 +481,33 @@ export default function BartenderScreen() {
               {error}
             </Text>
           )}
+        </ScrollView>
 
+        <View style={{ paddingHorizontal: 24, paddingBottom: 24, paddingTop: 12 }}>
           <Pressable
             onPress={() => {
               setResults([]);
               setOneAway([]);
               setHint(null);
               setError(null);
+              setSelectedSpirits([]);
+              setSelectedFlavors([]);
+              setSelectedExcludes([]);
               pendingPageRef.current = 1;
               setShowResults(false);
             }}
             style={{
-              borderWidth: 1.5,
-              borderColor: OaklandDusk.brand.gold,
-              borderRadius: 12,
+              backgroundColor: OaklandDusk.brand.gold,
               paddingVertical: 14,
+              borderRadius: 12,
               alignItems: "center",
-              marginTop: 24,
             }}
           >
-            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.bg.void }}>
               Try another drink
             </Text>
           </Pressable>
-        </ScrollView>
+        </View>
       </View>
     );
   }
