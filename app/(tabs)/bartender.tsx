@@ -24,12 +24,12 @@ import {
 } from "react-native";
 import PagerView from "react-native-pager-view";
 
-const BASE_SPIRITS = ["gin", "whiskey", "rum", "tequila", "vodka", "brandy"];
-const FLAVORS = ["Clean", "Rich", "Bitter-forward", "Sweet-tooth", "Herbal", "Fruity", "Smoky", "Sparkling"];
+const BASE_SPIRITS = ["brandy", "gin", "rum", "tequila", "vodka", "whiskey"];
+const FLAVORS = ["Bitter", "Clean", "Fruity", "Herbal", "Rich", "Smoky", "Sparkling", "Sweet"];
 const EXCLUDES = [
-  { key: "too_sweet", label: "Not too sweet" },
   { key: "too_bitter", label: "Not too bitter" },
   { key: "too_strong", label: "Not too strong" },
+  { key: "too_sweet", label: "Not too sweet" },
 ];
 
 const PAGE_COUNT = 4;
@@ -77,11 +77,12 @@ function Tag({
       onPress={onPress}
       style={{
         paddingHorizontal: 16,
-        paddingVertical: 9,
+        paddingVertical: 12,
         borderRadius: 20,
         borderWidth: 1,
         borderColor: selected ? activeBorder : "rgba(200,120,40,0.25)",
-        backgroundColor: selected ? activeBg : "transparent",
+        backgroundColor: selected ? activeBg : "rgba(200,120,40,0.06)",
+        alignItems: "center",
       }}
     >
       <Text style={{
@@ -590,65 +591,80 @@ export default function BartenderScreen() {
         </View>
 
         {/* Page 1: Base Spirit */}
-        <ScrollView key="1" contentContainerStyle={{ padding: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-            What base spirit sounds good?
-          </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
-            Pick as many as you like, or skip ahead.
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {BASE_SPIRITS.map(s => (
-              <Tag
-                key={s}
-                label={s}
-                selected={selectedSpirits.includes(s)}
-                onPress={() => toggle(selectedSpirits, s, setSelectedSpirits)}
-              />
-            ))}
+        <View key="1" style={{ flex: 1, padding: 20 }}>
+          <View>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+              Choose your spirit
+            </Text>
+            <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>
+              As many as you like, or skip ahead.
+            </Text>
           </View>
-        </ScrollView>
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {BASE_SPIRITS.map(s => (
+                <View key={s} style={{ width: "31%" }}>
+                  <Tag
+                    label={s}
+                    selected={selectedSpirits.includes(s)}
+                    onPress={() => toggle(selectedSpirits, s, setSelectedSpirits)}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
 
         {/* Page 2: Flavor */}
-        <ScrollView key="2" contentContainerStyle={{ padding: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-            What flavors are you feeling?
-          </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 20 }}>
-            Select any that appeal to you.
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {FLAVORS.map(f => (
-              <Tag
-                key={f}
-                label={f}
-                selected={selectedFlavors.includes(f)}
-                onPress={() => toggle(selectedFlavors, f, setSelectedFlavors)}
-              />
-            ))}
+        <View key="2" style={{ flex: 1, padding: 20 }}>
+          <View>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+              Choose your flavor
+            </Text>
+            <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>
+              Select any that appeal to you.
+            </Text>
           </View>
-        </ScrollView>
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {FLAVORS.map(f => (
+                <View key={f} style={{ width: "48%" }}>
+                  <Tag
+                    label={f}
+                    selected={selectedFlavors.includes(f)}
+                    onPress={() => toggle(selectedFlavors, f, setSelectedFlavors)}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
 
         {/* Page 3: Avoid */}
-        <ScrollView key="3" contentContainerStyle={{ padding: 20, paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
-          <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-            Anything to avoid?
-          </Text>
-          <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary, marginBottom: 12 }}>
-            Tap what you'd rather skip. Totally fine to leave this blank.
-          </Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            {EXCLUDES.map(ex => (
-              <Tag
-                key={ex.key}
-                label={ex.label}
-                variant="exclude"
-                selected={selectedExcludes.includes(ex.key)}
-                onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)}
-              />
-            ))}
+        <View key="3" style={{ flex: 1, padding: 20 }}>
+          <View>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+              Anything to avoid?
+            </Text>
+            <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>
+              Totally fine to leave this blank.
+            </Text>
           </View>
-        </ScrollView>
+          <View style={{ flex: 1, justifyContent: "center" }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {EXCLUDES.map(ex => (
+                <View key={ex.key} style={{ width: "31%" }}>
+                  <Tag
+                    label={ex.label}
+                    variant="exclude"
+                    selected={selectedExcludes.includes(ex.key)}
+                    onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
       </PagerView>
 
       {/* 統一的 SwipeHint — 固定在 PagerView 和 CTA 之間 */}
