@@ -68,27 +68,31 @@ function Tag({
   variant?: "default" | "exclude";
 }) {
   const isExclude = variant === "exclude";
-  const activeBg = isExclude ? "rgba(122,36,32,0.2)" : "rgba(200,120,40,0.15)";
+  const activeBg = isExclude ? "rgba(192,72,88,0.18)" : "rgba(200,120,40,0.15)";
   const activeBorder = isExclude ? OaklandDusk.brand.rust : OaklandDusk.brand.gold;
   const activeText = isExclude ? OaklandDusk.accent.crimson : OaklandDusk.brand.yellow;
+  const idleBorder = isExclude ? "rgba(192,72,88,0.2)" : "rgba(200,120,40,0.25)";
+  const idleBg = isExclude ? "rgba(192,72,88,0.05)" : "rgba(200,120,40,0.06)";
+  const idleText = isExclude ? "#c8a0a0" : OaklandDusk.text.secondary;
 
   return (
     <Pressable
       onPress={onPress}
       style={{
         paddingHorizontal: 16,
-        paddingVertical: 12,
-        borderRadius: 20,
+        paddingVertical: 14,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: selected ? activeBorder : "rgba(200,120,40,0.25)",
-        backgroundColor: selected ? activeBg : "rgba(200,120,40,0.06)",
+        borderColor: selected ? activeBorder : idleBorder,
+        backgroundColor: selected ? activeBg : idleBg,
         alignItems: "center",
+        transform: selected ? [{ scale: 1.03 }] : [],
       }}
     >
       <Text style={{
-        fontSize: 14,
+        fontSize: 15,
         fontWeight: selected ? "700" : "500",
-        color: selected ? activeText : OaklandDusk.text.secondary,
+        color: selected ? activeText : idleText,
         textTransform: "capitalize",
       }}>
         {label}
@@ -115,7 +119,7 @@ function SectionHeader({ children }: { children: string }) {
 
 function ProgressDots({ count, activeIndex }: { count: number; activeIndex: number }) {
   return (
-    <View style={{ flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 20 }}>
+    <View style={{ flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 24 }}>
       {Array.from({ length: count }, (_, i) => (
         <View
           key={i}
@@ -143,7 +147,7 @@ function SwipeHint({ text, bounce, direction = "both" }: { text: string; bounce:
           {"\u2190"}
         </Animated.Text>
       )}
-      <Text style={{ color: '#E8C88A', fontSize: 20, fontWeight: "700", letterSpacing: 0.5 }}>
+      <Text style={{ color: '#E8C88A', fontSize: 15, fontWeight: "700", letterSpacing: 0.5 }}>
         {text}
       </Text>
       {showRight && (
@@ -591,17 +595,17 @@ export default function BartenderScreen() {
         </View>
 
         {/* Page 1: Base Spirit */}
-        <View key="1" style={{ flex: 1, padding: 20 }}>
+        <View key="1" style={{ flex: 1, padding: 24 }}>
           <View>
-            <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-              Choose your spirit
+            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+              What are we pouring?
             </Text>
-            <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>
-              As many as you like, or skip ahead.
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>
+              Pick a base, or skip and I'll surprise you.
             </Text>
           </View>
-          <View style={{ flex: 1, justifyContent: "center" }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
               {BASE_SPIRITS.map(s => (
                 <View key={s} style={{ width: "31%" }}>
                   <Tag
@@ -616,17 +620,17 @@ export default function BartenderScreen() {
         </View>
 
         {/* Page 2: Flavor */}
-        <View key="2" style={{ flex: 1, padding: 20 }}>
+        <View key="2" style={{ flex: 1, padding: 24 }}>
           <View>
-            <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-              Choose your flavor
+            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+              What sounds good?
             </Text>
-            <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>
-              Select any that appeal to you.
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>
+              Tap any that catch your eye.
             </Text>
           </View>
-          <View style={{ flex: 1, justifyContent: "center" }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
               {FLAVORS.map(f => (
                 <View key={f} style={{ width: "48%" }}>
                   <Tag
@@ -641,19 +645,19 @@ export default function BartenderScreen() {
         </View>
 
         {/* Page 3: Avoid */}
-        <View key="3" style={{ flex: 1, padding: 20 }}>
+        <View key="3" style={{ flex: 1, padding: 24 }}>
           <View>
-            <Text style={{ fontSize: 26, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-              Anything to avoid?
+            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+              Anything to skip?
             </Text>
-            <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>
-              Totally fine to leave this blank.
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>
+              Or just hit the button — I've got you.
             </Text>
           </View>
-          <View style={{ flex: 1, justifyContent: "center" }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
               {EXCLUDES.map(ex => (
-                <View key={ex.key} style={{ width: "31%" }}>
+                <View key={ex.key} style={{ width: "48%" }}>
                   <Tag
                     label={ex.label}
                     variant="exclude"
@@ -670,7 +674,7 @@ export default function BartenderScreen() {
       {/* 統一的 SwipeHint — 固定在 PagerView 和 CTA 之間 */}
       <View style={{ paddingVertical: 12, alignItems: "center" }}>
         <SwipeHint
-          text={activeIndex === 0 ? "swipe to start" : activeIndex === PAGE_COUNT - 1 ? "swipe back" : "swipe for more"}
+          text={activeIndex === 0 ? "swipe to start" : activeIndex === PAGE_COUNT - 1 ? "back" : "swipe for more"}
           bounce={arrowBounce}
           direction={activeIndex === 0 ? "left" : activeIndex === PAGE_COUNT - 1 ? "left" : "both"}
         />
@@ -687,7 +691,7 @@ export default function BartenderScreen() {
         </Text>
       )}
 
-      {activeIndex > 0 && (
+      <View style={{ opacity: activeIndex > 0 ? 1 : 0, pointerEvents: activeIndex > 0 ? "auto" : "none" }}>
         <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12, position: "relative" }}>
           <HintBubble
             storageKey={GUIDE_KEYS.GP_STEP_1}
@@ -696,32 +700,39 @@ export default function BartenderScreen() {
             hintType="tap"
             hintColor="charcoal"
           />
-          <Pressable
-            onPress={() => {
-              if (gpStep1Visible) {
-                dismissGuide(GUIDE_KEYS.GP_STEP_1);
-                setGpStep1Visible(false);
-              }
-              setShowBottomSheet(true);
-            }}
-            disabled={loading}
-            style={{
-              backgroundColor: OaklandDusk.brand.gold,
-              paddingVertical: 14,
-              borderRadius: 12,
-              alignItems: "center",
-            }}
-          >
-            {loading ? (
-              <ActivityIndicator color={OaklandDusk.bg.void} />
-            ) : (
-              <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                Let's make a drink
-              </Text>
-            )}
-          </Pressable>
+          {(() => {
+            const hasSelections = selectedSpirits.length > 0 || selectedFlavors.length > 0 || selectedExcludes.length > 0;
+            return (
+              <Pressable
+                onPress={() => {
+                  if (gpStep1Visible) {
+                    dismissGuide(GUIDE_KEYS.GP_STEP_1);
+                    setGpStep1Visible(false);
+                  }
+                  setShowBottomSheet(true);
+                }}
+                disabled={loading}
+                style={{
+                  backgroundColor: hasSelections ? OaklandDusk.brand.gold : "rgba(200,120,40,0.15)",
+                  paddingVertical: 14,
+                  borderRadius: 12,
+                  alignItems: "center",
+                  borderWidth: hasSelections ? 0 : 1,
+                  borderColor: hasSelections ? "transparent" : "rgba(200,120,40,0.3)",
+                }}
+              >
+                {loading ? (
+                  <ActivityIndicator color={OaklandDusk.bg.void} />
+                ) : (
+                  <Text style={{ fontSize: 16, fontWeight: "700", color: hasSelections ? OaklandDusk.bg.void : "#B89860" }}>
+                    {hasSelections ? "Let's make a drink" : "Surprise me"}
+                  </Text>
+                )}
+              </Pressable>
+            );
+          })()}
         </View>
-      )}
+      </View>
 
       <Modal
         visible={showBottomSheet}
