@@ -223,6 +223,23 @@ export default function BartenderScreen() {
   const [showStaples, setShowStaples] = useState(false);
   const [gpStep1Visible, setGpStep1Visible] = useState(false);
   const [confirmedStaples, setConfirmedStaples] = useState<string[]>([]);
+  const [initialPageReady, setInitialPageReady] = useState(false);
+  const [skipWelcome, setSkipWelcome] = useState(false);
+
+  // Check if returning user to skip Welcome page
+  useEffect(() => {
+    (async () => {
+      try {
+        const hasUsed = await AsyncStorage.getItem("sipmetry_has_used_bartender");
+        const shouldSkip = hasUsed === "true" || inventory.length > 0;
+        if (shouldSkip) {
+          setSkipWelcome(true);
+          setActiveIndex(1);
+        }
+      } catch {}
+      setInitialPageReady(true);
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     AsyncStorage.getItem(STAPLES_STORAGE_KEY).then((raw) => {
@@ -271,6 +288,8 @@ export default function BartenderScreen() {
       setOneAway(away);
       setHint(data.hint || null);
       setShowResults(true);
+      // Mark user as having used the bartender (for skip-Welcome on next launch)
+      AsyncStorage.setItem("sipmetry_has_used_bartender", "true").catch(() => {});
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
     } finally {
@@ -299,6 +318,26 @@ export default function BartenderScreen() {
     });
   };
 
+
+  // Brief loading state while AsyncStorage initializes (prevents black screen flash)
+  if (!initialPageReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void, justifyContent: "center", alignItems: "center" }}>
+        <View style={{
+          width: 72,
+          height: 72,
+          borderRadius: 18,
+          backgroundColor: "rgba(200,120,40,0.15)",
+          borderWidth: 1,
+          borderColor: "rgba(200,120,40,0.25)",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+          <Text style={{ fontSize: 32, fontWeight: "800", color: OaklandDusk.brand.gold }}>S</Text>
+        </View>
+      </View>
+    );
+  }
 
   if (showResults) {
     return (
@@ -519,7 +558,7 @@ export default function BartenderScreen() {
       <PagerView
         ref={pagerRef}
         style={{ flex: 1 }}
-        initialPage={0}
+        initialPage={skipWelcome ? 1 : 0}
         onPageSelected={(e) => {
           const pos = e.nativeEvent.position;
           setActiveIndex(pos);
