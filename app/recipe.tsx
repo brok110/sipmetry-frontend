@@ -1395,7 +1395,37 @@ export default function TabTwoScreen() {
           </View>
         ) : null}
 
-        {/* Primary CTA: Make this cocktail */}
+        <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 12, backgroundColor: OaklandDusk.bg.card }}>
+          <View>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <FontAwesome name="flask" size={14} color={OaklandDusk.brand.gold} />
+              <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Ingredients</Text>
+            </View>
+            {dbRecipe ? (
+              renderDbIngredients()
+            ) : loading ? (
+              <Text style={{ color: OaklandDusk.text.tertiary }}>(Loading full recipe…)</Text>
+            ) : error ? (
+              <Text style={{ color: OaklandDusk.semantic.error }}>Failed to load recipe: {error}</Text>
+            ) : ibaCode ? (
+              <Text style={{ color: OaklandDusk.text.tertiary }}>(Waiting for full recipe…)</Text>
+            ) : (
+              <Text style={{ color: OaklandDusk.text.tertiary }}>(Missing iba_code)</Text>
+            )}
+          </View>
+
+          {dbRecipe?.instructions ? (
+            <View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <FontAwesome name="list-ol" size={14} color={OaklandDusk.brand.gold} />
+                <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Instructions</Text>
+              </View>
+              <Text style={{ color: OaklandDusk.text.secondary }}>{String(dbRecipe.instructions)}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Primary CTA: Make this cocktail — placed after instructions per UX flow */}
         {session && dbRecipe && madeDrinkState !== 'hidden' ? (
           <View style={{ position: "relative" }}>
             <HintBubble
@@ -1442,36 +1472,6 @@ export default function TabTwoScreen() {
             <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
           </View>
         ) : null}
-
-        <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 12, backgroundColor: OaklandDusk.bg.card }}>
-          <View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <FontAwesome name="flask" size={14} color={OaklandDusk.brand.gold} />
-              <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Ingredients</Text>
-            </View>
-            {dbRecipe ? (
-              renderDbIngredients()
-            ) : loading ? (
-              <Text style={{ color: OaklandDusk.text.tertiary }}>(Loading full recipe…)</Text>
-            ) : error ? (
-              <Text style={{ color: OaklandDusk.semantic.error }}>Failed to load recipe: {error}</Text>
-            ) : ibaCode ? (
-              <Text style={{ color: OaklandDusk.text.tertiary }}>(Waiting for full recipe…)</Text>
-            ) : (
-              <Text style={{ color: OaklandDusk.text.tertiary }}>(Missing iba_code)</Text>
-            )}
-          </View>
-
-          {dbRecipe?.instructions ? (
-            <View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <FontAwesome name="list-ol" size={14} color={OaklandDusk.brand.gold} />
-                <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Instructions</Text>
-              </View>
-              <Text style={{ color: OaklandDusk.text.secondary }}>{String(dbRecipe.instructions)}</Text>
-            </View>
-          ) : null}
-        </View>
 
       </ScrollView>
 
