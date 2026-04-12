@@ -224,6 +224,7 @@ export default function BartenderScreen() {
   const [showStaples, setShowStaples] = useState(false);
   const [gpStep1Visible, setGpStep1Visible] = useState(false);
   const [confirmedStaples, setConfirmedStaples] = useState<string[]>([]);
+  const [staplesConfirmed, setStaplesConfirmed] = useState(false);
   const [initialPageReady, setInitialPageReady] = useState(false);
   const [skipWelcome, setSkipWelcome] = useState(false);
 
@@ -245,8 +246,11 @@ export default function BartenderScreen() {
   useEffect(() => {
     AsyncStorage.getItem(STAPLES_STORAGE_KEY).then((raw) => {
       try {
-        const parsed = JSON.parse(raw ?? "[]");
-        if (Array.isArray(parsed)) setConfirmedStaples(parsed);
+        if (raw !== null) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) setConfirmedStaples(parsed);
+          setStaplesConfirmed(true);
+        }
       } catch {}
     });
   }, []);
@@ -918,7 +922,12 @@ export default function BartenderScreen() {
                 <Pressable
                   onPress={() => {
                     setShowBottomSheet(false);
-                    setShowStaples(true);
+                    // Skip modal if staples were previously confirmed; fetch directly
+                    if (staplesConfirmed) {
+                      fetchRecommendations(confirmedStaples);
+                    } else {
+                      setShowStaples(true);
+                    }
                   }}
                   style={{
                     borderWidth: 1,
@@ -1010,6 +1019,7 @@ export default function BartenderScreen() {
         onConfirm={(stapleKeys) => {
           setShowStaples(false);
           setConfirmedStaples(stapleKeys);
+          setStaplesConfirmed(true);
           fetchRecommendations(stapleKeys);
         }}
         onCancel={() => setShowStaples(false)}
