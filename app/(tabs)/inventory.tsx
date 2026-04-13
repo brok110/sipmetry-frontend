@@ -1,11 +1,13 @@
 import { apiFetch } from '@/lib/api'
 import { openUrl } from '@/lib/openUrl'
 import * as ImagePicker from 'expo-image-picker'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import OaklandDusk from '@/constants/OaklandDusk'
 import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
+import RegistrationPrompt from '@/components/RegistrationPrompt'
 import SwipeRow from '@/components/ui/SwipeRow'
 import { useAuth } from '@/context/auth'
 import { InventoryItem, useInventory } from '@/context/inventory'
@@ -567,7 +569,7 @@ function InventoryCardWithGuide({
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function MyBarScreen() {
-  const { session } = useAuth()
+  const { session, isAnonymous } = useAuth()
   const { trackAndOpenPurchaseLink } = usePurchaseIntent()
   const {
     inventory,
@@ -592,6 +594,21 @@ export default function MyBarScreen() {
   const [guideMyBarEmptyVisible, setGuideMyBarEmptyVisible] = useState(false)
   const [guideMyBarCtaVisible, setGuideMyBarCtaVisible] = useState(false)
   const [guideSwipeDismissed, setGuideSwipeDismissed] = useState(true)
+
+  // ── Registration prompt (anonymous users with ≥3 bottles) ────────────────
+  const [showRegPrompt, setShowRegPrompt] = useState(false)
+  const regPromptChecked = useRef(false)
+
+  useEffect(() => {
+    if (!isAnonymous || regPromptChecked.current) return
+    if (inventory.length >= 3) {
+      AsyncStorage.getItem('sipmetry_reg_prompt_dismissed').then((v) => {
+        // TODO: scope key per user_id when volume grows (currently device-scoped)
+        if (v !== 'true') setShowRegPrompt(true)
+      })
+      regPromptChecked.current = true
+    }
+  }, [inventory.length, isAnonymous])
 
   useEffect(() => {
     isGuideDismissed(GUIDE_KEYS.MYBAR_EMPTY).then((d) => setGuideMyBarEmptyVisible(!d))
@@ -780,17 +797,6 @@ export default function MyBarScreen() {
     } finally {
       setRecommendLoading(false)
     }
-  }
-
-  if (!session) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.emptyTitle}>Sign in to view My Bar</Text>
-        <Text style={styles.emptySubtitle}>
-          Your inventory will appear here once you sign in.
-        </Text>
-      </View>
-    )
   }
 
   if ((loading || !initialized) && inventory.length === 0) {
@@ -1097,6 +1103,19 @@ export default function MyBarScreen() {
         handleSeeRecipes(staplesKeys)
       }}
       onCancel={() => setShowStaplesModal(false)}
+    />
+
+    <RegistrationPrompt
+      visible={showRegPrompt}
+      bottleCount={inventory.length}
+      onCreateAccount={() => {
+        setShowRegPrompt(false)
+        router.push('/login')
+      }}
+      onDismiss={async () => {
+        setShowRegPrompt(false)
+        await AsyncStorage.setItem('sipmetry_reg_prompt_dismissed', 'true')
+      }}
     />
     </View>
   )

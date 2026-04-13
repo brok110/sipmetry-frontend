@@ -42,7 +42,7 @@ function ProfileRow({
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { session, signOut } = useAuth();
+  const { session, signOut, isAnonymous } = useAuth();
   const { unit: displayUnit, setUnit: setDisplayUnit } = useUnitPreference();
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const userEmail = session?.user?.email;
@@ -128,6 +128,30 @@ export default function ProfileScreen() {
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
     >
+      {/* Create Account banner — anonymous users only */}
+      {isAnonymous && (
+        <Pressable
+          onPress={() => router.push('/login')}
+          style={{
+            backgroundColor: OaklandDusk.bg.surface,
+            borderWidth: 1,
+            borderColor: OaklandDusk.brand.gold,
+            borderRadius: 12,
+            padding: 16,
+            alignItems: 'center',
+            gap: 4,
+            marginBottom: 4,
+          }}
+        >
+          <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '800', fontSize: 16 }}>
+            Create Account
+          </Text>
+          <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 13 }}>
+            Protect your data across devices
+          </Text>
+        </Pressable>
+      )}
+
       {/* Avatar / email card */}
       <View style={{
         padding: 20,
@@ -143,7 +167,7 @@ export default function ProfileScreen() {
           <>
             <Text style={{ textAlign: "center", color: OaklandDusk.text.secondary }}>Not signed in</Text>
             <Pressable
-              onPress={() => router.push("/login")}
+              onPress={() => router.push("/login?mode=signin")}
               style={{
                 borderRadius: 999,
                 paddingHorizontal: 20,

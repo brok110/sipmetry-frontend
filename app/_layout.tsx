@@ -100,7 +100,7 @@ export function markAgeVerified() {
 }
 
 function RootLayoutNav() {
-  const { user, hydrated } = useAuth();
+  const { user, hydrated, isAnonymous } = useAuth();
   const router = useRouter();
   const segments = useSegments();
 
@@ -119,7 +119,7 @@ function RootLayoutNav() {
     const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile';
 
     if (!user && inAuthArea) {
-      router.replace('/login');
+      router.replace('/age-gate');
       return;
     }
 
@@ -145,7 +145,9 @@ function RootLayoutNav() {
 
     if (!ageVerified && firstSegment !== 'age-gate') {
       router.replace('/age-gate');
-    } else if (ageVerified && (firstSegment === 'login' || firstSegment === 'age-gate')) {
+    } else if (ageVerified && !isAnonymous && (firstSegment === 'login' || firstSegment === 'age-gate')) {
+      // Only redirect away from login/age-gate if the user is fully registered.
+      // Anonymous users need to be able to visit /login to upgrade their account.
       router.replace('/(tabs)/bartender');
     }
   }, [user, hydrated, segments, ageVerified]);

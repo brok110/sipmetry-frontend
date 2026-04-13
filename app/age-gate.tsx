@@ -53,7 +53,7 @@ const MONTHS = [
 // ---------------------------------------------------------------------------
 export default function AgeGateScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user, signOut, signInAnonymously } = useAuth();
 
   // Extract region code from locale string (e.g. "en-US" → "US")
   const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? '';
@@ -79,27 +79,39 @@ export default function AgeGateScreen() {
       return;
     }
 
-    // Passed — upsert profile and navigate
     setLoading(true);
-    const { error } = await supabase.from('profiles').upsert({
-      user_id: user!.id,
-      birth_year: selectedYear,
-      region_code: regionCode,
-    });
-    setLoading(false);
+    try {
+      // 1. If not logged in, sign in anonymously
+      let currentUser = user;
+      if (!currentUser) {
+        const { user: newUser, error } = await signInAnonymously();
+        if (error) throw new Error(error);
+        currentUser = newUser;
+      }
 
-    if (error) {
-      Alert.alert('Error', 'Failed to save your profile. Please try again.');
-      return;
+      // 2. Save birth_year to profile
+      if (currentUser) {
+        const { error } = await supabase.from('profiles').upsert({
+          user_id: currentUser.id,
+          birth_year: selectedYear,
+          region_code: regionCode,
+        });
+        if (error) throw error;
+      }
+
+      markAgeVerified();
+      router.replace('/(tabs)/bartender');
+    } catch (e: any) {
+      Alert.alert('Error', e?.message ?? 'Failed to save your profile. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    markAgeVerified();
-    router.replace('/(tabs)/bartender');
   };
 
   const handleSignOut = async () => {
     await signOut();
-    router.replace('/login');
+    // user becomes null but age-gate is not in inAuthArea,
+    // so the user stays here and can re-enter or tap Sign In
   };
 
   // -------------------------------------------------------------------------
@@ -266,6 +278,18 @@ export default function AgeGateScreen() {
         >
           <Text style={{ color: OaklandDusk.bg.void, fontWeight: '800' }}>
             {loading ? 'Verifying...' : 'Continue'}
+          </Text>
+        </Pressable>
+
+        {/* Already registered users can go straight to login */}
+        <Pressable onPress={() => router.replace('/login?mode=signin')}>
+          <Text style={{
+            textAlign: 'center',
+            color: OaklandDusk.text.secondary,
+            marginTop: 8,
+          }}>
+            Already have an account?{' '}
+            <Text style={{ color: OaklandDusk.brand.gold }}>Sign In</Text>
           </Text>
         </Pressable>
       </ScrollView>
