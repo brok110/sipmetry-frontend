@@ -3,7 +3,8 @@ import HintBubble, { GUIDE_KEYS, TapPulse, dismissGuide, isGoldenPathStepReady, 
 import { useNavigation } from "@react-navigation/native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Image, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -58,6 +59,7 @@ export default function TabTwoScreen() {
 
   const router = useRouter();
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     navigation?.setOptions?.({ title: "Recipe" });
@@ -1086,15 +1088,55 @@ export default function TabTwoScreen() {
           // Build "Originally: Gin" label for substitute ingredients
           const originalName = isSubstitute ? humanizeKey(key) : "";
 
+          // Derive band color from server availability
+          const avail = ingredientAvailability?.[key];
+          const bandIsInBar = avail?.status === "in_bar";
+          const bandIsSubstitute = avail?.status === "substitute";
+          const bandHasData = ingredientAvailability !== null;
+
           return (
-            <View key={i} style={{ gap: 1 }}>
-              <Text style={{ color: OaklandDusk.text.secondary }}>
-                • {name}{isSubstitute ? <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 12 }}> (substitute)</Text> : ""} — {amountLabel}
-                {isOptional ? <Text style={{ color: OaklandDusk.text.tertiary }}> (optional)</Text> : ""}
-                {availBadge}
-              </Text>
+            <View key={i} style={{ gap: 2 }}>
+              <View style={{
+                flexDirection: "row",
+                alignItems: "center",
+                paddingVertical: 8,
+                paddingHorizontal: 10,
+                borderRadius: 6,
+                backgroundColor: "rgba(255,255,255,0.02)",
+                borderLeftWidth: 3,
+                borderLeftColor: !bandHasData
+                  ? OaklandDusk.bg.border
+                  : bandIsInBar ? "#7AB89A"
+                  : bandIsSubstitute ? "#D4A030"
+                  : "#C87070",
+              }}>
+                <Text style={{ flex: 1, fontSize: 12, color: OaklandDusk.text.primary }}>
+                  {name}{isOptional ? <Text style={{ color: OaklandDusk.text.tertiary }}> (optional)</Text> : ""}
+                </Text>
+                <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginRight: 8 }}>
+                  {amountLabel}
+                </Text>
+                {bandHasData && (
+                  <View style={{
+                    paddingHorizontal: 5,
+                    paddingVertical: 1,
+                    borderRadius: 3,
+                    backgroundColor: bandIsInBar
+                      ? "rgba(122,184,154,0.1)"
+                      : bandIsSubstitute ? "rgba(212,160,48,0.1)"
+                      : "rgba(200,112,112,0.1)",
+                  }}>
+                    <Text style={{
+                      fontSize: 9,
+                      color: bandIsInBar ? "#7AB89A" : bandIsSubstitute ? "#D4A030" : "#C87070",
+                    }}>
+                      {bandIsInBar ? "✓" : bandIsSubstitute ? "alt" : "need"}
+                    </Text>
+                  </View>
+                )}
+              </View>
               {isSubstitute && originalName ? (
-                <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 11, marginLeft: 14 }}>
+                <Text style={{ fontSize: 10, color: "#D4A030", marginLeft: 14, marginBottom: 4 }}>
                   Originally: {originalName}
                 </Text>
               ) : null}
@@ -1156,103 +1198,141 @@ export default function TabTwoScreen() {
 
   // Fix 7: dynamic back title based on navigation source
   const fromParam = String((params as any).from ?? "").trim();
+  const backLabel =
+    params.source === "favorites"
+      ? "Favorites"
+      : params.source === "bartender"
+        ? "Picks"
+        : params.source === "cocktails" || fromParam === "recommendations"
+          ? "Cocktails"
+          : "Back";
 
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      <Stack.Screen options={{
-        title: "",
-        headerStyle: { backgroundColor: OaklandDusk.bg.void },
-        headerTintColor: OaklandDusk.brand.gold,
-        headerShadowVisible: false,
-        headerLeft: () => {
-          const backLabel =
-            params.source === "favorites"
-              ? "Favorites"
-              : params.source === "bartender"
-                ? "Picks"
-                : params.source === "cocktails" || fromParam === "recommendations"
-                  ? "Cocktails"
-                  : "Back";
-          return (
-            <Pressable
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace("/(tabs)/bartender" as any);
-                }
-              }}
-              hitSlop={16}
-              style={{ paddingHorizontal: 8, paddingVertical: 8 }}
-            >
-              <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
-                ‹ {backLabel}
-              </Text>
-            </Pressable>
-          );
-        },
-      }} />
+      <Stack.Screen options={{ title: "", headerShown: false }} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{
-          padding: 16,
-          gap: 12,
-          paddingBottom: 40,
-        }}
+        contentContainerStyle={{ paddingBottom: 40 }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", flex: 1, color: OaklandDusk.text.primary }}>
-            {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
-          </Text>
-
-          {dbRecipe && (
-            <View style={{ position: "relative" }}>
-              <HintBubble
-                storageKey={GUIDE_KEYS.RECIPE_SHARE}
-                visible={shareHintVisible}
-                onDismiss={() => {
-                  setShareHintVisible(false);
-                  // Chain: show favorites hint next
-                  isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
-                    if (!d) setFavHintVisible(true);
-                  });
-                }}
-                hintType="tap"
-                hintColor="skyblue"
-              />
-              <Pressable onPress={() => {
-                if (shareHintVisible) {
-                  dismissGuide(GUIDE_KEYS.RECIPE_SHARE);
-                  setShareHintVisible(false);
-                  // Chain: show favorites hint next
-                  isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
-                    if (!d) setFavHintVisible(true);
-                  });
-                }
-                handleSharePress();
-              }} hitSlop={14} accessibilityLabel="Share recipe" accessibilityRole="button" style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-                <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
-              </Pressable>
-            </View>
-          )}
-
-          <View style={{ position: "relative" }}>
-            {favHintVisible && !isFav && (
-              <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
-                <TapPulse color="skyblue" />
+        {/* C1: Hero image */}
+        <View style={{ width: "100%", height: 160 + insets.top, backgroundColor: "#1a1520" }}>
+          {dbRecipe?.image_url ? (
+            <Image
+              source={{ uri: dbRecipe.image_url }}
+              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
+            />
+          ) : null}
+          {/* Gradient fade at bottom (expo-linear-gradient not installed; opacity fallback) */}
+          <View style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 50,
+            backgroundColor: OaklandDusk.bg.void,
+            opacity: 0.7,
+          }} />
+          {/* Back button overlay */}
+          <Pressable
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(tabs)/bartender" as any);
+              }
+            }}
+            hitSlop={16}
+            style={{
+              position: "absolute",
+              top: 12 + insets.top,
+              left: 14,
+              zIndex: 2,
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              backgroundColor: "rgba(8,7,12,0.6)",
+              borderRadius: 8,
+            }}
+          >
+            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
+              ‹ {backLabel}
+            </Text>
+          </Pressable>
+          {/* Share + heart overlay — single dark pill */}
+          <View style={{
+            position: "absolute",
+            top: 12 + insets.top,
+            right: 14,
+            zIndex: 2,
+            flexDirection: "row",
+            gap: 12,
+            alignItems: "center",
+            backgroundColor: "rgba(8,7,12,0.6)",
+            borderRadius: 8,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+          }}>
+            {dbRecipe && (
+              <View style={{ position: "relative" }}>
+                <HintBubble
+                  storageKey={GUIDE_KEYS.RECIPE_SHARE}
+                  visible={shareHintVisible}
+                  onDismiss={() => {
+                    setShareHintVisible(false);
+                    // Chain: show favorites hint next
+                    isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
+                      if (!d) setFavHintVisible(true);
+                    });
+                  }}
+                  hintType="tap"
+                  hintColor="skyblue"
+                />
+                <Pressable
+                  onPress={() => {
+                    if (shareHintVisible) {
+                      dismissGuide(GUIDE_KEYS.RECIPE_SHARE);
+                      setShareHintVisible(false);
+                      // Chain: show favorites hint next
+                      isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
+                        if (!d) setFavHintVisible(true);
+                      });
+                    }
+                    handleSharePress();
+                  }}
+                  hitSlop={14}
+                  accessibilityLabel="Share recipe"
+                  accessibilityRole="button"
+                >
+                  <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
+                </Pressable>
               </View>
             )}
-            <Pressable onPress={() => {
-              if (favHintVisible) {
-                setFavHintVisible(false);
-                dismissGuide(GUIDE_KEYS.RECIPE_FAV);
-              }
-              onToggleFavorite();
-            }} hitSlop={10} style={{ paddingHorizontal: 6, paddingVertical: 4 }}>
-              <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />
-            </Pressable>
+            <View style={{ position: "relative" }}>
+              {favHintVisible && !isFav && (
+                <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
+                  <TapPulse color="skyblue" />
+                </View>
+              )}
+              <Pressable
+                onPress={() => {
+                  if (favHintVisible) {
+                    setFavHintVisible(false);
+                    dismissGuide(GUIDE_KEYS.RECIPE_FAV);
+                  }
+                  onToggleFavorite();
+                }}
+                hitSlop={10}
+              >
+                <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />
+              </Pressable>
+            </View>
           </View>
         </View>
+
+        {/* Main content */}
+        <View style={{ padding: 16, gap: 12 }}>
+        <Text style={{ fontSize: 22, fontWeight: "700", color: OaklandDusk.text.primary }}>
+          {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
+        </Text>
 
         {tasteTags.length > 0 ? (
           <Pressable onLongPress={__DEV__ ? copyDebug : undefined} delayLongPress={450}>
@@ -1274,6 +1354,43 @@ export default function TabTwoScreen() {
           </Pressable>
         ) : null}
 
+        {/* C2: Confidence signal */}
+        {ingredientAvailability && dbRecipe && (() => {
+          const ingKeys = dbRecipe.ingredients
+            .map(it => String(it.item ?? "").trim())
+            .filter(Boolean);
+          const allAvailable = ingKeys.every(k => {
+            const info = ingredientAvailability[k];
+            return info?.status === "in_bar" || info?.status === "substitute";
+          });
+          const missingCount = ingKeys.filter(k => {
+            const info = ingredientAvailability[k];
+            return !info || info.status === "missing";
+          }).length;
+          return (
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 6,
+              paddingVertical: 8,
+              paddingHorizontal: 12,
+              backgroundColor: allAvailable ? "rgba(122,184,154,0.06)" : "rgba(200,120,40,0.06)",
+              borderWidth: 1,
+              borderColor: allAvailable ? "rgba(122,184,154,0.15)" : "rgba(200,120,40,0.15)",
+              borderRadius: 8,
+              marginBottom: 12,
+            }}>
+              <Text style={{ color: allAvailable ? "#7AB89A" : OaklandDusk.brand.gold, fontSize: 14, fontWeight: "700" }}>
+                {allAvailable ? "✓" : "!"}
+              </Text>
+              <Text style={{ color: allAvailable ? "#7AB89A" : OaklandDusk.brand.gold, fontSize: 12 }}>
+                {allAvailable
+                  ? "You have everything"
+                  : `Missing ${missingCount} ingredient${missingCount > 1 ? "s" : ""}`}
+              </Text>
+            </View>
+          );
+        })()}
 
         {loading ? (
           <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, backgroundColor: OaklandDusk.bg.card }}>
@@ -1472,6 +1589,7 @@ export default function TabTwoScreen() {
             <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
           </View>
         ) : null}
+        </View>{/* end main content wrapper */}
 
       </ScrollView>
 
