@@ -1234,16 +1234,9 @@ export default function TabTwoScreen() {
               }
             }}
             hitSlop={16}
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderWidth: 1,
-              borderColor: OaklandDusk.bg.border,
-              borderRadius: 8,
-              backgroundColor: OaklandDusk.bg.card,
-            }}
+            style={{ paddingHorizontal: 8, paddingVertical: 8 }}
           >
-            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 15, fontWeight: "600" }}>
+            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
               ‹ {backLabel}
             </Text>
           </Pressable>
