@@ -1222,6 +1222,16 @@ export default function TabTwoScreen() {
               style={{ width: "100%", height: "100%", resizeMode: "cover" }}
             />
           ) : null}
+          {/* Top gradient overlay for button visibility (expo-linear-gradient not installed; solid-rgba fallback) */}
+          <View style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: insets.top + 56,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            zIndex: 1,
+          }} />
           {/* Gradient fade at bottom (expo-linear-gradient not installed; opacity fallback) */}
           <View style={{
             position: "absolute",
@@ -1249,8 +1259,6 @@ export default function TabTwoScreen() {
               zIndex: 2,
               paddingHorizontal: 10,
               paddingVertical: 4,
-              backgroundColor: "rgba(8,7,12,0.6)",
-              borderRadius: 8,
             }}
           >
             <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
@@ -1266,8 +1274,6 @@ export default function TabTwoScreen() {
             flexDirection: "row",
             gap: 12,
             alignItems: "center",
-            backgroundColor: "rgba(8,7,12,0.6)",
-            borderRadius: 8,
             paddingHorizontal: 10,
             paddingVertical: 4,
           }}>
