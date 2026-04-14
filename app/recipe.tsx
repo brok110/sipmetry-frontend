@@ -1297,13 +1297,18 @@ export default function TabTwoScreen() {
         </View>
 
         {/* C1: Hero image */}
-        <View style={{ width: "100%", height: 160, backgroundColor: OaklandDusk.bg.card }}>
+        <View style={{ width: "100%", height: 160, backgroundColor: OaklandDusk.bg.void }}>
           {dbRecipe?.image_url ? (
             <Image
               source={{ uri: dbRecipe.image_url }}
-              style={{ width: "100%", height: "100%", resizeMode: "contain" }}
+              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
             />
           ) : null}
+          <View style={{
+            position: "absolute",
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.3)",
+          }} />
           <LinearGradient
             colors={[OaklandDusk.bg.void, "transparent"]}
             start={{ x: 0, y: 1 }}
