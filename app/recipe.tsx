@@ -1221,7 +1221,9 @@ export default function TabTwoScreen() {
           justifyContent: "space-between",
           alignItems: "center",
           paddingHorizontal: 16,
-          paddingVertical: 8,
+          paddingTop: insets.top + 8,
+          paddingBottom: 8,
+          backgroundColor: OaklandDusk.bg.void,
         }}>
           <Pressable
             onPress={() => {
