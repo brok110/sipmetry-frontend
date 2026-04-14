@@ -1297,7 +1297,7 @@ export default function TabTwoScreen() {
         </View>
 
         {/* C1: Hero image */}
-        <View style={{ width: "100%", height: 160, backgroundColor: OaklandDusk.bg.void }}>
+        <View style={{ width: "100%", height: 220, backgroundColor: OaklandDusk.bg.void }}>
           {dbRecipe?.image_url ? (
             <Image
               source={{ uri: dbRecipe.image_url }}
