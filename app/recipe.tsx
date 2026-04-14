@@ -1234,9 +1234,16 @@ export default function TabTwoScreen() {
               }
             }}
             hitSlop={16}
-            style={{ paddingHorizontal: 10, paddingVertical: 4 }}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 6,
+              borderWidth: 1,
+              borderColor: OaklandDusk.bg.border,
+              borderRadius: 8,
+              backgroundColor: OaklandDusk.bg.card,
+            }}
           >
-            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
+            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 15, fontWeight: "600" }}>
               ‹ {backLabel}
             </Text>
           </Pressable>
@@ -1297,11 +1304,11 @@ export default function TabTwoScreen() {
         </View>
 
         {/* C1: Hero image */}
-        <View style={{ width: "100%", height: 160, backgroundColor: "#1a1520" }}>
+        <View style={{ width: "100%", height: 160, backgroundColor: OaklandDusk.bg.card }}>
           {dbRecipe?.image_url ? (
             <Image
               source={{ uri: dbRecipe.image_url }}
-              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
+              style={{ width: "100%", height: "100%", resizeMode: "contain" }}
             />
           ) : null}
           <LinearGradient
