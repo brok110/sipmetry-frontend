@@ -1215,29 +1215,14 @@ export default function TabTwoScreen() {
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* C1: Hero image */}
-        <View style={{ width: "100%", height: 160 + insets.top, backgroundColor: "#1a1520" }}>
-          {dbRecipe?.image_url ? (
-            <Image
-              source={{ uri: dbRecipe.image_url }}
-              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
-            />
-          ) : null}
-          <LinearGradient
-            colors={["rgba(0,0,0,0.45)", "transparent"]}
-            style={{ position: "absolute", top: 0, left: 0, right: 0, height: 80, zIndex: 1 }}
-          />
-          {/* Gradient fade at bottom (expo-linear-gradient not installed; opacity fallback) */}
-          <View style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: 50,
-            backgroundColor: OaklandDusk.bg.void,
-            opacity: 0.7,
-          }} />
-          {/* Back button overlay */}
+        {/* C1: Nav bar */}
+        <View style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          paddingHorizontal: 16,
+          paddingVertical: 8,
+        }}>
           <Pressable
             onPress={() => {
               if (router.canGoBack()) {
@@ -1247,31 +1232,13 @@ export default function TabTwoScreen() {
               }
             }}
             hitSlop={16}
-            style={{
-              position: "absolute",
-              top: 12 + insets.top,
-              left: 14,
-              zIndex: 2,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-            }}
+            style={{ paddingHorizontal: 10, paddingVertical: 4 }}
           >
             <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
               ‹ {backLabel}
             </Text>
           </Pressable>
-          {/* Share + heart overlay — single dark pill */}
-          <View style={{
-            position: "absolute",
-            top: 12 + insets.top,
-            right: 14,
-            zIndex: 2,
-            flexDirection: "row",
-            gap: 12,
-            alignItems: "center",
-            paddingHorizontal: 10,
-            paddingVertical: 4,
-          }}>
+          <View style={{ flexDirection: "row", gap: 12, alignItems: "center", paddingHorizontal: 10, paddingVertical: 4 }}>
             {dbRecipe && (
               <View style={{ position: "relative" }}>
                 <HintBubble
@@ -1279,7 +1246,6 @@ export default function TabTwoScreen() {
                   visible={shareHintVisible}
                   onDismiss={() => {
                     setShareHintVisible(false);
-                    // Chain: show favorites hint next
                     isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
                       if (!d) setFavHintVisible(true);
                     });
@@ -1292,7 +1258,6 @@ export default function TabTwoScreen() {
                     if (shareHintVisible) {
                       dismissGuide(GUIDE_KEYS.RECIPE_SHARE);
                       setShareHintVisible(false);
-                      // Chain: show favorites hint next
                       isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
                         if (!d) setFavHintVisible(true);
                       });
@@ -1327,6 +1292,22 @@ export default function TabTwoScreen() {
               </Pressable>
             </View>
           </View>
+        </View>
+
+        {/* C1: Hero image */}
+        <View style={{ width: "100%", height: 160, backgroundColor: "#1a1520" }}>
+          {dbRecipe?.image_url ? (
+            <Image
+              source={{ uri: dbRecipe.image_url }}
+              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
+            />
+          ) : null}
+          <LinearGradient
+            colors={[OaklandDusk.bg.void, "transparent"]}
+            start={{ x: 0, y: 1 }}
+            end={{ x: 0, y: 0 }}
+            style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 50 }}
+          />
         </View>
 
         {/* Main content */}
