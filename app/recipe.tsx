@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/context/auth";
 import { apiFetch } from "@/lib/api";
 import { getTasteTags } from "@/lib/tasteTags";
@@ -1222,16 +1223,10 @@ export default function TabTwoScreen() {
               style={{ width: "100%", height: "100%", resizeMode: "cover" }}
             />
           ) : null}
-          {/* Top gradient overlay for button visibility (expo-linear-gradient not installed; solid-rgba fallback) */}
-          <View style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: insets.top + 56,
-            backgroundColor: "rgba(0,0,0,0.45)",
-            zIndex: 1,
-          }} />
+          <LinearGradient
+            colors={["rgba(0,0,0,0.45)", "transparent"]}
+            style={{ position: "absolute", top: 0, left: 0, right: 0, height: 80, zIndex: 1 }}
+          />
           {/* Gradient fade at bottom (expo-linear-gradient not installed; opacity fallback) */}
           <View style={{
             position: "absolute",
