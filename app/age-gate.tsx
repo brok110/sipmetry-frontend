@@ -7,6 +7,7 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Alert,
+  InteractionManager,
   Pressable,
   ScrollView,
   Text,
@@ -100,7 +101,9 @@ export default function AgeGateScreen() {
       }
 
       markAgeVerified();
-      router.replace('/(tabs)/bartender');
+      InteractionManager.runAfterInteractions(() => {
+        router.replace('/(tabs)/bartender');
+      });
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Failed to save your profile. Please try again.');
     } finally {

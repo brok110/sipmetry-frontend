@@ -422,21 +422,22 @@ export default function CartScreen() {
                     </Text>
                   ) : null}
                 </View>
-                <Text style={{
-                  fontSize: 22,
-                  fontWeight: "800",
-                  color: isTop ? OaklandDusk.brand.gold : "#6B8F6B",
-                }}>
-                  +{s.unlocks_count}
-                </Text>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={{
+                    fontSize: 22,
+                    fontWeight: "800",
+                    color: isTop ? OaklandDusk.brand.gold : "#6B8F6B",
+                  }}>
+                    +{s.unlocks_count}
+                  </Text>
+                  <Text style={{
+                    fontSize: 10,
+                    color: OaklandDusk.text.tertiary,
+                  }}>
+                    {s.unlocks_count === 1 ? "cocktail" : "cocktails"}
+                  </Text>
+                </View>
               </View>
-
-              {/* Row 2: Reason */}
-              {s.reason ? (
-                <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary, lineHeight: 18 }}>
-                  {s.reason}
-                </Text>
-              ) : null}
 
               {/* Row 3: Unlocked recipes — tappable */}
               {showRecipes.length > 0 && (
