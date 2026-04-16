@@ -3,14 +3,13 @@ import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Pressable, Text } from 'react-native';
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import OaklandDusk from '@/constants/OaklandDusk';
-import { supabase } from '@/lib/supabase';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { FavoritesProvider } from '@/context/favorites';
 import { FeedbackProvider } from '@/context/feedback';
@@ -94,18 +93,10 @@ export default Sentry.wrap(function RootLayout() {
   );
 });
 
-let _setAgeVerified: ((v: boolean) => void) | null = null;
-export function markAgeVerified() {
-  _setAgeVerified?.(true);
-}
-
 function RootLayoutNav() {
   const { user, hydrated, isAnonymous } = useAuth();
   const router = useRouter();
   const segments = useSegments();
-
-  const [ageVerified, setAgeVerified] = useState<boolean | null>(null);
-  _setAgeVerified = setAgeVerified;
 
   useEffect(() => {
     SoundService.preload();
@@ -125,37 +116,14 @@ function RootLayoutNav() {
 
     if (!user) return;
 
-    // Logged in — check age verification
-    if (ageVerified === null) {
-      void (async () => {
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('birth_year')
-            .eq('user_id', user.id)
-            .maybeSingle();
-          if (error) throw error;
-          setAgeVerified(!!data?.birth_year);
-        } catch {
-          setAgeVerified(false);
-        }
-      })();
-      return;
-    }
+    const hasBirthYear = !!user.user_metadata?.birth_year;
 
-    if (!ageVerified && firstSegment !== 'age-gate') {
+    if (!hasBirthYear && firstSegment !== 'age-gate') {
       router.replace('/age-gate');
-    } else if (ageVerified && !isAnonymous && (firstSegment === 'login' || firstSegment === 'age-gate')) {
-      // Only redirect away from login/age-gate if the user is fully registered.
-      // Anonymous users need to be able to visit /login to upgrade their account.
+    } else if (hasBirthYear && !isAnonymous && (firstSegment === 'login' || firstSegment === 'age-gate')) {
       router.replace('/(tabs)/bartender');
     }
-  }, [user, hydrated, segments, ageVerified]);
-
-  // Reset ageVerified when user signs out and signs back in
-  useEffect(() => {
-    if (!user) setAgeVerified(null);
-  }, [user]);
+  }, [user, hydrated, segments]);
 
   const OaklandDuskNavTheme = {
     ...DarkTheme,

@@ -1,4 +1,3 @@
-import { markAgeVerified } from './_layout';
 import OaklandDusk from '@/constants/OaklandDusk';
 import { useAuth } from '@/context/auth';
 import { supabase } from '@/lib/supabase';
@@ -82,25 +81,30 @@ export default function AgeGateScreen() {
 
     setLoading(true);
     try {
-      // 1. If not logged in, sign in anonymously
       let currentUser = user;
-      if (!currentUser) {
-        const { user: newUser, error } = await signInAnonymously();
-        if (error) throw new Error(error);
-        currentUser = newUser;
-      }
 
-      // 2. Save birth_year to profile
-      if (currentUser) {
-        const { error } = await supabase.from('profiles').upsert({
-          user_id: currentUser.id,
+      if (!currentUser) {
+        const { user: newUser, error } = await signInAnonymously({
           birth_year: selectedYear,
           region_code: regionCode,
+        });
+        if (error) throw new Error(error);
+        currentUser = newUser;
+      } else {
+        const { error } = await supabase.auth.updateUser({
+          data: { birth_year: selectedYear, region_code: regionCode }
         });
         if (error) throw error;
       }
 
-      markAgeVerified();
+      if (currentUser) {
+        supabase.from('profiles').upsert({
+          user_id: currentUser.id,
+          birth_year: selectedYear,
+          region_code: regionCode,
+        }).then(() => {}, () => {});
+      }
+
       InteractionManager.runAfterInteractions(() => {
         router.replace('/(tabs)/bartender');
       });

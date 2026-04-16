@@ -13,7 +13,7 @@ type AuthContextType = {
   signUpWithEmail: (email: string, password: string) => Promise<{ error: string | null }>
   signInWithApple: () => Promise<{ error: string | null }>
   signInWithGoogle: () => Promise<{ error: string | null }>
-  signInAnonymously: () => Promise<{ user: User | null; error: string | null }>
+  signInAnonymously: (metadata?: Record<string, any>) => Promise<{ user: User | null; error: string | null }>
   upgradeWithEmail: (email: string, password: string) => Promise<{ error: string | null }>
   upgradeWithApple: () => Promise<{ error: string | null }>
   upgradeWithGoogle: () => Promise<{ error: string | null }>
@@ -148,8 +148,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   // Returns the new user so age-gate can use it without a separate getUser() call
-  const signInAnonymously = async () => {
-    const { data, error } = await supabase.auth.signInAnonymously()
+  const signInAnonymously = async (metadata?: Record<string, any>) => {
+    const { data, error } = await supabase.auth.signInAnonymously(
+      metadata ? { options: { data: metadata } } : undefined
+    )
     return {
       user: data?.user ?? null,
       error: error?.message ?? null,
