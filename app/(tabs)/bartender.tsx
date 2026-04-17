@@ -26,12 +26,21 @@ import PagerView from "react-native-pager-view";
 
 const PAGE_COUNT = 4;
 
+const OCCASIONS = [
+  { key: "home", emoji: "\uD83C\uDFE0", label: "Chilling at Home", desc: "Simple, easy, no fuss" },
+  { key: "meal", emoji: "\uD83C\uDF7D\uFE0F", label: "With a Meal", desc: "Light and appetizing" },
+  { key: "party", emoji: "\uD83C\uDF89", label: "Party Time", desc: "Fun, colorful, crowd-pleaser" },
+  { key: "nightcap", emoji: "\uD83C\uDF19", label: "Nightcap", desc: "Slow sip, warm and bold" },
+];
+
 const BASE_SPIRITS = ["brandy", "gin", "rum", "tequila", "vodka", "whiskey"];
-const FLAVORS = ["Bitter", "Clean", "Fruity", "Herbal", "Rich", "Smoky", "Sparkling", "Sweet"];
+
 const EXCLUDES = [
   { key: "too_bitter", label: "Not too bitter" },
   { key: "too_strong", label: "Not too strong" },
   { key: "too_sweet", label: "Not too sweet" },
+  { key: "no_egg", label: "No egg" },
+  { key: "no_dairy", label: "No dairy" },
 ];
 
 type Pick = {
@@ -211,8 +220,8 @@ export default function BartenderScreen() {
     ).start();
   }, []);
 
+  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
-  const [selectedFlavors, setSelectedFlavors] = useState<string[]>([]);
   const [selectedExcludes, setSelectedExcludes] = useState<string[]>([]);
   const [results, setResults] = useState<Pick[]>([]);
   const [oneAway, setOneAway] = useState<Pick[]>([]);
@@ -268,8 +277,9 @@ export default function BartenderScreen() {
         method: "POST",
         body: {
           detected_ingredients: allKeys,
+          occasion: selectedOccasion,
+          base_spirit: selectedSpirits.length === 1 ? selectedSpirits[0] : undefined,
           base_spirits: selectedSpirits,
-          style_presets: selectedFlavors,
           excludes: selectedExcludes,
           profile_style_preset: preferences.stylePreset,
         },
@@ -352,7 +362,7 @@ export default function BartenderScreen() {
           ) : (
             <View style={{ gap: 12 }}>
               {(() => {
-                const hasPreset = selectedFlavors.length > 0;
+                const hasPreset = false;
                 const hasSpirit = selectedSpirits.length > 0;
                 const readyMatched = results.filter(p => p.missing_count === 0 && (!hasPreset || p.preset_match));
                 const alsoAvailable = (hasPreset && hasSpirit)
@@ -617,8 +627,8 @@ export default function BartenderScreen() {
               setOneAway([]);
               setHint(null);
               setError(null);
+              setSelectedOccasion(null);
               setSelectedSpirits([]);
-              setSelectedFlavors([]);
               setSelectedExcludes([]);
               pendingPageRef.current = 1;
               setShowResults(false);
@@ -712,8 +722,60 @@ export default function BartenderScreen() {
           </Text>
         </View>
 
-        {/* Page 1: Base Spirit (A1: subtitle removed) */}
+        {/* Page 1: Occasion */}
         <View key="1" style={{ flex: 1, padding: 24 }}>
+          <View>
+            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
+              What's the vibe?
+            </Text>
+          </View>
+          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
+            <View style={{ gap: 12 }}>
+              {OCCASIONS.map(occ => {
+                const isSelected = selectedOccasion === occ.key;
+                return (
+                  <Pressable
+                    key={occ.key}
+                    onPress={() => setSelectedOccasion(isSelected ? null : occ.key)}
+                    style={{
+                      padding: 20,
+                      borderRadius: 16,
+                      borderWidth: isSelected ? 1.5 : 1,
+                      borderColor: isSelected ? OaklandDusk.brand.gold : "rgba(200,120,40,0.15)",
+                      backgroundColor: isSelected ? "rgba(200,120,40,0.08)" : OaklandDusk.bg.card,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 16,
+                      transform: isSelected ? [{ translateX: 4 }] : [],
+                    }}
+                  >
+                    <View style={{
+                      width: 52, height: 52, borderRadius: 14,
+                      backgroundColor: "rgba(200,120,40,0.12)",
+                      alignItems: "center", justifyContent: "center",
+                    }}>
+                      <Text style={{ fontSize: 26 }}>{occ.emoji}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{
+                        fontSize: 17, fontWeight: "700",
+                        color: isSelected ? "#E8C88A" : OaklandDusk.text.primary,
+                      }}>
+                        {occ.label}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 3 }}>
+                        {occ.desc}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+
+        {/* Page 2: Base Spirit */}
+        <View key="2" style={{ flex: 1, padding: 24 }}>
           <View>
             <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
               What are we pouring?
@@ -730,24 +792,6 @@ export default function BartenderScreen() {
           </View>
         </View>
 
-        {/* Page 2: Flavor (A1: subtitle removed) */}
-        <View key="2" style={{ flex: 1, padding: 24 }}>
-          <View>
-            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-              What sounds good?
-            </Text>
-          </View>
-          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-              {FLAVORS.map(f => (
-                <View key={f} style={{ width: "48%" }}>
-                  <Tag label={f} selected={selectedFlavors.includes(f)} onPress={() => toggle(selectedFlavors, f, setSelectedFlavors)} />
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
         {/* Page 3: Avoid (A1: subtitle removed) */}
         <View key="3" style={{ flex: 1, padding: 24 }}>
           <View>
@@ -758,7 +802,7 @@ export default function BartenderScreen() {
           <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
               {EXCLUDES.map(ex => (
-                <View key={ex.key} style={{ width: "48%" }}>
+                <View key={ex.key} style={{ width: "47%" }}>
                   <Tag label={ex.label} variant="exclude" selected={selectedExcludes.includes(ex.key)} onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)} />
                 </View>
               ))}
@@ -794,7 +838,7 @@ export default function BartenderScreen() {
             hintColor="charcoal"
           />
           {(() => {
-            const hasSelections = selectedSpirits.length > 0 || selectedFlavors.length > 0 || selectedExcludes.length > 0;
+            const hasSelections = selectedOccasion !== null || selectedSpirits.length > 0 || selectedExcludes.length > 0;
             return (
               <Pressable
                 onPress={() => {
