@@ -1890,14 +1890,13 @@ export default function TabOneScreen() {
     >
 
       {!searchParams.photoUri && !searchParams.photoUris ? (
-      <View style={{ position: "relative" }}>
-        <HintBubble
-          storageKey={GUIDE_KEYS.GP_STEP_3}
-          visible={gpStep3Visible}
-          onDismiss={() => setGpStep3Visible(false)}
-          hintType="tap"
-          hintColor="charcoal"
-        />
+      <HintBubble
+        storageKey={GUIDE_KEYS.GP_STEP_3}
+        visible={gpStep3Visible}
+        onDismiss={() => setGpStep3Visible(false)}
+        hintType="tap"
+        hintColor="charcoal"
+      >
         <Pressable
           onPress={handleScanBottles}
           style={{
@@ -1915,7 +1914,7 @@ export default function TabOneScreen() {
             Scan bottles
           </Text>
         </Pressable>
-      </View>
+      </HintBubble>
       ) : null}
 
       {imageUri ? (
@@ -2279,14 +2278,13 @@ export default function TabOneScreen() {
         backgroundColor: OaklandDusk.bg.void,
         borderTopWidth: 0.5, borderTopColor: OaklandDusk.bg.border,
       }}>
-        <View style={{ position: "relative" }}>
-          <HintBubble
-            storageKey={GUIDE_KEYS.GP_STEP_4}
-            visible={gpStep4Visible && activeIngredients.length > 0}
-            onDismiss={() => setGpStep4Visible(false)}
-            hintType="tap"
-            hintColor="charcoal"
-          />
+        <HintBubble
+          storageKey={GUIDE_KEYS.GP_STEP_4}
+          visible={gpStep4Visible && activeIngredients.length > 0}
+          onDismiss={() => setGpStep4Visible(false)}
+          hintType="tap"
+          hintColor="charcoal"
+        >
           <Pressable
             onPress={() => {
               dismissGuide(GUIDE_KEYS.COCKTAILS);
@@ -2312,7 +2310,7 @@ export default function TabOneScreen() {
                   })()}
             </Text>
           </Pressable>
-        </View>
+        </HintBubble>
       </View>
     )}
     </KeyboardAvoidingView>
@@ -2422,14 +2420,13 @@ export default function TabOneScreen() {
             })}
           </ScrollView>
           <View style={{ gap: 8, marginTop: 14 }}>
-            <View style={{ position: "relative" }}>
-              <HintBubble
-                storageKey={GUIDE_KEYS.ADD_BAR}
-                visible={guideAddBarVisible}
-                onDismiss={() => setGuideAddBarVisible(false)}
-                hintType="tap"
-                hintColor="charcoal"
-              />
+            <HintBubble
+              storageKey={GUIDE_KEYS.ADD_BAR}
+              visible={guideAddBarVisible}
+              onDismiss={() => setGuideAddBarVisible(false)}
+              hintType="tap"
+              hintColor="charcoal"
+            >
               <Pressable onPress={handleAddAllToBar} style={{
                 backgroundColor: OaklandDusk.brand.gold,
                 paddingVertical: 14, borderRadius: 12, alignItems: "center",
@@ -2438,7 +2435,7 @@ export default function TabOneScreen() {
                   {isZh ? "全部加入 My Bar" : "Add all to My Bar"}
                 </Text>
               </Pressable>
-            </View>
+            </HintBubble>
             <Pressable onPress={handleSkipAddToBar}>
               <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
                 {isZh ? "跳過 — 直接看雞尾酒" : "Skip — just show cocktails"}

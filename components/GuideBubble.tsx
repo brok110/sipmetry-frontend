@@ -1,6 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useRef } from "react";
+import { Animated, StyleSheet as RNSheet, View } from "react-native";
+
+import { useSpotlight } from "./spotlight/SpotlightContext";
+import { useTargetMeasurement } from "./spotlight/useTargetMeasurement";
+import { SPOTLIGHT } from "./spotlight/SpotlightTokens";
+import type { SpotlightColor } from "./spotlight/types";
 
 // ── Guide keys ────────────────────────────────────────────────────────────────
 export const GUIDE_KEYS = {
@@ -90,157 +95,150 @@ export async function isGoldenPathStepReady(
 
 // ── HintBubble ────────────────────────────────────────────────────────────────
 
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withRepeat,
-  withTiming,
-  withSequence,
-  Easing,
-  cancelAnimation,
-} from "react-native-reanimated";
-import { StyleSheet as RNStyleSheet } from "react-native";
+
+// Keys that cannot use the global SpotlightOverlay because they live inside
+// a React Native Modal (separate native window — measureInWindow coordinates
+// won't match the root layout's coordinate space).
+// These hints are silently skipped rather than shown misaligned.
+const LOCAL_ONLY_HINTS = new Set<GuideKey>([
+  GUIDE_KEYS.EDIT_BOTTLE,
+]);
 
 type HintColor = "charcoal" | "skyblue";
 type HintType = "tap" | "swipe";
 
-const CHARCOAL = {
-  ring: "rgba(255,245,200,0.45)",
-  ringInner: "rgba(255,245,200,0.65)",
-  dot: "rgba(255,245,200,0.9)",
+// ── Spotlight lookup tables ───────────────────────────────────────────────────
+// Maps each guide key to the emoji shown in the GlassIcon badge.
+// null = spotlight cutout only, no icon badge.
+const ICON_MAP: Partial<Record<GuideKey, string | null>> = {
+  [GUIDE_KEYS.GP_STEP_1]:     "👆",
+  [GUIDE_KEYS.GP_STEP_3]:     "📸",
+  [GUIDE_KEYS.GP_STEP_4]:     "🍹",
+  [GUIDE_KEYS.GP_STEP_5]:     "👆",
+  [GUIDE_KEYS.GP_STEP_6]:     "🎉",
+  [GUIDE_KEYS.CART]:          null,
+  [GUIDE_KEYS.RESTOCK_FIND]:  null,
+  [GUIDE_KEYS.EDIT_BOTTLE]:   "👈",
+  [GUIDE_KEYS.MYBAR_SWIPE]:   "👈",
+  [GUIDE_KEYS.MYBAR_EMPTY]:   "👆",
+  [GUIDE_KEYS.MYBAR_CTA]:     "🍹",
+  [GUIDE_KEYS.ADD_BAR]:       "➕",
+  [GUIDE_KEYS.RECIPE_SHARE]:      "📤",
+  [GUIDE_KEYS.RECIPE_FAV]:        "❤️",
+  [GUIDE_KEYS.PREFS_STYLE]:       "🎨",
+  [GUIDE_KEYS.PROFILE_PREFS_ROW]: "🎨",
+  [GUIDE_KEYS.PROFILE_FAVS_ROW]:  "❤️",
 };
 
-const SKYBLUE = {
-  ring: "rgba(130,190,255,0.3)",
-  ringInner: "rgba(130,190,255,0.45)",
-  dot: "rgba(130,190,255,0.5)",
+// Icon badge placement relative to the spotlight cutout.
+// 'auto' = above when target is in the bottom 40% of screen, else below.
+const POSITION_MAP: Partial<Record<GuideKey, "above" | "below" | "auto">> = {
+  [GUIDE_KEYS.GP_STEP_4]:    "above", // sticky footer at bottom of screen
+  [GUIDE_KEYS.MYBAR_CTA]:    "above", // sticky footer at bottom of screen
+  [GUIDE_KEYS.RECIPE_SHARE]: "below", // small icon in header — badge goes below
 };
 
-export function TapPulse({ color }: { color: HintColor }) {
-  const c = color === "charcoal" ? CHARCOAL : SKYBLUE;
-  const outerScale = useSharedValue(0.7);
-  const outerOpacity = useSharedValue(0.45);
-  const innerScale = useSharedValue(0.6);
-  const innerOpacity = useSharedValue(0.55);
-  const dotOpacity = useSharedValue(0.4);
+// hintColor prop ('charcoal' | 'skyblue') → SpotlightColor ('gold' | 'skyblue')
+const COLOR_MAP: Record<HintColor, SpotlightColor> = {
+  charcoal: "gold",
+  skyblue:  "skyblue",
+};
 
+// ── HintBubble ────────────────────────────────────────────────────────────────
+
+type HintBubbleProps = {
+  storageKey: GuideKey;
+  visible: boolean;
+  onDismiss?: () => void;
+  hintType?: HintType;
+  hintColor?: HintColor;
+  children?: React.ReactNode;
+  text?: string;
+  align?: string;
+  position?: string;
+};
+
+/**
+ * Inner spotlight implementation — all hooks live here.
+ * Separated from HintBubble so we can do an early-return for LOCAL_ONLY_HINTS
+ * without violating the Rules of Hooks.
+ */
+function SpotlightHintBubble({
+  storageKey,
+  visible,
+  onDismiss,
+  hintType = "tap",
+  hintColor = "skyblue",
+  children,
+}: HintBubbleProps) {
+  const { ref, measure } = useTargetMeasurement();
+  const { show, hide, activeKey } = useSpotlight();
+
+  // Track whether we've successfully become the active spotlight hint.
+  // Used to detect external dismissals (e.g. Android BackHandler) where
+  // activeKey goes null while visible is still true in the parent.
+  const hasBeenActiveRef = useRef(false);
+
+  // Keep a stable ref to onDismiss so the effect below doesn't need it as a dep.
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => { onDismissRef.current = onDismiss; }, [onDismiss]);
+
+  // Show / hide in response to the visible prop.
   useEffect(() => {
-    outerScale.value = withRepeat(
-      withSequence(
-        withTiming(1.2, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.7, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1
-    );
-    outerOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0, { duration: 1000 }),
-        withTiming(0.45, { duration: 1000 })
-      ),
-      -1
-    );
-    innerScale.value = withRepeat(
-      withSequence(
-        withTiming(1.0, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.6, { duration: 1000, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1
-    );
-    innerOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.08, { duration: 1000 }),
-        withTiming(0.55, { duration: 1000 })
-      ),
-      -1
-    );
-    dotOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.85, { duration: 750 }),
-        withTiming(0.4, { duration: 750 })
-      ),
-      -1
-    );
+    if (!visible) {
+      hide(storageKey);
+      return;
+    }
 
-    return () => {
-      cancelAnimation(outerScale);
-      cancelAnimation(outerOpacity);
-      cancelAnimation(innerScale);
-      cancelAnimation(innerOpacity);
-      cancelAnimation(dotOpacity);
-    };
-  }, []);
+    // Small delay before measuring — lets the layout stabilise on first mount.
+    const timer = setTimeout(async () => {
+      const rect = await measure();
+      console.log(`[DEBUG] SpotlightHintBubble show: key=${storageKey} rect=`, rect);
+      show({
+        storageKey,
+        measureFn: measure,
+        hintType,
+        color:        COLOR_MAP[hintColor],
+        icon:         ICON_MAP[storageKey] ?? null,
+        iconPosition: POSITION_MAP[storageKey] ?? "auto",
+        onDismiss,
+      });
+    }, SPOTLIGHT.MEASURE_DELAY);
 
-  const outerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: outerScale.value }],
-    opacity: outerOpacity.value,
-  }));
-  const innerStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: innerScale.value }],
-    opacity: innerOpacity.value,
-  }));
-  const dotStyle = useAnimatedStyle(() => ({
-    opacity: dotOpacity.value,
-  }));
+    return () => clearTimeout(timer);
+    // Intentionally omitting onDismiss — it's captured via onDismissRef.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, storageKey]);
+
+  // Detect external dismissal: we were the active hint but activeKey became
+  // null while the parent still has visible=true (e.g. Android BackHandler
+  // called hide() directly without going through onDismiss).
+  // Persist the dismissal to AsyncStorage so the hint never reappears.
+  useEffect(() => {
+    if (activeKey === storageKey) {
+      hasBeenActiveRef.current = true;
+    } else if (hasBeenActiveRef.current && visible && activeKey === null) {
+      hasBeenActiveRef.current = false;
+      dismissGuide(storageKey);
+      onDismissRef.current?.();
+    }
+  }, [activeKey, storageKey, visible]);
+
+  if (children) {
+    return (
+      <View ref={ref} collapsable={false} style={{ position: "relative" }}>
+        {children}
+      </View>
+    );
+  }
 
   return (
-    <View style={hintStyles.pulseContainer} pointerEvents="none">
-      <Animated.View style={[hintStyles.outerRing, { borderColor: c.ring }, outerStyle]} />
-      <Animated.View style={[hintStyles.innerRing, { borderColor: c.ringInner }, innerStyle]} />
-      <Animated.View style={[hintStyles.centerDot, { backgroundColor: c.dot }, dotStyle]} />
-    </View>
-  );
-}
-
-function SwipeBubble({ color }: { color: HintColor }) {
-  const c = color === "charcoal" ? CHARCOAL : SKYBLUE;
-  const translateX = useSharedValue(0);
-  const chevronOpacity = useSharedValue(0.2);
-
-  useEffect(() => {
-    translateX.value = withRepeat(
-      withSequence(
-        withTiming(14, { duration: 700, easing: Easing.inOut(Easing.ease) }),
-        withTiming(-14, { duration: 1400, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0, { duration: 700, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1
-    );
-    chevronOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.5, { duration: 1100 }),
-        withTiming(0.2, { duration: 1100 })
-      ),
-      -1
-    );
-
-    return () => {
-      cancelAnimation(translateX);
-      cancelAnimation(chevronOpacity);
-    };
-  }, []);
-
-  const ballStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: translateX.value }],
-  }));
-
-  return (
-    <View style={hintStyles.swipeContainer} pointerEvents="none">
-      {/* Track line */}
-      <View style={[hintStyles.swipeTrack, { backgroundColor: c.ring }]} />
-      {/* Left chevron */}
-      <View style={hintStyles.swipeChevronLeft}>
-        <Text style={{ fontSize: 14, color: c.ringInner }}>‹</Text>
-      </View>
-      {/* Right chevron */}
-      <View style={hintStyles.swipeChevronRight}>
-        <Text style={{ fontSize: 14, color: c.ringInner }}>›</Text>
-      </View>
-      {/* Ball */}
-      <Animated.View style={[hintStyles.swipeBall, ballStyle]}>
-        <View style={[hintStyles.swipeBallOuter, { borderColor: c.ringInner, backgroundColor: c.ring }]} />
-        <View style={[hintStyles.swipeBallInner, { backgroundColor: c.dot }]} />
-      </Animated.View>
-    </View>
+    <View
+      ref={ref}
+      collapsable={false}
+      style={RNSheet.absoluteFillObject}
+      pointerEvents="none"
+    />
   );
 }
 
@@ -254,111 +252,66 @@ function SwipeBubble({ color }: { color: HintColor }) {
  * - hintType: "tap" | "swipe" (default "tap")
  * - hintColor: "charcoal" | "skyblue" (default "skyblue")
  * - text, align, position: legacy props accepted but ignored for backwards compat
+ *
+ * Hints in LOCAL_ONLY_HINTS (e.g. inside a Modal) are skipped — the global
+ * SpotlightOverlay lives in the root layout (different native window on iOS)
+ * so coordinates won't match.
  */
-export default function HintBubble({
-  storageKey,
-  visible,
-  onDismiss,
-  hintType = "tap",
-  hintColor = "skyblue",
-}: {
-  storageKey: GuideKey;
-  visible: boolean;
-  onDismiss?: () => void;
-  hintType?: HintType;
-  hintColor?: HintColor;
-  // Legacy props — accepted but ignored for backwards compat
-  text?: string;
-  align?: string;
-  position?: string;
-}) {
+export default function HintBubble(props: HintBubbleProps) {
+  if (LOCAL_ONLY_HINTS.has(props.storageKey)) {
+    return <LocalOnlyHint {...props} />;
+  }
+  return <SpotlightHintBubble {...props} />;
+}
+
+function LocalOnlyHint({ visible, children }: HintBubbleProps) {
+  const pulse = useRef(new Animated.Value(0.4)).current;
+
+  useEffect(() => {
+    if (!visible) return;
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.4, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    anim.start();
+    return () => anim.stop();
+  }, [visible]);
+
+  if (children) {
+    return (
+      <View style={{ position: "relative" }}>
+        {children}
+        {visible && (
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              ...RNSheet.absoluteFillObject,
+              borderWidth: 2,
+              borderColor: "rgba(120,180,255,0.6)",
+              borderRadius: 12,
+              opacity: pulse,
+            }}
+          />
+        )}
+      </View>
+    );
+  }
+
   if (!visible) return null;
 
-  // No blocking overlay — touch passes through to the button beneath.
-  // Each call site dismisses the hint inside its own onPress handler.
   return (
-    <View style={hintStyles.bubbleWrapper} pointerEvents="none">
-      {hintType === "tap" ? (
-        <TapPulse color={hintColor} />
-      ) : (
-        <SwipeBubble color={hintColor} />
-      )}
-    </View>
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        ...RNSheet.absoluteFillObject,
+        borderWidth: 2,
+        borderColor: "rgba(120,180,255,0.6)",
+        borderRadius: 12,
+        opacity: pulse,
+      }}
+    />
   );
 }
 
-const hintStyles = RNStyleSheet.create({
-  bubbleWrapper: {
-    ...RNStyleSheet.absoluteFillObject,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 100,
-    pointerEvents: "none",
-  },
-  // TAP pulse
-  pulseContainer: {
-    width: 60,
-    height: 60,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  outerRing: {
-    position: "absolute",
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    borderWidth: 1.2,
-  },
-  innerRing: {
-    position: "absolute",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    borderWidth: 1.2,
-  },
-  centerDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  // SWIPE
-  swipeContainer: {
-    width: 120,
-    height: 36,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  swipeTrack: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    height: 1,
-    borderRadius: 0.5,
-  },
-  swipeChevronLeft: {
-    position: "absolute",
-    left: 10,
-  },
-  swipeChevronRight: {
-    position: "absolute",
-    right: 10,
-  },
-  swipeBall: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  swipeBallOuter: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 0.7,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  swipeBallInner: {
-    position: "absolute",
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-});

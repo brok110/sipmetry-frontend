@@ -368,14 +368,13 @@ export default function TabZeroPreferencesScreen() {
         <Text style={{ fontSize: 20, fontWeight: "700", color: OaklandDusk.text.primary }}>Taste profile</Text>
 
         {/* Flavor card */}
-        <View style={{ position: "relative" }}>
-          <HintBubble
-            storageKey={GUIDE_KEYS.PREFS_STYLE}
-            visible={guidePrefsStyleVisible}
-            onDismiss={() => setGuidePrefsStyleVisible(false)}
-            hintType="tap"
-            hintColor="skyblue"
-          />
+        <HintBubble
+          storageKey={GUIDE_KEYS.PREFS_STYLE}
+          visible={guidePrefsStyleVisible}
+          onDismiss={() => setGuidePrefsStyleVisible(false)}
+          hintType="tap"
+          hintColor="skyblue"
+        >
           <View
             style={{
               padding: 10,
@@ -406,7 +405,7 @@ export default function TabZeroPreferencesScreen() {
               ))}
             </View>
           </View>
-        </View>
+        </HintBubble>
 
         {/* Taste card */}
         <View

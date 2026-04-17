@@ -10,6 +10,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import OaklandDusk from '@/constants/OaklandDusk';
+import { SpotlightProvider } from '@/components/spotlight/SpotlightContext';
+import SpotlightOverlay from '@/components/spotlight/SpotlightOverlay';
 import { AuthProvider, useAuth } from '@/context/auth';
 import { FavoritesProvider } from '@/context/favorites';
 import { FeedbackProvider } from '@/context/feedback';
@@ -80,7 +82,10 @@ export default Sentry.wrap(function RootLayout() {
       <FeedbackProvider>
       <LowStockAlertProvider>
       <InventoryProvider>
-        <RootLayoutNav />
+        <SpotlightProvider>
+          <RootLayoutNav />
+          <SpotlightOverlay />
+        </SpotlightProvider>
       </InventoryProvider>
       </LowStockAlertProvider>
       </FeedbackProvider>

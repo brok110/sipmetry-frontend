@@ -429,16 +429,15 @@ export default function RecommendationsScreen() {
             <>
               {sectionHeader}
               {index === 0 ? (
-                <View style={{ position: "relative" }}>
-                  <HintBubble
-                    storageKey={GUIDE_KEYS.GP_STEP_5}
-                    visible={gpStep5Visible}
-                    onDismiss={() => setGpStep5Visible(false)}
-                    hintType="tap"
-                    hintColor="skyblue"
-                  />
+                <HintBubble
+                  storageKey={GUIDE_KEYS.GP_STEP_5}
+                  visible={gpStep5Visible}
+                  onDismiss={() => setGpStep5Visible(false)}
+                  hintType="tap"
+                  hintColor="skyblue"
+                >
                   <RecipeCard r={item.r} idx={item.globalIdx} isFirstCard={false} />
-                </View>
+                </HintBubble>
               ) : (
                 <RecipeCard
                   r={item.r}

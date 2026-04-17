@@ -281,31 +281,32 @@ export default function CartScreen() {
 
       {/* Load button (first time) — guide #8 */}
       {!hasFetched && !loading && (
-        <View style={{ position: "relative", zIndex: 20, overflow: "visible" }}>
+        <View style={{ zIndex: 20, overflow: "visible" }}>
           <HintBubble
             storageKey={GUIDE_KEYS.CART}
             visible={guideCartVisible}
             onDismiss={() => setGuideCartVisible(false)}
             hintType="tap"
             hintColor="charcoal"
-          />
-          <Pressable
-            onPress={() => {
-              dismissGuide(GUIDE_KEYS.CART);
-              setGuideCartVisible(false);
-              fetchSuggestions();
-            }}
-            style={{
-              backgroundColor: OaklandDusk.brand.gold,
-              borderRadius: 12,
-              paddingVertical: 14,
-              alignItems: "center",
-            }}
           >
-            <Text style={{ color: OaklandDusk.bg.void, fontWeight: "800", fontSize: 15 }}>
-              Get Recommendations
-            </Text>
-          </Pressable>
+            <Pressable
+              onPress={() => {
+                dismissGuide(GUIDE_KEYS.CART);
+                setGuideCartVisible(false);
+                fetchSuggestions();
+              }}
+              style={{
+                backgroundColor: OaklandDusk.brand.gold,
+                borderRadius: 12,
+                paddingVertical: 14,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: OaklandDusk.bg.void, fontWeight: "800", fontSize: 15 }}>
+                Get Recommendations
+              </Text>
+            </Pressable>
+          </HintBubble>
         </View>
       )}
 
@@ -519,55 +520,85 @@ export default function CartScreen() {
                 </View>
               )}
 
-              {/* Row 5: Buy CTA */}
-              {i === 0 && (
-                <View style={{ position: "relative" }}>
-                  <HintBubble
-                    storageKey={GUIDE_KEYS.RESTOCK_FIND}
-                    visible={guideRestockFindVisible}
-                    onDismiss={() => setGuideRestockFindVisible(false)}
-                    hintType="tap"
-                    hintColor="charcoal"
+              {/* Row 5: Buy CTA — for the first item, HintBubble and Pressable share
+                  the same position:relative wrapper so measureInWindow captures the button. */}
+              {i === 0 ? (
+                <HintBubble
+                  storageKey={GUIDE_KEYS.RESTOCK_FIND}
+                  visible={guideRestockFindVisible}
+                  onDismiss={() => setGuideRestockFindVisible(false)}
+                  hintType="tap"
+                  hintColor="charcoal"
+                >
+                  <Pressable
+                    onPress={() => {
+                      dismissGuide(GUIDE_KEYS.RESTOCK_FIND);
+                      setGuideRestockFindVisible(false);
+                      handleNotifyMe(s);
+                    }}
+                    style={{
+                      flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+                      backgroundColor: notifiedKeys.has(s.ingredient_key)
+                        ? "transparent"
+                        : isTop ? OaklandDusk.brand.gold : "transparent",
+                      borderWidth: 1,
+                      borderColor: notifiedKeys.has(s.ingredient_key)
+                        ? "rgba(74,222,128,0.3)"
+                        : isTop ? OaklandDusk.brand.gold : OaklandDusk.brand.gold,
+                      borderRadius: 10, paddingVertical: 12, marginTop: 2,
+                      opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
+                    }}
+                  >
+                    <FontAwesome
+                      name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
+                      size={13}
+                      color={notifiedKeys.has(s.ingredient_key)
+                        ? "#4ade80"
+                        : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
+                    />
+                    <Text style={{
+                      fontSize: 14, fontWeight: "700",
+                      color: notifiedKeys.has(s.ingredient_key)
+                        ? "#4ade80"
+                        : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
+                    }}>
+                      {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
+                    </Text>
+                  </Pressable>
+                </HintBubble>
+              ) : (
+                <Pressable
+                  onPress={() => handleNotifyMe(s)}
+                  style={{
+                    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+                    backgroundColor: notifiedKeys.has(s.ingredient_key)
+                      ? "transparent"
+                      : isTop ? OaklandDusk.brand.gold : "transparent",
+                    borderWidth: 1,
+                    borderColor: notifiedKeys.has(s.ingredient_key)
+                      ? "rgba(74,222,128,0.3)"
+                      : isTop ? OaklandDusk.brand.gold : OaklandDusk.brand.gold,
+                    borderRadius: 10, paddingVertical: 12, marginTop: 2,
+                    opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
+                  }}
+                >
+                  <FontAwesome
+                    name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
+                    size={13}
+                    color={notifiedKeys.has(s.ingredient_key)
+                      ? "#4ade80"
+                      : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
                   />
-                </View>
+                  <Text style={{
+                    fontSize: 14, fontWeight: "700",
+                    color: notifiedKeys.has(s.ingredient_key)
+                      ? "#4ade80"
+                      : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
+                  }}>
+                    {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
+                  </Text>
+                </Pressable>
               )}
-              <Pressable
-                onPress={() => {
-                  if (i === 0 && guideRestockFindVisible) {
-                    dismissGuide(GUIDE_KEYS.RESTOCK_FIND);
-                    setGuideRestockFindVisible(false);
-                  }
-                  handleNotifyMe(s);
-                }}
-                style={{
-                  flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                  backgroundColor: notifiedKeys.has(s.ingredient_key)
-                    ? "transparent"
-                    : isTop ? OaklandDusk.brand.gold : "transparent",
-                  borderWidth: 1,
-                  borderColor: notifiedKeys.has(s.ingredient_key)
-                    ? "rgba(74,222,128,0.3)"
-                    : isTop ? OaklandDusk.brand.gold : OaklandDusk.brand.gold,
-                  borderRadius: 10, paddingVertical: 12, marginTop: 2,
-                  opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
-                }}
-              >
-                <FontAwesome
-                  name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
-                  size={13}
-                  color={notifiedKeys.has(s.ingredient_key)
-                    ? "#4ade80"
-                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
-                />
-                <Text style={{
-                  fontSize: 14, fontWeight: "700",
-                  color: notifiedKeys.has(s.ingredient_key)
-                    ? "#4ade80"
-                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
-                }}>
-                  {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
-                </Text>
-              </Pressable>
             </View>
           </View>
         );

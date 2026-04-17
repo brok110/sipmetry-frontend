@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { openUrl } from '@/lib/openUrl';
-import { GUIDE_KEYS, TapPulse, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
 
 import { apiFetch } from "@/lib/api";
 
@@ -62,11 +62,16 @@ export default function ProfileScreen() {
   const [guideFavsRowVisible, setGuideFavsRowVisible] = useState(false);
 
   useEffect(() => {
-    isGuideDismissed(GUIDE_KEYS.PROFILE_PREFS_ROW).then((d) => {
-      if (!d) setGuidePrefsRowVisible(true);
-    });
-    isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
-      if (!d) setGuideFavsRowVisible(true);
+    // Show Preferences hint first. Only show Favorites hint if Preferences
+    // has already been dismissed (sequential ordering).
+    isGuideDismissed(GUIDE_KEYS.PROFILE_PREFS_ROW).then((prefsD) => {
+      if (!prefsD) {
+        setGuidePrefsRowVisible(true);
+      } else {
+        isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((favsD) => {
+          if (!favsD) setGuideFavsRowVisible(true);
+        });
+      }
     });
     setSoundsEnabled(SoundService.isEnabled());
   }, []);
@@ -183,12 +188,18 @@ export default function ProfileScreen() {
 
       {/* Menu items */}
       <View style={{ gap: 8 }}>
-        <View style={{ position: "relative" }}>
-          {guidePrefsRowVisible && (
-            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
-              <TapPulse color="skyblue" />
-            </View>
-          )}
+        <HintBubble
+          storageKey={GUIDE_KEYS.PROFILE_PREFS_ROW}
+          visible={guidePrefsRowVisible}
+          onDismiss={() => {
+            setGuidePrefsRowVisible(false);
+            isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
+              if (!d) setGuideFavsRowVisible(true);
+            });
+          }}
+          hintType="tap"
+          hintColor="skyblue"
+        >
           <ProfileRow
             icon="sliders"
             label="Preferences"
@@ -196,17 +207,21 @@ export default function ProfileScreen() {
               if (guidePrefsRowVisible) {
                 setGuidePrefsRowVisible(false);
                 dismissGuide(GUIDE_KEYS.PROFILE_PREFS_ROW);
+                isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
+                  if (!d) setGuideFavsRowVisible(true);
+                });
               }
               router.push("/profile/preferences");
             }}
           />
-        </View>
-        <View style={{ position: "relative" }}>
-          {guideFavsRowVisible && (
-            <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
-              <TapPulse color="skyblue" />
-            </View>
-          )}
+        </HintBubble>
+        <HintBubble
+          storageKey={GUIDE_KEYS.PROFILE_FAVS_ROW}
+          visible={guideFavsRowVisible}
+          onDismiss={() => setGuideFavsRowVisible(false)}
+          hintType="tap"
+          hintColor="skyblue"
+        >
           <ProfileRow
             icon="heart"
             label="Favorites"
@@ -218,7 +233,7 @@ export default function ProfileScreen() {
               router.push("/profile/favorites");
             }}
           />
-        </View>
+        </HintBubble>
         <ProfileRow
           icon="flask"
           label="Taste DNA"

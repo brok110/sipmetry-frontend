@@ -1,5 +1,5 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import HintBubble, { GUIDE_KEYS, TapPulse, dismissGuide, isGoldenPathStepReady, isGuideDismissed } from "@/components/GuideBubble";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady, isGuideDismissed } from "@/components/GuideBubble";
 import { useNavigation } from "@react-navigation/native";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -306,29 +306,17 @@ export default function TabTwoScreen() {
   // Stage 4: Track whether user took any positive action during this visit
   const hadPositiveActionRef = useRef(false);
 
-  // Recipe hints — sequential chain: I made this → Share → Favorites
-  // On mount, only show the first hint in the chain that hasn't been dismissed yet.
+  // Recipe hints — chain: I made this → FAV ❤️ → SHARE 📤
+  // FAV and SHARE are only triggered by "I made this", never auto-shown on mount.
   useEffect(() => {
     (async () => {
-      // Step 1: "I made this" (GP_STEP_6)
+      // Only show GP_STEP_6 on mount. FAV and SHARE hints are triggered
+      // by the "I made this" button press, not on mount.
       const gpReady = await isGoldenPathStepReady(6);
       if (gpReady) {
         setGpStep6Visible(true);
-        return; // Show only this one, wait for dismiss
       }
-
-      // Step 2: Share — only if GP_STEP_6 already dismissed
-      const shareDismissed = await isGuideDismissed(GUIDE_KEYS.RECIPE_SHARE);
-      if (!shareDismissed) {
-        setShareHintVisible(true);
-        return; // Show only this one
-      }
-
-      // Step 3: Favorites — only if Share already dismissed
-      const favDismissed = await isGuideDismissed(GUIDE_KEYS.RECIPE_FAV);
-      if (!favDismissed) {
-        setFavHintVisible(true);
-      }
+      // Do NOT check or show RECIPE_FAV or RECIPE_SHARE here.
     })();
   }, []);
 
@@ -1242,27 +1230,20 @@ export default function TabTwoScreen() {
           </Pressable>
           <View style={{ flexDirection: "row", gap: 12, alignItems: "center", paddingHorizontal: 10, paddingVertical: 4 }}>
             {dbRecipe && (
-              <View style={{ position: "relative" }}>
-                <HintBubble
-                  storageKey={GUIDE_KEYS.RECIPE_SHARE}
-                  visible={shareHintVisible}
-                  onDismiss={() => {
-                    setShareHintVisible(false);
-                    isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
-                      if (!d) setFavHintVisible(true);
-                    });
-                  }}
-                  hintType="tap"
-                  hintColor="skyblue"
-                />
+              <HintBubble
+                storageKey={GUIDE_KEYS.RECIPE_SHARE}
+                visible={shareHintVisible}
+                onDismiss={() => {
+                  setShareHintVisible(false);
+                }}
+                hintType="tap"
+                hintColor="skyblue"
+              >
                 <Pressable
                   onPress={() => {
                     if (shareHintVisible) {
                       dismissGuide(GUIDE_KEYS.RECIPE_SHARE);
                       setShareHintVisible(false);
-                      isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
-                        if (!d) setFavHintVisible(true);
-                      });
                     }
                     handleSharePress();
                   }}
@@ -1272,19 +1253,28 @@ export default function TabTwoScreen() {
                 >
                   <FontAwesome name="share" color={OaklandDusk.text.tertiary} size={18} />
                 </Pressable>
-              </View>
+              </HintBubble>
             )}
-            <View style={{ position: "relative" }}>
-              {favHintVisible && !isFav && (
-                <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, justifyContent: "center", alignItems: "center", zIndex: 100 }} pointerEvents="none">
-                  <TapPulse color="skyblue" />
-                </View>
-              )}
+            <HintBubble
+              storageKey={GUIDE_KEYS.RECIPE_FAV}
+              visible={favHintVisible && !isFav}
+              onDismiss={() => {
+                setFavHintVisible(false);
+                isGuideDismissed(GUIDE_KEYS.RECIPE_SHARE).then((d) => {
+                  if (!d) setShareHintVisible(true);
+                });
+              }}
+              hintType="tap"
+              hintColor="skyblue"
+            >
               <Pressable
                 onPress={() => {
                   if (favHintVisible) {
                     setFavHintVisible(false);
                     dismissGuide(GUIDE_KEYS.RECIPE_FAV);
+                    isGuideDismissed(GUIDE_KEYS.RECIPE_SHARE).then((d) => {
+                      if (!d) setShareHintVisible(true);
+                    });
                   }
                   onToggleFavorite();
                 }}
@@ -1292,7 +1282,7 @@ export default function TabTwoScreen() {
               >
                 <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />
               </Pressable>
-            </View>
+            </HintBubble>
           </View>
         </View>
 
@@ -1533,22 +1523,37 @@ export default function TabTwoScreen() {
 
         {/* Primary CTA: Make this cocktail — placed after instructions per UX flow */}
         {session && dbRecipe && madeDrinkState !== 'hidden' ? (
-          <View style={{ position: "relative" }}>
-            <HintBubble
-              storageKey={GUIDE_KEYS.GP_STEP_6}
-              visible={gpStep6Visible && madeDrinkState === 'idle'}
-              onDismiss={() => {
-                setGpStep6Visible(false);
-                // Chain: show share hint next
-                isGuideDismissed(GUIDE_KEYS.RECIPE_SHARE).then((d) => {
-                  if (!d) setShareHintVisible(true);
-                });
-              }}
-              hintType="tap"
-              hintColor="charcoal"
-            />
+          <HintBubble
+            storageKey={GUIDE_KEYS.GP_STEP_6}
+            visible={gpStep6Visible && madeDrinkState === 'idle'}
+            onDismiss={() => {
+              setGpStep6Visible(false);
+              isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
+                if (!d) setFavHintVisible(true);
+              });
+            }}
+            hintType="tap"
+            hintColor="charcoal"
+          >
             <Pressable
-              onPress={handleMadeDrink}
+              onPress={() => {
+                if (gpStep6Visible) {
+                  dismissGuide(GUIDE_KEYS.GP_STEP_6);
+                  setGpStep6Visible(false);
+                }
+
+                setTimeout(() => {
+                  isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
+                    console.log("[DEBUG] RECIPE_FAV dismissed?", d, "isFav?", isFav);
+                    if (!d) {
+                      console.log("[DEBUG] Setting favHintVisible=true");
+                      setFavHintVisible(true);
+                    }
+                  });
+                }, 3000);
+
+                handleMadeDrink();
+              }}
               disabled={madeDrinkLoading || madeDrinkState === 'done'}
               style={{
                 borderRadius: 12,
@@ -1569,7 +1574,7 @@ export default function TabTwoScreen() {
                 {madeDrinkState === 'done' ? 'Logged!' : 'I made this'}
               </Text>
             </Pressable>
-          </View>
+          </HintBubble>
         ) : null}
 
         {error ? (

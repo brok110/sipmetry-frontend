@@ -829,14 +829,14 @@ export default function BartenderScreen() {
       )}
 
       <View style={{ opacity: activeIndex > 0 ? 1 : 0, pointerEvents: activeIndex > 0 ? "auto" : "none" }}>
-        <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12, position: "relative" }}>
+        <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 }}>
           <HintBubble
             storageKey={GUIDE_KEYS.GP_STEP_1}
             visible={gpStep1Visible}
             onDismiss={() => setGpStep1Visible(false)}
             hintType="tap"
             hintColor="charcoal"
-          />
+          >
           {(() => {
             const hasSelections = selectedOccasion !== null || selectedSpirits.length > 0 || selectedExcludes.length > 0;
             return (
@@ -868,6 +868,7 @@ export default function BartenderScreen() {
               </Pressable>
             );
           })()}
+          </HintBubble>
         </View>
       </View>
 
