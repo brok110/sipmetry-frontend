@@ -25,7 +25,8 @@ export type InteractionType =
   | "unfavorite"
   | "like"
   | "dislike"
-  | "skip";
+  | "skip"
+  | "made";
 
 export type InteractionContext = {
   source?: "scan" | "recommend" | "explore" | "restock" | "detail";

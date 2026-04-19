@@ -954,6 +954,12 @@ export default function TabTwoScreen() {
                     level: "info",
                   });
                 } catch {}
+                track({
+                  recipe_key: recipeKey,
+                  interaction_type: "made",
+                  context: { source: "detail" },
+                });
+                hadPositiveActionRef.current = true;
                 setMadeDrinkState('done');
                 SoundService.play('cheers');
                 if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);
