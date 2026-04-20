@@ -214,6 +214,8 @@ export default function TabZeroPreferencesScreen() {
   const [draftAvoidCaffeineAlcohol, setDraftAvoidCaffeineAlcohol] = useState<boolean>(
     preferences.safetyMode.avoidCaffeineAlcohol
   );
+  const [draftAvoidEgg, setDraftAvoidEgg] = useState<boolean>(preferences.safetyMode.avoidEgg);
+  const [draftAvoidDairy, setDraftAvoidDairy] = useState<boolean>(preferences.safetyMode.avoidDairy);
 
   // Guide bubble state (Stage 7 — guide #11)
   const [guidePrefsStyleVisible, setGuidePrefsStyleVisible] = useState(false);
@@ -231,6 +233,8 @@ export default function TabZeroPreferencesScreen() {
     setDraftAvoidHighProof(preferences.safetyMode.avoidHighProof);
     setDraftAvoidAllergens(preferences.safetyMode.avoidAllergens);
     setDraftAvoidCaffeineAlcohol(preferences.safetyMode.avoidCaffeineAlcohol);
+    setDraftAvoidEgg(preferences.safetyMode.avoidEgg);
+    setDraftAvoidDairy(preferences.safetyMode.avoidDairy);
   }, [
     hydrated,
     preferences.stylePreset,
@@ -240,6 +244,8 @@ export default function TabZeroPreferencesScreen() {
     preferences.safetyMode.avoidHighProof,
     preferences.safetyMode.avoidAllergens,
     preferences.safetyMode.avoidCaffeineAlcohol,
+    preferences.safetyMode.avoidEgg,
+    preferences.safetyMode.avoidDairy,
   ]);
 
   const alcoholWord = useMemo(() => levelWordAlcohol(draftAlcohol), [draftAlcohol]);
@@ -255,7 +261,9 @@ export default function TabZeroPreferencesScreen() {
       draftBitterness !== preferences.dims.bitterness ||
       draftAvoidHighProof !== preferences.safetyMode.avoidHighProof ||
       draftAvoidAllergens !== preferences.safetyMode.avoidAllergens ||
-      draftAvoidCaffeineAlcohol !== preferences.safetyMode.avoidCaffeineAlcohol
+      draftAvoidCaffeineAlcohol !== preferences.safetyMode.avoidCaffeineAlcohol ||
+      draftAvoidEgg !== preferences.safetyMode.avoidEgg ||
+      draftAvoidDairy !== preferences.safetyMode.avoidDairy
     );
   }, [
     hydrated,
@@ -270,9 +278,13 @@ export default function TabZeroPreferencesScreen() {
     draftAvoidHighProof,
     draftAvoidAllergens,
     draftAvoidCaffeineAlcohol,
+    draftAvoidEgg,
+    draftAvoidDairy,
     preferences.safetyMode.avoidHighProof,
     preferences.safetyMode.avoidAllergens,
     preferences.safetyMode.avoidCaffeineAlcohol,
+    preferences.safetyMode.avoidEgg,
+    preferences.safetyMode.avoidDairy,
   ]);
 
   const draftSliderValues: Record<string, number> = useMemo(
@@ -333,6 +345,8 @@ export default function TabZeroPreferencesScreen() {
         avoidHighProof: draftAvoidHighProof,
         avoidAllergens: draftAvoidAllergens,
         avoidCaffeineAlcohol: draftAvoidCaffeineAlcohol,
+        avoidEgg: draftAvoidEgg,
+        avoidDairy: draftAvoidDairy,
       },
     };
 
@@ -520,6 +534,18 @@ export default function TabZeroPreferencesScreen() {
               label="Avoid Caffeine + Alcohol"
               value={draftAvoidCaffeineAlcohol}
               onPress={() => setDraftAvoidCaffeineAlcohol((v) => !v)}
+              disabled={disabled}
+            />
+            <SafetyToggleRow
+              label="Avoid Eggs"
+              value={draftAvoidEgg}
+              onPress={() => setDraftAvoidEgg((v) => !v)}
+              disabled={disabled}
+            />
+            <SafetyToggleRow
+              label="Avoid Dairy"
+              value={draftAvoidDairy}
+              onPress={() => setDraftAvoidDairy((v) => !v)}
               disabled={disabled}
             />
           </View>
