@@ -41,6 +41,8 @@ export type SafetyMode = {
   avoidHighProof: boolean;
   avoidAllergens: boolean;
   avoidCaffeineAlcohol: boolean;
+  avoidEgg: boolean;
+  avoidDairy: boolean;
 };
 
 export type UserPreferencesV2 = {
@@ -116,6 +118,8 @@ const DEFAULT_SAFETY_MODE: SafetyMode = {
   avoidHighProof: false,
   avoidAllergens: false,
   avoidCaffeineAlcohol: false,
+  avoidEgg: false,
+  avoidDairy: false,
 };
 
 function coerceExplicitDims(input: any): ExplicitDims {
@@ -134,6 +138,8 @@ function coerceSafetyMode(input: any): SafetyMode {
     avoidHighProof: src.avoidHighProof === true,
     avoidAllergens: src.avoidAllergens === true,
     avoidCaffeineAlcohol: src.avoidCaffeineAlcohol === true,
+    avoidEgg: src.avoidEgg === true,
+    avoidDairy: src.avoidDairy === true,
   };
 }
 
@@ -268,7 +274,13 @@ export function isUserEdited(prefs: PreferencesState | null | undefined): boolea
   if (!arePreference3Equal(dims, DEFAULT_V1_DIMS)) return true;
 
   const safetyMode = prefs.safetyMode ?? DEFAULT_SAFETY_MODE;
-  if (safetyMode.avoidHighProof || safetyMode.avoidAllergens || safetyMode.avoidCaffeineAlcohol) {
+  if (
+    safetyMode.avoidHighProof ||
+    safetyMode.avoidAllergens ||
+    safetyMode.avoidCaffeineAlcohol ||
+    safetyMode.avoidEgg ||
+    safetyMode.avoidDairy
+  ) {
     return true;
   }
 
