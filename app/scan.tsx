@@ -29,11 +29,10 @@ import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
-import * as ImagePicker from "expo-image-picker";
+import { showBottlePhotoActionSheet, type PickedPhoto } from "@/lib/pickBottlePhoto";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActionSheetIOS,
   ActivityIndicator,
   Alert,
   Dimensions,
@@ -819,16 +818,26 @@ export default function TabOneScreen() {
       [
         {
           text: "Scan More",
-          onPress: () => {
-            Alert.alert(
-              "Scan bottles",
-              "Choose an option",
-              [
-                { text: "Take a photo", onPress: () => takePhoto() },
-                { text: "Choose from library (multi-select)", onPress: () => pickImage() },
-                { text: "Cancel", style: "cancel", onPress: () => setScanPhase("review") },
-              ]
-            );
+          onPress: async () => {
+            const picked = await showBottlePhotoActionSheet();
+            if (!picked) {
+              setScanPhase("review");
+              return;
+            }
+            const assets = picked.assets;
+            if (assets.length === 0) {
+              setScanPhase("review");
+              return;
+            }
+            imageQueueRef.current = assets.slice(1).map((a: PickedPhoto) => ({
+              uri: a.uri,
+              base64: a.base64,
+            }));
+            const first = assets[0];
+            setImageUri(first.uri);
+            setPickedBase64(first.base64);
+            setAutoAnalyze(true);
+            setStage("idle");
           },
         },
         {
@@ -1379,84 +1388,6 @@ export default function TabOneScreen() {
     scrollRef.current?.scrollTo({ y: targetY, animated: true });
   };
 
-  const pickImage = async () => {
-    setError(null);
-
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert("Permission required", "Please allow photo library access.");
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      quality: 0.9,
-      exif: false,
-      base64: true,
-    });
-
-    if (result.canceled || !result.assets || result.assets.length === 0) return;
-
-    // Reset scan state for the new batch (only when undecided / starting fresh)
-    if (scanMode === "undecided") {
-      setActiveIngredients([]);
-      setMultiScanResults([]);
-      setScanCount(0);
-      setRecipes([]);
-      setSafety(null);
-      setHasRecommended(false);
-      setHasRecommendedLocal(false);
-    }
-    setStage("idle");
-
-    // Queue remaining photos (index 1+) for sequential processing after the first
-    imageQueueRef.current = result.assets.slice(1).map((a) => ({
-      uri: a.uri,
-      base64: a.base64 ?? null,
-    }));
-
-    // Kick off first photo via the existing autoAnalyze mechanism
-    const first = result.assets[0];
-    setImageUri(first.uri);
-    setPickedBase64(first.base64 ?? null);
-    setAutoAnalyze(true);
-  };
-
-  const takePhoto = async () => {
-    setError(null);
-
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert("Permission required", "Please allow camera access.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 0.9,
-      exif: false,
-      base64: true,
-    });
-    if (result.canceled) return;
-
-    const uri = result.assets?.[0]?.uri ?? null;
-    const b64 = result.assets?.[0]?.base64 ?? null;
-
-    setImageUri(uri);
-    setPickedBase64(b64);
-    setAutoAnalyze(true);
-
-    if (scanMode === "undecided") {
-      setActiveIngredients([]);
-      setMultiScanResults([]);
-      setScanCount(0);
-      setRecipes([]);
-      setSafety(null);
-      setHasRecommended(false);
-      setHasRecommendedLocal(false);
-    }
-    setStage("idle");
-  };
 
   const analyze = async () => {
     if (!imageUri) return;
@@ -1690,34 +1621,30 @@ export default function TabOneScreen() {
   };
 
   // ── Guide: Scan bottles action sheet ─────────────────────────────────────
-  const handleScanBottles = () => {
+  const handleScanBottles = async () => {
     dismissGuide(GUIDE_KEYS.SCAN);
     setGuideScanVisible(false);
     dismissGuide(GUIDE_KEYS.GP_STEP_3);
     setGpStep3Visible(false);
 
-    // resetScan() is deferred to when the user actually commits to a new scan.
-    // This way pressing Cancel leaves the previous session intact so the user
-    // can still tap "Show me recipes" if ingredients were already identified.
-    if (Platform.OS === "ios") {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ["Cancel", "Take a photo", "Choose from library (multi-select)"],
-          cancelButtonIndex: 0,
-        },
-        (buttonIndex) => {
-          if (buttonIndex === 1) { resetScan(); takePhoto(); }
-          else if (buttonIndex === 2) { resetScan(); pickImage(); }
-          // buttonIndex === 0 (Cancel): do nothing, preserve previous state
-        }
-      );
-    } else {
-      Alert.alert("Scan bottles", "Choose an option", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Take a photo", onPress: () => { resetScan(); takePhoto(); } },
-        { text: "Choose from library (multi-select)", onPress: () => { resetScan(); pickImage(); } },
-      ]);
-    }
+    const picked = await showBottlePhotoActionSheet();
+    if (!picked) return;
+
+    resetScan();
+
+    const assets = picked.assets;
+    if (assets.length === 0) return;
+
+    imageQueueRef.current = assets.slice(1).map((a: PickedPhoto) => ({
+      uri: a.uri,
+      base64: a.base64,
+    }));
+
+    const first = assets[0];
+    setImageUri(first.uri);
+    setPickedBase64(first.base64);
+    setAutoAnalyze(true);
+    setStage("idle");
   };
 
   const resetScan = () => {
