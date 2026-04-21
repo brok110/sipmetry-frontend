@@ -13,7 +13,6 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Modal,
   NativeModules,
   Platform,
@@ -22,26 +21,6 @@ import {
   Text,
   View,
 } from "react-native";
-import PagerView from "react-native-pager-view";
-
-const PAGE_COUNT = 4;
-
-const OCCASIONS = [
-  { key: "home", emoji: "\uD83C\uDFE0", label: "Chilling at Home", desc: "Simple, easy, no fuss" },
-  { key: "meal", emoji: "\uD83C\uDF7D\uFE0F", label: "With a Meal", desc: "Light and appetizing" },
-  { key: "party", emoji: "\uD83C\uDF89", label: "Party Time", desc: "Fun, colorful, crowd-pleaser" },
-  { key: "nightcap", emoji: "\uD83C\uDF19", label: "Nightcap", desc: "Slow sip, warm and bold" },
-];
-
-const BASE_SPIRITS = ["brandy", "gin", "rum", "tequila", "vodka", "whiskey"];
-
-const EXCLUDES = [
-  { key: "too_bitter", label: "Not too bitter" },
-  { key: "too_strong", label: "Not too strong" },
-  { key: "too_sweet", label: "Not too sweet" },
-  { key: "no_egg", label: "No egg" },
-  { key: "no_dairy", label: "No dairy" },
-];
 
 type Pick = {
   iba_code: string;
@@ -127,48 +106,6 @@ function SectionHeader({ children }: { children: string }) {
   );
 }
 
-function ProgressDots({ count, activeIndex }: { count: number; activeIndex: number }) {
-  return (
-    <View style={{ flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 24 }}>
-      {Array.from({ length: count }, (_, i) => (
-        <View
-          key={i}
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 4,
-            backgroundColor: i === activeIndex
-              ? OaklandDusk.brand.gold
-              : OaklandDusk.text.tertiary,
-          }}
-        />
-      ))}
-    </View>
-  );
-}
-
-function SwipeHint({ text, bounce, direction = "both" }: { text: string; bounce: Animated.Value; direction?: "left" | "right" | "both" }) {
-  const showLeft = direction === "left" || direction === "both";
-  const showRight = direction === "right" || direction === "both";
-  return (
-    <Animated.View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, opacity: 0.8 }}>
-      {showLeft && (
-        <Animated.Text style={{ color: '#E8C88A', fontSize: 22, transform: [{ translateX: Animated.multiply(bounce, -1) }] }}>
-          {"\u2190"}
-        </Animated.Text>
-      )}
-      <Text style={{ color: '#E8C88A', fontSize: 15, fontWeight: "700", letterSpacing: 0.5 }}>
-        {text}
-      </Text>
-      {showRight && (
-        <Animated.Text style={{ color: '#E8C88A', fontSize: 22, transform: [{ translateX: bounce }] }}>
-          {"\u2192"}
-        </Animated.Text>
-      )}
-    </Animated.View>
-  );
-}
-
 function isChineseLocale(): boolean {
   try {
     if (Platform.OS === "ios") {
@@ -187,38 +124,7 @@ export default function BartenderScreen() {
   const { inventory, availableIngredientKeys } = useInventory();
   const { preferences } = usePreferences();
 
-  const pagerRef = useRef<PagerView>(null);
-  const pendingPageRef = useRef<number | null>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
   const [showResults, setShowResults] = useState(false);
-  const welcomeTitleOpacity = useRef(new Animated.Value(0)).current;
-  const arrowBounce = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!showResults && pendingPageRef.current !== null) {
-      const target = pendingPageRef.current;
-      pendingPageRef.current = null;
-      requestAnimationFrame(() => {
-        pagerRef.current?.setPage(target);
-        setActiveIndex(target);
-      });
-    }
-  }, [showResults]);
-
-  useEffect(() => {
-    Animated.timing(welcomeTitleOpacity, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(arrowBounce, { toValue: 4, duration: 900, useNativeDriver: true }),
-        Animated.timing(arrowBounce, { toValue: -4, duration: 900, useNativeDriver: true }),
-      ])
-    ).start();
-  }, []);
 
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
@@ -230,26 +136,8 @@ export default function BartenderScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showBottomSheet, setShowBottomSheet] = useState(false);
   const [showStaples, setShowStaples] = useState(false);
-  const [gpStep1Visible, setGpStep1Visible] = useState(false);
   const [confirmedStaples, setConfirmedStaples] = useState<string[]>([]);
   const [staplesConfirmed, setStaplesConfirmed] = useState(false);
-  const [initialPageReady, setInitialPageReady] = useState(false);
-  const [skipWelcome, setSkipWelcome] = useState(false);
-
-  // Check if returning user to skip Welcome page
-  useEffect(() => {
-    (async () => {
-      try {
-        const hasUsed = await AsyncStorage.getItem("sipmetry_has_used_bartender");
-        const shouldSkip = hasUsed === "true" || inventory.length > 0;
-        if (shouldSkip) {
-          setSkipWelcome(true);
-          setActiveIndex(1);
-        }
-      } catch {}
-      setInitialPageReady(true);
-    })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     AsyncStorage.getItem(STAPLES_STORAGE_KEY).then((raw) => {
@@ -630,7 +518,6 @@ export default function BartenderScreen() {
               setSelectedOccasion(null);
               setSelectedSpirits([]);
               setSelectedExcludes([]);
-              pendingPageRef.current = 1;
               setShowResults(false);
             }}
             style={{
@@ -649,228 +536,19 @@ export default function BartenderScreen() {
     );
   }
 
-  // Brief loading state while AsyncStorage initializes
-  if (!initialPageReady) {
-    return (
-      <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void, justifyContent: "center", alignItems: "center" }}>
-        <View style={{
-          width: 72,
-          height: 72,
-          borderRadius: 18,
-          backgroundColor: "rgba(200,120,40,0.15)",
-          borderWidth: 1,
-          borderColor: "rgba(200,120,40,0.25)",
-          alignItems: "center",
-          justifyContent: "center",
-        }}>
-          <Text style={{ fontSize: 32, fontWeight: "800", color: OaklandDusk.brand.gold }}>S</Text>
-        </View>
-      </View>
-    );
-  }
-
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      <ProgressDots count={PAGE_COUNT} activeIndex={activeIndex} />
-
-      <PagerView
-        ref={pagerRef}
-        style={{ flex: 1 }}
-        initialPage={skipWelcome ? 1 : 0}
-        onPageSelected={(e) => {
-          const pos = e.nativeEvent.position;
-          setActiveIndex(pos);
-          if (pos === PAGE_COUNT - 1) {
-            isGoldenPathStepReady(1).then((ready) => {
-              if (ready) setGpStep1Visible(true);
-            });
-          }
-        }}
-      >
-        {/* Page 0: Welcome */}
-        <View key="welcome" style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 32 }}>
-          <View style={{
-            width: 72, height: 72, borderRadius: 18,
-            backgroundColor: "rgba(200,120,40,0.15)",
-            borderWidth: 1, borderColor: "rgba(200,120,40,0.25)",
-            alignItems: "center", justifyContent: "center", marginBottom: 24,
-          }}>
-            <Text style={{ fontSize: 32, fontWeight: "800", color: OaklandDusk.brand.gold }}>S</Text>
-          </View>
-          <Text style={{ fontSize: 11, fontWeight: "700", color: "#B8956A", letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4 }}>
-            Welcome to
-          </Text>
-          <Animated.Text style={{ fontSize: 30, fontWeight: "800", color: "#E8C88A", textAlign: "center", marginBottom: 16, opacity: welcomeTitleOpacity }}>
-            Sipmetry
-          </Animated.Text>
-          <Text style={{ fontSize: 20, fontWeight: "700", color: "#D4A55A", textAlign: "center", marginBottom: 6 }}>
-            {(() => {
-              const h = new Date().getHours();
-              if (h < 12) return "Good morning";
-              if (h < 17) return "Good afternoon";
-              if (h < 21) return "Good evening";
-              return "Night owl mode";
-            })()}
-          </Text>
-          <Text style={{ fontSize: 14, color: "#9A8165", textAlign: "center", lineHeight: 20, marginBottom: 32 }}>
-            {(() => {
-              const h = new Date().getHours();
-              if (h < 17) return "What are we mixing today?";
-              if (h < 21) return "It\u2019s cocktail hour \u2014 what are we mixing?";
-              return "Let\u2019s find your nightcap.";
-            })()}
-          </Text>
-        </View>
-
-        {/* Page 1: Occasion */}
-        <View key="1" style={{ flex: 1, padding: 24 }}>
-          <View>
-            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-              What's the vibe?
-            </Text>
-          </View>
-          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
-            <View style={{ gap: 12 }}>
-              {OCCASIONS.map(occ => {
-                const isSelected = selectedOccasion === occ.key;
-                return (
-                  <Pressable
-                    key={occ.key}
-                    onPress={() => setSelectedOccasion(isSelected ? null : occ.key)}
-                    style={{
-                      padding: 20,
-                      borderRadius: 16,
-                      borderWidth: isSelected ? 1.5 : 1,
-                      borderColor: isSelected ? OaklandDusk.brand.gold : "rgba(200,120,40,0.15)",
-                      backgroundColor: isSelected ? "rgba(200,120,40,0.08)" : OaklandDusk.bg.card,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 16,
-                      transform: isSelected ? [{ translateX: 4 }] : [],
-                    }}
-                  >
-                    <View style={{
-                      width: 52, height: 52, borderRadius: 14,
-                      backgroundColor: "rgba(200,120,40,0.12)",
-                      alignItems: "center", justifyContent: "center",
-                    }}>
-                      <Text style={{ fontSize: 26 }}>{occ.emoji}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{
-                        fontSize: 17, fontWeight: "700",
-                        color: isSelected ? "#E8C88A" : OaklandDusk.text.primary,
-                      }}>
-                        {occ.label}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 3 }}>
-                        {occ.desc}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-
-        {/* Page 2: Base Spirit */}
-        <View key="2" style={{ flex: 1, padding: 24 }}>
-          <View>
-            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-              What are we pouring?
-            </Text>
-          </View>
-          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-              {BASE_SPIRITS.map(s => (
-                <View key={s} style={{ width: "31%" }}>
-                  <Tag label={s} selected={selectedSpirits.includes(s)} onPress={() => toggle(selectedSpirits, s, setSelectedSpirits)} />
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-
-        {/* Page 3: Avoid (A1: subtitle removed) */}
-        <View key="3" style={{ flex: 1, padding: 24 }}>
-          <View>
-            <Text style={{ fontSize: 30, fontWeight: "800", color: OaklandDusk.text.primary, marginBottom: 6 }}>
-              Anything to skip?
-            </Text>
-          </View>
-          <View style={{ flex: 1, justifyContent: "center", paddingBottom: 60 }}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-              {EXCLUDES.map(ex => (
-                <View key={ex.key} style={{ width: "47%" }}>
-                  <Tag label={ex.label} variant="exclude" selected={selectedExcludes.includes(ex.key)} onPress={() => toggle(selectedExcludes, ex.key, setSelectedExcludes)} />
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      </PagerView>
-
-      {/* A3: SwipeHint hidden for returning users */}
-      {!skipWelcome && (
-        <View style={{ paddingVertical: 12, alignItems: "center" }}>
-          <SwipeHint
-            text={activeIndex === 0 ? "swipe to start" : activeIndex === PAGE_COUNT - 1 ? "back" : "swipe for more"}
-            bounce={arrowBounce}
-            direction={activeIndex === 0 ? "left" : activeIndex === PAGE_COUNT - 1 ? "left" : "both"}
-          />
-        </View>
-      )}
-
       {error && (
-        <Text style={{ color: OaklandDusk.accent.crimson, textAlign: "center", paddingHorizontal: 20, fontSize: 14 }}>
+        <Text style={{
+          color: OaklandDusk.accent.crimson,
+          textAlign: "center",
+          paddingHorizontal: 20,
+          fontSize: 14,
+          marginTop: 40,
+        }}>
           {error}
         </Text>
       )}
-
-      <View style={{ opacity: activeIndex > 0 ? 1 : 0, pointerEvents: activeIndex > 0 ? "auto" : "none" }}>
-        <View style={{ paddingHorizontal: 20, paddingBottom: 24, paddingTop: 12 }}>
-          <HintBubble
-            storageKey={GUIDE_KEYS.GP_STEP_1}
-            visible={gpStep1Visible}
-            onDismiss={() => setGpStep1Visible(false)}
-            hintType="tap"
-            hintColor="charcoal"
-          >
-          {(() => {
-            const hasSelections = selectedOccasion !== null || selectedSpirits.length > 0 || selectedExcludes.length > 0;
-            return (
-              <Pressable
-                onPress={() => {
-                  if (gpStep1Visible) {
-                    dismissGuide(GUIDE_KEYS.GP_STEP_1);
-                    setGpStep1Visible(false);
-                  }
-                  setShowBottomSheet(true);
-                }}
-                disabled={loading}
-                style={{
-                  backgroundColor: hasSelections ? OaklandDusk.brand.gold : "rgba(200,120,40,0.15)",
-                  paddingVertical: 14,
-                  borderRadius: 12,
-                  alignItems: "center",
-                  borderWidth: hasSelections ? 0 : 1,
-                  borderColor: hasSelections ? "transparent" : "rgba(200,120,40,0.3)",
-                }}
-              >
-                {loading ? (
-                  <ActivityIndicator color={OaklandDusk.bg.void} />
-                ) : (
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: hasSelections ? OaklandDusk.bg.void : "#B89860" }}>
-                    {hasSelections ? "Let's make a drink" : "Surprise me"}
-                  </Text>
-                )}
-              </Pressable>
-            );
-          })()}
-          </HintBubble>
-        </View>
-      </View>
 
       <Modal
         visible={showBottomSheet}
