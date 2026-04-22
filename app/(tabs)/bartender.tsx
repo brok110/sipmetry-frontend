@@ -11,7 +11,7 @@ import { useInventory } from "@/context/inventory";
 import { usePreferences } from "@/context/preferences";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { router } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
@@ -24,6 +24,15 @@ import {
   Text,
   View,
 } from "react-native";
+
+// Stage 2c: Gesture + Reanimated
+import { GestureDetector, Gesture } from "react-native-gesture-handler";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  runOnJS,
+} from "react-native-reanimated";
 
 // Hero thumbnail size unified at 180 across all devices.
 // Rationale: editorial layout with 260 overflowed tab bar on all tested
@@ -162,6 +171,11 @@ export default function BartenderScreen() {
   // Stage 2b: Guard to prevent repeated auto-fetch on inventory changes
   const didInitialFetchRef = useRef(false);
 
+  // Stage 2c: Swipe gesture
+  const translateX = useSharedValue(0);
+  const rotation = useSharedValue(0);
+  const resultsRef = useRef<Pick[]>([]);
+
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
   const [selectedExcludes, setSelectedExcludes] = useState<string[]>([]);
@@ -186,6 +200,15 @@ export default function BartenderScreen() {
       } catch {}
     });
   }, []);
+
+  // Stage 2c: Keep resultsRef synced for stable useCallback refs (swipe gesture)
+  useEffect(() => {
+    resultsRef.current = results;
+    // Reset currentPourIndex if it exceeds new results length (e.g. after retry)
+    if (currentPourIndex >= results.length && results.length > 0) {
+      setCurrentPourIndex(0);
+    }
+  }, [results, currentPourIndex]);
 
   // Stage 2b: Auto-fetch recommendations once inventory hydrates.
   // Guards:
@@ -269,7 +292,52 @@ export default function BartenderScreen() {
     });
   };
 
+  // Stage 2c: Pour navigation (cyclic via modulo, stable refs for runOnJS)
+  const nextPour = useCallback(() => {
+    const len = resultsRef.current.length;
+    if (len === 0) return;
+    setCurrentPourIndex((i) => (i + 1) % len);
+  }, []);
 
+  const prevPour = useCallback(() => {
+    const len = resultsRef.current.length;
+    if (len === 0) return;
+    setCurrentPourIndex((i) => (i - 1 + len) % len);
+  }, []);
+
+  // Stage 2c: Pan gesture
+  // - activeOffsetX: only activate after 10px horizontal motion
+  // - failOffsetY: fail if >5px vertical motion (lets ScrollView handle scroll)
+  const SWIPE_THRESHOLD = 60;
+
+  const swipeGesture = Gesture.Pan()
+    .activeOffsetX([-10, 10])
+    .failOffsetY([-5, 5])
+    .onUpdate((e) => {
+      "worklet";
+      const clamped = Math.max(-100, Math.min(100, e.translationX));
+      translateX.value = clamped * 0.6;  // damped horizontal drag
+      rotation.value = clamped * 0.04;    // tilt up to ~4deg at edge
+    })
+    .onEnd((e) => {
+      "worklet";
+      if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
+        if (e.translationX < 0) {
+          runOnJS(nextPour)();
+        } else {
+          runOnJS(prevPour)();
+        }
+      }
+      translateX.value = withSpring(0);
+      rotation.value = withSpring(0);
+    });
+
+  const animatedIllustrationStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { rotate: `${rotation.value}deg` },
+    ],
+  }));
 
   if (showResults) {
     return (
@@ -718,12 +786,14 @@ export default function BartenderScreen() {
             </Text>
           </View>
 
-          {/* Drink illustration with gold corner frame */}
-          <View style={styles.drinkIllustration}>
-            <View style={styles.drinkFrameTopLeft} />
-            <View style={styles.drinkFrameBottomRight} />
-            <CocktailThumbnail imageUrl={currentPick?.image_url} size={DRINK_SIZE} />
-          </View>
+          {/* Drink illustration with gold corner frame + Stage 2c swipe gesture */}
+          <GestureDetector gesture={swipeGesture}>
+            <Animated.View style={[styles.drinkIllustration, animatedIllustrationStyle]}>
+              <View style={styles.drinkFrameTopLeft} />
+              <View style={styles.drinkFrameBottomRight} />
+              <CocktailThumbnail imageUrl={currentPick?.image_url} size={DRINK_SIZE} />
+            </Animated.View>
+          </GestureDetector>
 
           {/* Drink name */}
           <Text style={styles.drinkName}>
@@ -777,7 +847,7 @@ export default function BartenderScreen() {
             </Pressable>
             <Pressable
               style={styles.spreadAction}
-              onPress={() => console.log("Another", currentPick?.iba_code)}
+              onPress={nextPour}
             >
               <FontAwesome name="refresh" size={18} color={V3.colors.textDim} />
               <Text style={styles.actionLabel}>ANOTHER</Text>
