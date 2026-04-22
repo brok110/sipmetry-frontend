@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Dimensions, Image, Modal, Pressable, Text, View } from "react-native";
+import OaklandDusk from "@/constants/OaklandDusk";
 
 type CocktailThumbnailProps = {
   imageUrl?: string | null;
@@ -16,12 +17,12 @@ export default function CocktailThumbnail({ imageUrl, size = 56 }: CocktailThumb
           width: size,
           height: size,
           borderRadius: 10,
-          backgroundColor: "#1A1428",
+          backgroundColor: OaklandDusk.bg.surface,
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        <Text style={{ fontSize: 22, color: "#3A3040" }}>🍸</Text>
+        <Text style={{ fontSize: 22, color: OaklandDusk.text.disabled }}>🍸</Text>
       </View>
     );
   }
@@ -40,7 +41,7 @@ export default function CocktailThumbnail({ imageUrl, size = 56 }: CocktailThumb
             width: size,
             height: size,
             borderRadius: 10,
-            backgroundColor: "#1A1428",
+            backgroundColor: OaklandDusk.bg.surface,
           }}
           resizeMode="cover"
         />

@@ -297,7 +297,7 @@ export default function BartenderScreen() {
           <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
         </View>
         <View style={styles.centerFill}>
-          <ActivityIndicator color={V3.colors.gold} size="small" />
+          <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
         </View>
       </View>
     );
@@ -316,7 +316,7 @@ export default function BartenderScreen() {
           <View style={styles.skeletonLineLong} />
           <View style={styles.skeletonLineShort} />
           <ActivityIndicator
-            color={V3.colors.gold}
+            color={OaklandDusk.brand.gold}
             size="small"
             style={{ marginTop: 28 }}
           />
@@ -405,10 +405,10 @@ export default function BartenderScreen() {
         <View style={styles.spread}>
           {/* Pour counter */}
           <View style={styles.pourCounterRow}>
-            <Text style={[styles.pourCounter, { color: V3.colors.text }]}>
+            <Text style={[styles.pourCounter, { color: OaklandDusk.text.primary }]}>
               {String(currentPourIndex + 1).padStart(2, "0")}
             </Text>
-            <Text style={[styles.pourCounter, { color: V3.colors.textGhost, marginHorizontal: 6 }]}>
+            <Text style={[styles.pourCounter, { color: `${OaklandDusk.text.primary}2E`, marginHorizontal: 6 }]}>
               /
             </Text>
             <Text style={styles.pourCounter}>
@@ -468,7 +468,7 @@ export default function BartenderScreen() {
               <FontAwesome
                 name={isSaved ? "heart" : "heart-o"}
                 size={18}
-                color={isSaved ? V3.colors.gold : V3.colors.textDim}
+                color={isSaved ? OaklandDusk.brand.gold : `${OaklandDusk.text.primary}94`}
               />
               <Text style={styles.actionLabel}>SAVE</Text>
             </Pressable>
@@ -476,14 +476,14 @@ export default function BartenderScreen() {
               style={styles.spreadAction}
               onPress={handleSkip}
             >
-              <FontAwesome name="times" size={18} color={V3.colors.textDim} />
+              <FontAwesome name="times" size={18} color={`${OaklandDusk.text.primary}94`} />
               <Text style={styles.actionLabel}>SKIP</Text>
             </Pressable>
             <Pressable
               style={styles.spreadAction}
               onPress={nextPour}
             >
-              <FontAwesome name="refresh" size={18} color={V3.colors.textDim} />
+              <FontAwesome name="refresh" size={18} color={`${OaklandDusk.text.primary}94`} />
               <Text style={styles.actionLabel}>ANOTHER</Text>
             </Pressable>
           </View>
@@ -506,7 +506,7 @@ export default function BartenderScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: V3.colors.void,
+    backgroundColor: OaklandDusk.bg.void,
   },
 
   // Masthead
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
   mastheadMeta: {
     ...V3.type.mastheadMeta,
-    color: V3.colors.textDim,
+    color: `${OaklandDusk.text.primary}94`,
   },
 
   // Center fill for loading/error/empty states
@@ -538,21 +538,21 @@ const styles = StyleSheet.create({
     width: DRINK_SIZE,
     height: DRINK_SIZE * 1.15,
     borderRadius: 12,
-    backgroundColor: V3.colors.card,
+    backgroundColor: OaklandDusk.bg.card,
     marginBottom: 28,
   },
   skeletonLineLong: {
     width: 200,
     height: 14,
     borderRadius: 4,
-    backgroundColor: V3.colors.card,
+    backgroundColor: OaklandDusk.bg.card,
     marginBottom: 10,
   },
   skeletonLineShort: {
     width: 140,
     height: 10,
     borderRadius: 4,
-    backgroundColor: V3.colors.card,
+    backgroundColor: OaklandDusk.bg.card,
   },
 
   // Error / empty state messages
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
     fontFamily: V3.fonts.cormorant,
     fontStyle: "italic",
     fontSize: 18,
-    color: V3.colors.textDim,
+    color: `${OaklandDusk.text.primary}94`,
     textAlign: "center",
     marginBottom: 8,
   },
@@ -568,14 +568,14 @@ const styles = StyleSheet.create({
     fontFamily: V3.fonts.mono,
     fontSize: 11,
     letterSpacing: 1,
-    color: V3.colors.textFaint,
+    color: `${OaklandDusk.text.primary}52`,
     textAlign: "center",
     textTransform: "uppercase",
     marginBottom: 24,
   },
   retryBtn: {
     borderWidth: 1,
-    borderColor: V3.colors.gold,
+    borderColor: OaklandDusk.brand.gold,
     paddingHorizontal: 32,
     paddingVertical: 12,
   },
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     fontFamily: V3.fonts.mono,
     fontSize: 11,
     letterSpacing: 3.3,
-    color: V3.colors.gold,
+    color: OaklandDusk.brand.gold,
     textTransform: "uppercase",
   },
 
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   },
   pourCounter: {
     ...V3.type.pourCounter,
-    color: V3.colors.gold,
+    color: OaklandDusk.brand.gold,
     textTransform: "uppercase",
   },
 
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
     height: 18,
     borderTopWidth: 1,
     borderLeftWidth: 1,
-    borderColor: V3.colors.goldLine,
+    borderColor: `${OaklandDusk.brand.gold}47`,
     zIndex: 1,
   },
   drinkFrameBottomRight: {
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     height: 18,
     borderBottomWidth: 1,
     borderRightWidth: 1,
-    borderColor: V3.colors.goldLine,
+    borderColor: `${OaklandDusk.brand.gold}47`,
     zIndex: 1,
   },
 
@@ -642,7 +642,7 @@ const styles = StyleSheet.create({
   drinkName: {
     ...V3.type.drinkName,
     lineHeight: 52,  // override V3 token: RN clips text when lineHeight < fontSize (was 45.6, fontSize 48)
-    color: V3.colors.text,
+    color: OaklandDusk.text.primary,
     textAlign: "center",
     marginBottom: 0,
   },
@@ -651,14 +651,14 @@ const styles = StyleSheet.create({
   drinkRule: {
     width: 42,
     height: 1,
-    backgroundColor: V3.colors.gold,
+    backgroundColor: OaklandDusk.brand.gold,
     marginVertical: 8,
   },
 
   // Ingredients
   drinkIngredients: {
     ...V3.type.drinkIngredients,
-    color: V3.colors.textDim,
+    color: `${OaklandDusk.text.primary}94`,
     textAlign: "center",
     textTransform: "lowercase",
     lineHeight: 17,
@@ -676,11 +676,11 @@ const styles = StyleSheet.create({
   },
   drinkExplainText: {
     ...V3.type.drinkExplain,
-    color: V3.colors.gold,
+    color: OaklandDusk.brand.gold,
     textTransform: "uppercase",
   },
   explainDot: {
-    color: V3.colors.goldLine,
+    color: `${OaklandDusk.brand.gold}47`,
     fontSize: 8,
     marginHorizontal: 10,
   },
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
   // Bar status
   barStatus: {
     ...V3.type.barStatus,
-    color: V3.colors.textFaint,
+    color: `${OaklandDusk.text.primary}52`,
     textAlign: "center",
     marginBottom: 14,
   },
@@ -696,14 +696,14 @@ const styles = StyleSheet.create({
   // See the recipe CTA (ghost button)
   seeRecipeBtn: {
     borderWidth: 1,
-    borderColor: V3.colors.gold,
+    borderColor: OaklandDusk.brand.gold,
     paddingHorizontal: 42,
     paddingVertical: 12,
     marginBottom: 16,
   },
   seeRecipeText: {
     ...V3.type.seeRecipe,
-    color: V3.colors.gold,
+    color: OaklandDusk.brand.gold,
     textTransform: "uppercase",
   },
 
@@ -719,15 +719,15 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 1,
-    borderColor: V3.colors.textGhost,
+    borderColor: `${OaklandDusk.text.primary}2E`,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   // Stage 2d: Active state for Save button when favorited
   spreadActionActive: {
-    borderColor: V3.colors.gold,
-    backgroundColor: V3.colors.goldSoft,
+    borderColor: OaklandDusk.brand.gold,
+    backgroundColor: `${OaklandDusk.brand.gold}1F`,
   },
   actionLabel: {
     position: "absolute",
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
     right: -20,
     textAlign: "center",
     ...V3.type.actionLabel,
-    color: V3.colors.textFaint,
+    color: `${OaklandDusk.text.primary}52`,
     textTransform: "uppercase",
   },
 
@@ -745,7 +745,7 @@ const styles = StyleSheet.create({
     fontFamily: V3.fonts.mono,
     fontSize: 9,
     letterSpacing: 2.25,
-    color: V3.colors.textFaint,
+    color: `${OaklandDusk.text.primary}52`,
     textTransform: "uppercase",
     textAlign: "center",
     marginTop: 6,
@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   // Scroll cue (static arrow)
   scrollCue: {
     fontSize: 18,
-    color: V3.colors.textGhost,
+    color: `${OaklandDusk.text.primary}2E`,
     textAlign: "center",
     paddingVertical: 4,
   },
