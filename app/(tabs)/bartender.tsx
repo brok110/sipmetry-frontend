@@ -860,7 +860,7 @@ const styles = StyleSheet.create({
 
   indexPage: {
     paddingHorizontal: V3.spacing.indexPaddingH,   // 26
-    paddingTop: V3.spacing.indexPaddingTop,         // 44
+    paddingTop: 24,  // override V3 token (44); tightened for mobile
     paddingBottom: V3.spacing.indexPaddingBottom,   // 32
     borderTopWidth: 1,
     borderTopColor: `${OaklandDusk.brand.gold}14`,  // 8% alpha faint gold separator
@@ -879,6 +879,7 @@ const styles = StyleSheet.create({
   },
   indexTitle: {
     ...V3.type.indexTitle,
+    fontSize: 22,      // override V3 token (26); lighter on mobile
     color: OaklandDusk.text.primary,
     textTransform: "uppercase",
     textAlign: "center",
@@ -903,6 +904,7 @@ const styles = StyleSheet.create({
   },
   entryNum: {
     ...V3.type.entryNum,
+    fontSize: 10,      // override V3 token (9); slight bump for mobile
     color: OaklandDusk.brand.gold,
     textTransform: "uppercase",
     width: 22,
@@ -923,18 +925,21 @@ const styles = StyleSheet.create({
   },
   entryIngr: {
     ...V3.type.entryIngr,
+    fontSize: 11,      // override V3 token (9); iOS HIG min body size
     color: `${OaklandDusk.text.primary}52`,  // textFaint equivalent
     marginBottom: 6,
-    lineHeight: 13,
+    lineHeight: 15,    // was 13; track fontSize bump
   },
   entryExplain: {
     ...V3.type.entryExplain,
+    fontSize: 11,      // override V3 token (9); iOS HIG min body size
     color: OaklandDusk.brand.gold,
     textTransform: "uppercase",
     marginBottom: 4,
   },
   entryStatus: {
     ...V3.type.entryStatus,
+    fontSize: 13,      // override V3 token (12); +1 for readability
     color: `${OaklandDusk.text.primary}52`,  // textFaint
   },
   entryStatusReady: {
@@ -962,6 +967,7 @@ const styles = StyleSheet.create({
   },
   personalizeSub: {
     ...V3.type.personalizeSub,
+    fontSize: 11,      // override V3 token (9); iOS HIG min body size
     color: `${OaklandDusk.text.primary}52`,  // textFaint
     textTransform: "uppercase",
     textAlign: "center",
