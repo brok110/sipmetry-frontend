@@ -5,6 +5,7 @@ import StaplesModal, { DEFAULT_STAPLES, STAPLES_STORAGE_KEY } from "@/components
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import CocktailThumbnail from "@/components/CocktailThumbnail";
 import OaklandDusk from "@/constants/OaklandDusk";
+import { V3 } from "@/constants/v3DesignTokens";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
 import { usePreferences } from "@/context/preferences";
@@ -13,14 +14,22 @@ import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Dimensions,
   Modal,
   NativeModules,
   Platform,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from "react-native";
+
+// Hero thumbnail size unified at 180 across all devices.
+// Rationale: editorial layout with 260 overflowed tab bar on all tested
+// devices (including iPhone 15 Pro). 180 keeps the card as a visual
+// anchor without forcing scroll on standard-size phones.
+const DRINK_SIZE = 180;
 
 type Pick = {
   iba_code: string;
@@ -119,12 +128,39 @@ function isChineseLocale(): boolean {
   return false;
 }
 
+function getTimeOfDay(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "good morning";
+  if (h < 17) return "good afternoon";
+  if (h < 22) return "good evening";
+  return "late";
+}
+
+// Splits backend explain string into uppercase segments on " · ".
+// Returns [] for empty/undefined input. Handles 1, 2, or more segments.
+// Examples:
+//   "Matches your bar · Bitter & Rich" → ["MATCHES YOUR BAR", "BITTER & RICH"]
+//   "Matches your bar"                 → ["MATCHES YOUR BAR"]
+//   "Rich & full-bodied"               → ["RICH & FULL-BODIED"]
+//   undefined                          → []
+function formatExplainSegments(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw.toUpperCase().split(" · ").filter(Boolean);
+}
+
 export default function BartenderScreen() {
   const { session } = useAuth();
-  const { inventory, availableIngredientKeys } = useInventory();
+  const { inventory, availableIngredientKeys, initialized: inventoryInitialized } = useInventory();
   const { preferences } = usePreferences();
 
   const [showResults, setShowResults] = useState(false);
+
+  // Stage 2b: Hero card state
+  const [currentPourIndex, setCurrentPourIndex] = useState(0);
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+
+  // Stage 2b: Guard to prevent repeated auto-fetch on inventory changes
+  const didInitialFetchRef = useRef(false);
 
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
@@ -150,6 +186,20 @@ export default function BartenderScreen() {
       } catch {}
     });
   }, []);
+
+  // Stage 2b: Auto-fetch recommendations once inventory hydrates.
+  // Guards:
+  // - didInitialFetchRef prevents refetch on later inventory changes
+  // - inventoryInitialized ensures we know if inventory is really empty
+  // - inventory.length > 0 avoids firing API when empty
+  useEffect(() => {
+    if (didInitialFetchRef.current) return;
+    if (!inventoryInitialized) return;
+    if (inventory.length === 0) return;
+
+    didInitialFetchRef.current = true;
+    fetchRecommendations();
+  }, [inventoryInitialized, inventory.length]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
@@ -189,7 +239,6 @@ export default function BartenderScreen() {
       setResults(recs);
       setOneAway(away);
       setHint(data.hint || null);
-      setShowResults(true);
       // Mark user as having used the bartender (for skip-Welcome on next launch)
       AsyncStorage.setItem("sipmetry_has_used_bartender", "true").catch(() => {});
     } catch (e: any) {
@@ -536,20 +585,216 @@ export default function BartenderScreen() {
     );
   }
 
-  return (
-    <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      {error && (
-        <Text style={{
-          color: OaklandDusk.accent.crimson,
-          textAlign: "center",
-          paddingHorizontal: 20,
-          fontSize: 14,
-          marginTop: 40,
-        }}>
-          {error}
-        </Text>
-      )}
+  // ─────── Stage 2b: Branch render ───────
+  const currentPick = results[currentPourIndex] || null;
+  const total = results.length;
+  const hasInventory = inventory.length > 0;
+  const hasResults = total > 0;
 
+  // Branch 0: Inventory context not yet initialized (v2 new)
+  // Brief flicker on app open — avoids falsely showing "add bottles to start".
+  if (!inventoryInitialized) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.masthead}>
+          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
+          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
+        </View>
+        <View style={styles.centerFill}>
+          <ActivityIndicator color={V3.colors.gold} size="small" />
+        </View>
+      </View>
+    );
+  }
+
+  // Branch 1: Loading (fetch in flight, no results yet)
+  if (loading && !hasResults) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.masthead}>
+          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
+          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
+        </View>
+        <View style={styles.centerFill}>
+          <View style={styles.skeletonThumb} />
+          <View style={styles.skeletonLineLong} />
+          <View style={styles.skeletonLineShort} />
+          <ActivityIndicator
+            color={V3.colors.gold}
+            size="small"
+            style={{ marginTop: 28 }}
+          />
+        </View>
+      </View>
+    );
+  }
+
+  // Branch 2: Error with retry
+  if (error && !loading) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.masthead}>
+          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
+          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
+        </View>
+        <View style={styles.centerFill}>
+          <Text style={styles.stateMsg}>Something went wrong.</Text>
+          <Text style={styles.stateSubMsg}>{error}</Text>
+          <Pressable
+            style={styles.retryBtn}
+            onPress={() => fetchRecommendations()}
+          >
+            <Text style={styles.retryBtnText}>TRY AGAIN</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // Branch 3: Empty inventory
+  if (!hasInventory) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.masthead}>
+          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
+          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
+        </View>
+        <View style={styles.centerFill}>
+          <Text style={styles.stateMsg}>add bottles to start</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Branch 4: Empty recommendations (has inventory, no matches)
+  if (!hasResults) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.masthead}>
+          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
+          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
+        </View>
+        <View style={styles.centerFill}>
+          <Text style={styles.stateMsg}>no matches right now</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Branch 5: Hero card (main happy path)
+  const explainSegments = formatExplainSegments(currentPick?.explain);
+  const ingredientsText = (currentPick?.ingredient_keys || [])
+    .map(k => k.replace(/_/g, " "))
+    .join(" · ");
+  const missingItem = (currentPick?.missing_items?.[0] || "").replace(/_/g, " ");
+  const barStatusText = currentPick?.missing_count === 0
+    ? `all ${currentPick.ingredient_keys?.length || ""} ingredients on your shelf.`
+    : `one away — ${missingItem}.`;
+
+  return (
+    <View style={styles.root}>
+      {/* Masthead */}
+      <View style={styles.masthead}>
+        <Text style={styles.mastheadTitle}>SIPMETRY</Text>
+        <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
+      </View>
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.spread}>
+          {/* Pour counter */}
+          <View style={styles.pourCounterRow}>
+            <Text style={[styles.pourCounter, { color: V3.colors.text }]}>
+              {String(currentPourIndex + 1).padStart(2, "0")}
+            </Text>
+            <Text style={[styles.pourCounter, { color: V3.colors.textGhost, marginHorizontal: 6 }]}>
+              /
+            </Text>
+            <Text style={styles.pourCounter}>
+              {String(total).padStart(2, "0")}
+            </Text>
+          </View>
+
+          {/* Drink illustration with gold corner frame */}
+          <View style={styles.drinkIllustration}>
+            <View style={styles.drinkFrameTopLeft} />
+            <View style={styles.drinkFrameBottomRight} />
+            <CocktailThumbnail imageUrl={currentPick?.image_url} size={DRINK_SIZE} />
+          </View>
+
+          {/* Drink name */}
+          <Text style={styles.drinkName}>
+            {currentPick?.name?.toUpperCase() || ""}
+          </Text>
+
+          {/* Gold rule line */}
+          <View style={styles.drinkRule} />
+
+          {/* Ingredients */}
+          <Text style={styles.drinkIngredients}>{ingredientsText}</Text>
+
+          {/* Explain field (v2: segments map, handles 1+ segments gracefully) */}
+          {explainSegments.length > 0 && (
+            <View style={styles.drinkExplainRow}>
+              {explainSegments.map((seg, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <Text style={styles.explainDot}>◆</Text>}
+                  <Text style={styles.drinkExplainText}>{seg}</Text>
+                </React.Fragment>
+              ))}
+            </View>
+          )}
+
+          {/* Bar status */}
+          <Text style={styles.barStatus}>{barStatusText}</Text>
+
+          {/* See the recipe CTA */}
+          <Pressable
+            style={styles.seeRecipeBtn}
+            onPress={() => currentPick && openRecipe(currentPick)}
+          >
+            <Text style={styles.seeRecipeText}>SEE THE RECIPE</Text>
+          </Pressable>
+
+          {/* Action icons (Stage 2b: console.log placeholders; Stage 2d wires real logic) */}
+          <View style={styles.spreadActions}>
+            <Pressable
+              style={styles.spreadAction}
+              onPress={() => console.log("Save", currentPick?.iba_code)}
+            >
+              <FontAwesome name="heart-o" size={18} color={V3.colors.textDim} />
+              <Text style={styles.actionLabel}>SAVE</Text>
+            </Pressable>
+            <Pressable
+              style={styles.spreadAction}
+              onPress={() => console.log("Skip", currentPick?.iba_code)}
+            >
+              <FontAwesome name="times" size={18} color={V3.colors.textDim} />
+              <Text style={styles.actionLabel}>SKIP</Text>
+            </Pressable>
+            <Pressable
+              style={styles.spreadAction}
+              onPress={() => console.log("Another", currentPick?.iba_code)}
+            >
+              <FontAwesome name="refresh" size={18} color={V3.colors.textDim} />
+              <Text style={styles.actionLabel}>ANOTHER</Text>
+            </Pressable>
+          </View>
+
+          {/* Swipe hint (Stage 2b: static; Stage 2c adds gesture) */}
+          <Text style={styles.swipeHint}>← swipe for another →</Text>
+
+          {/* Scroll cue */}
+          <Text style={styles.scrollCue}>⌄</Text>
+        </View>
+
+        {/* Stage 3 will render Index List here */}
+      </ScrollView>
+
+      {/* 🔴 DEAD CODE: Bottom Sheet (Stage 2d 才清) */}
       <Modal
         visible={showBottomSheet}
         transparent
@@ -693,3 +938,257 @@ export default function BartenderScreen() {
     </View>
   );
 }
+
+// ─────── Stage 2b: Styles ───────
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: V3.colors.void,
+  },
+
+  // Masthead
+  masthead: {
+    paddingHorizontal: 26,
+    paddingTop: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+  },
+  mastheadTitle: {
+    ...V3.type.masthead,
+  },
+  mastheadMeta: {
+    ...V3.type.mastheadMeta,
+    color: V3.colors.textDim,
+  },
+
+  // Center fill for loading/error/empty states
+  centerFill: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 30,
+  },
+
+  // Loading skeleton
+  skeletonThumb: {
+    width: DRINK_SIZE,
+    height: DRINK_SIZE * 1.15,
+    borderRadius: 12,
+    backgroundColor: V3.colors.card,
+    marginBottom: 28,
+  },
+  skeletonLineLong: {
+    width: 200,
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: V3.colors.card,
+    marginBottom: 10,
+  },
+  skeletonLineShort: {
+    width: 140,
+    height: 10,
+    borderRadius: 4,
+    backgroundColor: V3.colors.card,
+  },
+
+  // Error / empty state messages
+  stateMsg: {
+    fontFamily: V3.fonts.cormorant,
+    fontStyle: "italic",
+    fontSize: 18,
+    color: V3.colors.textDim,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  stateSubMsg: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 11,
+    letterSpacing: 1,
+    color: V3.colors.textFaint,
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: 24,
+  },
+  retryBtn: {
+    borderWidth: 1,
+    borderColor: V3.colors.gold,
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+  },
+  retryBtnText: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 11,
+    letterSpacing: 3.3,
+    color: V3.colors.gold,
+    textTransform: "uppercase",
+  },
+
+  // Spread (main hero card container)
+  spread: {
+    paddingHorizontal: V3.spacing.spreadPaddingH,
+    paddingTop: 16,  // was V3.spacing.spreadPaddingTop (40); tightened for single-page layout
+    paddingBottom: V3.spacing.spreadPaddingBottom,
+    alignItems: "center",
+  },
+
+  // Pour counter
+  pourCounterRow: {
+    flexDirection: "row",
+    marginBottom: 16,
+  },
+  pourCounter: {
+    ...V3.type.pourCounter,
+    color: V3.colors.gold,
+    textTransform: "uppercase",
+  },
+
+  // Drink illustration with gold corner frame
+  drinkIllustration: {
+    width: DRINK_SIZE,
+    aspectRatio: 1 / 1.15,
+    marginBottom: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  drinkFrameTopLeft: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: 18,
+    height: 18,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderColor: V3.colors.goldLine,
+    zIndex: 1,
+  },
+  drinkFrameBottomRight: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 18,
+    height: 18,
+    borderBottomWidth: 1,
+    borderRightWidth: 1,
+    borderColor: V3.colors.goldLine,
+    zIndex: 1,
+  },
+
+  // Drink name
+  drinkName: {
+    ...V3.type.drinkName,
+    lineHeight: 52,  // override V3 token: RN clips text when lineHeight < fontSize (was 45.6, fontSize 48)
+    color: V3.colors.text,
+    textAlign: "center",
+    marginBottom: 0,
+  },
+
+  // Gold rule line
+  drinkRule: {
+    width: 42,
+    height: 1,
+    backgroundColor: V3.colors.gold,
+    marginVertical: 8,
+  },
+
+  // Ingredients
+  drinkIngredients: {
+    ...V3.type.drinkIngredients,
+    color: V3.colors.textDim,
+    textAlign: "center",
+    textTransform: "lowercase",
+    lineHeight: 17,
+    marginBottom: 14,
+    maxWidth: 260,
+  },
+
+  // Explain field row
+  drinkExplainRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    marginBottom: 16,
+  },
+  drinkExplainText: {
+    ...V3.type.drinkExplain,
+    color: V3.colors.gold,
+    textTransform: "uppercase",
+  },
+  explainDot: {
+    color: V3.colors.goldLine,
+    fontSize: 8,
+    marginHorizontal: 10,
+  },
+
+  // Bar status
+  barStatus: {
+    ...V3.type.barStatus,
+    color: V3.colors.textFaint,
+    textAlign: "center",
+    marginBottom: 14,
+  },
+
+  // See the recipe CTA (ghost button)
+  seeRecipeBtn: {
+    borderWidth: 1,
+    borderColor: V3.colors.gold,
+    paddingHorizontal: 42,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  seeRecipeText: {
+    ...V3.type.seeRecipe,
+    color: V3.colors.gold,
+    textTransform: "uppercase",
+  },
+
+  // Action buttons row (Save / Skip / Another)
+  spreadActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    marginBottom: 20,
+  },
+  spreadAction: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: V3.colors.textGhost,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  actionLabel: {
+    position: "absolute",
+    bottom: -18,
+    left: -20,   // extend label beyond button width; prevents ANOTHER wrapping
+    right: -20,
+    textAlign: "center",
+    ...V3.type.actionLabel,
+    color: V3.colors.textFaint,
+    textTransform: "uppercase",
+  },
+
+  // Swipe hint (static, Stage 2c will add gesture feedback)
+  swipeHint: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 9,
+    letterSpacing: 2.25,
+    color: V3.colors.textFaint,
+    textTransform: "uppercase",
+    textAlign: "center",
+    marginTop: 6,
+    marginBottom: 0,
+  },
+
+  // Scroll cue (static arrow)
+  scrollCue: {
+    fontSize: 18,
+    color: V3.colors.textGhost,
+    textAlign: "center",
+    paddingVertical: 4,
+  },
+});
