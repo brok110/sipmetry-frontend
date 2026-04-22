@@ -82,6 +82,37 @@ function formatExplainSegments(raw: string | undefined): string[] {
   return raw.toUpperCase().split(" · ").filter(Boolean);
 }
 
+/**
+ * Format ingredient keys for compact entry display.
+ * Shows first 3 lowercase, space-separated by " · ", appends "+N more" if truncated.
+ * Example: ["gin", "campari", "sweet_vermouth"] → "gin · campari · sweet vermouth"
+ * Example: ["gin", "vodka", "lillet_blanc", "lemon_twist"] → "gin · vodka · lillet blanc +1 MORE"
+ */
+function formatEntryIngredients(keys: string[] | null | undefined): string {
+  if (!Array.isArray(keys) || keys.length === 0) return "";
+  const cleaned = keys.map(k => k.replace(/_/g, " "));
+  if (cleaned.length <= 3) return cleaned.join(" · ");
+  return `${cleaned.slice(0, 3).join(" · ")} +${cleaned.length - 3} MORE`;
+}
+
+/**
+ * Format entry status for missing ingredients display.
+ * 0 missing: "on your shelf" (ready)
+ * 1 missing: "missing: {name}"
+ * 2+ missing: "missing: {first name} +{N-1} more"
+ */
+function formatEntryStatus(pick: Pick): { text: string; ready: boolean } {
+  const missingCount = pick.missing_count ?? 0;
+  if (missingCount === 0) {
+    return { text: "on your shelf", ready: true };
+  }
+  const firstMissing = (pick.missing_items?.[0] || "").replace(/_/g, " ");
+  if (missingCount === 1) {
+    return { text: `missing: ${firstMissing}`, ready: false };
+  }
+  return { text: `missing: ${firstMissing} +${missingCount - 1} more`, ready: false };
+}
+
 export default function BartenderScreen() {
   const { session } = useAuth();
   const { inventory, availableIngredientKeys, initialized: inventoryInitialized } = useInventory();
@@ -389,6 +420,12 @@ export default function BartenderScreen() {
     ? `all ${currentPick.ingredient_keys?.length || ""} ingredients on your shelf.`
     : `one away — ${missingItem}.`;
 
+  // Stage 3a: Index list entries (exclude current hero, append oneAway picks)
+  const indexEntries = [
+    ...results.filter((_, i) => i !== currentPourIndex),
+    ...oneAway,
+  ];
+
   return (
     <View style={styles.root}>
       {/* Masthead */}
@@ -495,7 +532,66 @@ export default function BartenderScreen() {
           <Text style={styles.scrollCue}>⌄</Text>
         </View>
 
-        {/* Stage 3 will render Index List here */}
+        {/* Stage 3a: Index List */}
+        {indexEntries.length > 0 && (
+          <View style={styles.indexPage}>
+            {/* Index head */}
+            <View style={styles.indexHead}>
+              <Text style={styles.indexKicker}>THE LIST</Text>
+              <Text style={styles.indexTitle}>
+                {`${indexEntries.length} MORE ON TONIGHT`}
+              </Text>
+              <Text style={styles.indexSub}>ranked by fit to your bar &amp; taste</Text>
+            </View>
+
+            {/* Stage 3b will render filter disclosure + chips panel here */}
+
+            {/* Entries */}
+            {indexEntries.map((pick, i) => {
+              const status = formatEntryStatus(pick);
+              return (
+                <Pressable
+                  key={pick.iba_code}
+                  style={styles.entry}
+                  onPress={() => openRecipe(pick)}
+                >
+                  <Text style={styles.entryNum}>{String(i + 1).padStart(2, "0")}</Text>
+                  <View style={styles.entryViz}>
+                    <CocktailThumbnail imageUrl={pick.image_url} size={60} />
+                  </View>
+                  <View style={styles.entryContent}>
+                    <Text style={styles.entryName}>{pick.name.toUpperCase()}</Text>
+                    <Text style={styles.entryIngr}>
+                      {formatEntryIngredients(pick.ingredient_keys).toUpperCase()}
+                    </Text>
+                    {pick.explain && (
+                      <Text style={styles.entryExplain}>
+                        {pick.explain.toUpperCase()}
+                      </Text>
+                    )}
+                    <Text
+                      style={[
+                        styles.entryStatus,
+                        status.ready && styles.entryStatusReady,
+                      ]}
+                    >
+                      {status.text}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+
+            {/* Personalize block */}
+            <Pressable
+              style={styles.personalize}
+              onPress={() => router.push("/profile/preferences")}
+            >
+              <Text style={styles.personalizeTitle}>TASTE PREFERENCES</Text>
+              <Text style={styles.personalizeSub}>tune your recommendations</Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
 
     </View>
@@ -758,5 +854,116 @@ const styles = StyleSheet.create({
     color: `${OaklandDusk.text.primary}2E`,
     textAlign: "center",
     paddingVertical: 4,
+  },
+
+  // ─────── Stage 3a: Index List ───────
+
+  indexPage: {
+    paddingHorizontal: V3.spacing.indexPaddingH,   // 26
+    paddingTop: V3.spacing.indexPaddingTop,         // 44
+    paddingBottom: V3.spacing.indexPaddingBottom,   // 32
+    borderTopWidth: 1,
+    borderTopColor: `${OaklandDusk.brand.gold}14`,  // 8% alpha faint gold separator
+  },
+
+  // Index head
+  indexHead: {
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  indexKicker: {
+    ...V3.type.indexKicker,
+    color: OaklandDusk.brand.gold,
+    textTransform: "uppercase",
+    marginBottom: 12,
+  },
+  indexTitle: {
+    ...V3.type.indexTitle,
+    color: OaklandDusk.text.primary,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  indexSub: {
+    ...V3.type.indexSub,
+    color: `${OaklandDusk.text.primary}94`,  // textDim equivalent
+    textAlign: "center",
+    marginTop: 6,
+  },
+
+  // Entry
+  entry: {
+    flexDirection: "row",
+    gap: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 10,
+    marginHorizontal: -10,
+    borderBottomWidth: 1,
+    borderBottomColor: `${OaklandDusk.brand.gold}14`,  // 8% alpha
+    alignItems: "flex-start",
+  },
+  entryNum: {
+    ...V3.type.entryNum,
+    color: OaklandDusk.brand.gold,
+    textTransform: "uppercase",
+    width: 22,
+    paddingTop: 4,
+  },
+  entryViz: {
+    width: V3.spacing.entryVizW,  // 60
+    // Let CocktailThumbnail control its own aspect ratio (size=60 renders 60×60 square)
+  },
+  entryContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  entryName: {
+    ...V3.type.entryName,
+    color: OaklandDusk.text.primary,
+    marginBottom: 5,
+  },
+  entryIngr: {
+    ...V3.type.entryIngr,
+    color: `${OaklandDusk.text.primary}52`,  // textFaint equivalent
+    marginBottom: 6,
+    lineHeight: 13,
+  },
+  entryExplain: {
+    ...V3.type.entryExplain,
+    color: OaklandDusk.brand.gold,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  entryStatus: {
+    ...V3.type.entryStatus,
+    color: `${OaklandDusk.text.primary}52`,  // textFaint
+  },
+  entryStatusReady: {
+    color: `${OaklandDusk.text.primary}94`,  // textDim (slightly more visible)
+  },
+
+  // Personalize block
+  personalize: {
+    alignSelf: "center",
+    maxWidth: 260,
+    marginTop: 32,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: `${OaklandDusk.brand.gold}14`,  // 8% alpha
+    alignItems: "center",
+  },
+  personalizeTitle: {
+    ...V3.type.personalizeTitle,
+    color: OaklandDusk.brand.gold,
+    textTransform: "uppercase",
+    marginBottom: 3,
+    textAlign: "center",
+  },
+  personalizeSub: {
+    ...V3.type.personalizeSub,
+    color: `${OaklandDusk.text.primary}52`,  // textFaint
+    textTransform: "uppercase",
+    textAlign: "center",
   },
 });
