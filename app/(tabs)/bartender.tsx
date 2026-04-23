@@ -113,6 +113,32 @@ function formatEntryStatus(pick: Pick): { text: string; ready: boolean } {
   return { text: `missing: ${firstMissing} +${missingCount - 1} more`, ready: false };
 }
 
+// Stage 3b: Filter chip definitions.
+// `val` is the exact value sent to /bartender-recommend; `label` is UI display.
+// Style `val` MUST be case-sensitive (matches PREF_STYLE_PRESETS_JSON keys on server).
+const OCCASION_CHIPS: { val: string; label: string }[] = [
+  { val: "home",     label: "AT HOME" },
+  { val: "meal",     label: "WITH A MEAL" },
+  { val: "party",    label: "FOR A PARTY" },
+  { val: "nightcap", label: "NIGHTCAP" },
+];
+
+const STYLE_CHIPS: { val: string; label: string }[] = [
+  { val: "Bitter",    label: "BITTER" },
+  { val: "Smoky",     label: "SMOKY" },
+  { val: "Herbal",    label: "HERBAL" },
+  { val: "Fruity",    label: "FRUITY" },
+  { val: "Sparkling", label: "SPARKLING" },
+];
+
+const SPIRIT_CHIPS: { val: string; label: string }[] = [
+  { val: "gin",     label: "GIN" },
+  { val: "whiskey", label: "WHISKEY" },
+  { val: "rum",     label: "RUM" },
+  { val: "tequila", label: "TEQUILA" },
+  { val: "brandy",  label: "BRANDY" },
+];
+
 export default function BartenderScreen() {
   const { session } = useAuth();
   const { inventory, availableIngredientKeys, initialized: inventoryInitialized } = useInventory();
@@ -546,7 +572,46 @@ export default function BartenderScreen() {
               <Text style={styles.indexSub}>ranked by fit to your bar &amp; taste</Text>
             </View>
 
-            {/* Stage 3b will render filter disclosure + chips panel here */}
+            {/* Stage 3b: Filter disclosure (static — always open in 3b-2) */}
+            <View style={styles.filterDisclosure}>
+              <Pressable onPress={() => { /* 3b-3 wires this */ }}>
+                <Text style={styles.filterToggle}>Narrow the list  +</Text>
+              </Pressable>
+            </View>
+
+            {/* Stage 3b: Chips panel (static — always open in 3b-2) */}
+            <View style={styles.chipsPanel}>
+              <View style={styles.chipsGroup}>
+                <Text style={styles.chipsLabel}>OCCASION</Text>
+                <View style={styles.chipRow}>
+                  {OCCASION_CHIPS.map((c) => (
+                    <Pressable key={c.val} style={styles.chip} onPress={() => { /* 3b-3 */ }}>
+                      <Text style={styles.chipText}>{c.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.chipsGroup}>
+                <Text style={styles.chipsLabel}>STYLE</Text>
+                <View style={styles.chipRow}>
+                  {STYLE_CHIPS.map((c) => (
+                    <Pressable key={c.val} style={styles.chip} onPress={() => { /* 3b-3 */ }}>
+                      <Text style={styles.chipText}>{c.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+              <View style={styles.chipsGroup}>
+                <Text style={styles.chipsLabel}>BASE SPIRIT</Text>
+                <View style={styles.chipRow}>
+                  {SPIRIT_CHIPS.map((c) => (
+                    <Pressable key={c.val} style={styles.chip} onPress={() => { /* 3b-3 */ }}>
+                      <Text style={styles.chipText}>{c.label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+            </View>
 
             {/* Entries */}
             {indexEntries.map((pick, i) => {
@@ -891,6 +956,65 @@ const styles = StyleSheet.create({
     color: `${OaklandDusk.text.primary}94`,  // textDim equivalent
     textAlign: "center",
     marginTop: 6,
+  },
+
+  // ─────── Stage 3b: Filter disclosure + chips panel ───────
+  filterDisclosure: {
+    alignItems: "center" as const,
+    marginBottom: V3.spacing.filterDisclosureMarginB,  // 24
+  },
+  filterToggle: {
+    ...V3.type.filterToggle,
+    textTransform: "uppercase" as const,
+    color: `${OaklandDusk.text.primary}94`,   // textDim
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: V3.colors.textGhost,   // 18% white
+  },
+  filterToggleOpen: {
+    color: OaklandDusk.brand.gold,
+    borderBottomColor: V3.colors.goldLine,    // 18% gold
+  },
+  chipsPanel: {
+    marginTop: V3.spacing.chipsPanelMarginTop,      // 16
+    marginBottom: V3.spacing.chipsPanelMarginBottom, // 20
+    overflow: "hidden" as const,
+  },
+  chipsGroup: {
+    marginBottom: V3.spacing.chipsGroupGapBottom,   // 14
+  },
+  chipsLabel: {
+    ...V3.type.chipLabel,
+    textTransform: "uppercase" as const,
+    color: V3.colors.textFaint,
+    marginBottom: V3.spacing.chipsLabelGapBottom,   // 8
+    textAlign: "center" as const,
+  },
+  chipRow: {
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
+    gap: V3.spacing.chipRowGap,                     // 6
+    justifyContent: "center" as const,
+  },
+  chip: {
+    paddingHorizontal: V3.spacing.chipPaddingH,     // 13
+    paddingVertical: V3.spacing.chipPaddingV,       // 7
+    borderWidth: 1,
+    borderColor: V3.colors.textGhost,
+    backgroundColor: "transparent",
+  },
+  chipActive: {
+    borderColor: OaklandDusk.brand.gold,
+    backgroundColor: V3.colors.goldSoft,
+  },
+  chipText: {
+    ...V3.type.chip,
+    textTransform: "uppercase" as const,
+    color: `${OaklandDusk.text.primary}94`,         // textDim
+  },
+  chipTextActive: {
+    color: OaklandDusk.brand.gold,
   },
 
   // Entry
