@@ -14,12 +14,14 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
+  LayoutAnimation,
   NativeModules,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from "react-native";
 
@@ -31,6 +33,12 @@ import Animated, {
   withSpring,
   runOnJS,
 } from "react-native-reanimated";
+
+// Stage 3b: Enable LayoutAnimation on Android (iOS has it on by default).
+// Safe to call multiple times; the API is idempotent.
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // Hero thumbnail size unified at 180 across all devices.
 // Rationale: editorial layout with 260 overflowed tab bar on all tested
@@ -161,6 +169,7 @@ export default function BartenderScreen() {
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
   const [selectedExcludes, setSelectedExcludes] = useState<string[]>([]);
   const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
+  const [filterOpen, setFilterOpen] = useState(false);
   const [results, setResults] = useState<Pick[]>([]);
   const [oneAway, setOneAway] = useState<Pick[]>([]);
   const [hint, setHint] = useState<{ preset: string; message_en: string; message_zh: string; suggested_ingredients: string[] } | null>(null);
@@ -572,46 +581,82 @@ export default function BartenderScreen() {
               <Text style={styles.indexSub}>ranked by fit to your bar &amp; taste</Text>
             </View>
 
-            {/* Stage 3b: Filter disclosure (static — always open in 3b-2) */}
+            {/* Stage 3b: Filter disclosure */}
             <View style={styles.filterDisclosure}>
-              <Pressable onPress={() => { /* 3b-3 wires this */ }}>
-                <Text style={styles.filterToggle}>Narrow the list  +</Text>
+              <Pressable
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setFilterOpen((o) => !o);
+                }}
+              >
+                <Text style={[styles.filterToggle, filterOpen && styles.filterToggleOpen]}>
+                  {filterOpen ? "Narrow the list  −" : "Narrow the list  +"}
+                </Text>
               </Pressable>
             </View>
 
-            {/* Stage 3b: Chips panel (static — always open in 3b-2) */}
-            <View style={styles.chipsPanel}>
-              <View style={styles.chipsGroup}>
-                <Text style={styles.chipsLabel}>OCCASION</Text>
-                <View style={styles.chipRow}>
-                  {OCCASION_CHIPS.map((c) => (
-                    <Pressable key={c.val} style={styles.chip} onPress={() => { /* 3b-3 */ }}>
-                      <Text style={styles.chipText}>{c.label}</Text>
-                    </Pressable>
-                  ))}
+            {/* Stage 3b: Chips panel */}
+            {filterOpen && (
+              <View style={styles.chipsPanel}>
+                <View style={styles.chipsGroup}>
+                  <Text style={styles.chipsLabel}>OCCASION</Text>
+                  <View style={styles.chipRow}>
+                    {OCCASION_CHIPS.map((c) => {
+                      const active = selectedOccasion === c.val;
+                      return (
+                        <Pressable
+                          key={c.val}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => setSelectedOccasion(active ? null : c.val)}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View style={styles.chipsGroup}>
+                  <Text style={styles.chipsLabel}>STYLE</Text>
+                  <View style={styles.chipRow}>
+                    {STYLE_CHIPS.map((c) => {
+                      const active = selectedStyles.includes(c.val);
+                      return (
+                        <Pressable
+                          key={c.val}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => toggle(selectedStyles, c.val, setSelectedStyles)}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View style={styles.chipsGroup}>
+                  <Text style={styles.chipsLabel}>BASE SPIRIT</Text>
+                  <View style={styles.chipRow}>
+                    {SPIRIT_CHIPS.map((c) => {
+                      const active = selectedSpirits.includes(c.val);
+                      return (
+                        <Pressable
+                          key={c.val}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => toggle(selectedSpirits, c.val, setSelectedSpirits)}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
                 </View>
               </View>
-              <View style={styles.chipsGroup}>
-                <Text style={styles.chipsLabel}>STYLE</Text>
-                <View style={styles.chipRow}>
-                  {STYLE_CHIPS.map((c) => (
-                    <Pressable key={c.val} style={styles.chip} onPress={() => { /* 3b-3 */ }}>
-                      <Text style={styles.chipText}>{c.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-              <View style={styles.chipsGroup}>
-                <Text style={styles.chipsLabel}>BASE SPIRIT</Text>
-                <View style={styles.chipRow}>
-                  {SPIRIT_CHIPS.map((c) => (
-                    <Pressable key={c.val} style={styles.chip} onPress={() => { /* 3b-3 */ }}>
-                      <Text style={styles.chipText}>{c.label}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
-            </View>
+            )}
 
             {/* Entries */}
             {indexEntries.map((pick, i) => {
