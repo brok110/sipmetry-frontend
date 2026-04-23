@@ -134,6 +134,7 @@ export default function BartenderScreen() {
   const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
   const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
   const [selectedExcludes, setSelectedExcludes] = useState<string[]>([]);
+  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
   const [results, setResults] = useState<Pick[]>([]);
   const [oneAway, setOneAway] = useState<Pick[]>([]);
   const [hint, setHint] = useState<{ preset: string; message_en: string; message_zh: string; suggested_ingredients: string[] } | null>(null);
@@ -180,6 +181,7 @@ export default function BartenderScreen() {
           occasion: selectedOccasion,
           base_spirit: selectedSpirits.length === 1 ? selectedSpirits[0] : undefined,
           base_spirits: selectedSpirits,
+          style_presets: selectedStyles,
           excludes: selectedExcludes,
           profile_style_preset: preferences.stylePreset,
         },

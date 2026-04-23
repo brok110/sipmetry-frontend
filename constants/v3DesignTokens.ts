@@ -63,5 +63,14 @@ export const V3 = {
     drinkSize: 260,      // hero thumbnail size
     entryVizW: 60,       // index entry thumbnail width
     entryVizH: 75,       // index entry thumbnail height
+    // Stage 3b: chips panel layout
+    chipsPanelMarginTop:    16,  // mockup .chips-panel.open margin-top
+    chipsPanelMarginBottom: 20,  // mockup .chips-panel.open margin-bottom
+    chipsGroupGapBottom:    14,  // mockup .chips-group margin-bottom
+    chipsLabelGapBottom:     8,  // mockup .chips-label margin-bottom
+    chipRowGap:              6,  // mockup .chip-row gap
+    chipPaddingH:           13,  // mockup .chip padding horizontal
+    chipPaddingV:            7,  // mockup .chip padding vertical
+    filterDisclosureMarginB: 24, // mockup .filter-disclosure margin-bottom
   },
 };
