@@ -159,6 +159,9 @@ export default function BartenderScreen() {
 
   // Stage 2b: Guard to prevent repeated auto-fetch on inventory changes
   const didInitialFetchRef = useRef(false);
+  // Stage 3b-4: Gates the filter-change debounce effect so it doesn't fire
+  // before the initial auto-fetch has been triggered.
+  const filterRefetchEnabledRef = useRef(false);
 
   // Stage 2c: Swipe gesture
   const translateX = useSharedValue(0);
@@ -197,7 +200,21 @@ export default function BartenderScreen() {
 
     didInitialFetchRef.current = true;
     fetchRecommendations();
+    filterRefetchEnabledRef.current = true;
   }, [inventoryInitialized, inventory.length]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Stage 3b-4: Debounced refetch when filter chips change.
+  // Gated by filterRefetchEnabledRef so it does not fire on initial mount
+  // or before the first auto-fetch has run. Resets pour index so the user
+  // sees the top-ranked result for the new filter set.
+  useEffect(() => {
+    if (!filterRefetchEnabledRef.current) return;
+    const t = setTimeout(() => {
+      setCurrentPourIndex(0);
+      fetchRecommendations();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [selectedOccasion, selectedSpirits, selectedStyles]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
