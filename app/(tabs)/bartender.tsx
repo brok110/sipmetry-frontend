@@ -157,11 +157,14 @@ export default function BartenderScreen() {
   // Stage 2b: Hero card state
   const [currentPourIndex, setCurrentPourIndex] = useState(0);
 
-  // Stage 2b: Guard to prevent repeated auto-fetch on inventory changes
-  const didInitialFetchRef = useRef(false);
-  // Stage 3b-4: Gates the filter-change debounce effect so it doesn't fire
-  // before the initial auto-fetch has been triggered.
-  const filterRefetchEnabledRef = useRef(false);
+  // Refactor: Tracks last fetched signature to dedupe refetch calls.
+  // Signature changes when any recommendation-affecting state changes
+  // (filter chips, stylePreset, dims, safetyMode). Initial mount compares
+  // first signature against null → triggers one fetch to replace the old
+  // three-effect architecture (Stage 2b auto-fetch + 3b-4 chip debounce +
+  // Stage 4 preferences debounce). Deduplication means "Save preferences
+  // without changes" no longer wastes an API call.
+  const lastFetchSignatureRef = useRef<string | null>(null);
 
   // Stage 2c: Swipe gesture
   const translateX = useSharedValue(0);
@@ -188,33 +191,46 @@ export default function BartenderScreen() {
     }
   }, [results, currentPourIndex]);
 
-  // Stage 2b: Auto-fetch recommendations once inventory hydrates.
-  // Guards:
-  // - didInitialFetchRef prevents refetch on later inventory changes
-  // - inventoryInitialized ensures we know if inventory is really empty
-  // - inventory.length > 0 avoids firing API when empty
+  // Unified refetch effect:
+  // Drives initial auto-fetch, filter chip refetch, and preferences refetch
+  // from a single signature string. Refetches only when the signature actually
+  // changes — so "Save preferences without changes" doesn't waste an API call.
+  //
+  // Preconditions: inventory hydrated + non-empty (same as old Stage 2b guard).
+  // Debounce: 300ms with setTimeout cleanup so rapid chip taps coalesce.
+  //
+  // Signature intentionally excludes inventory.length (adding a bottle does
+  // not imply the user wants new recs — they can tap "Another" manually) and
+  // preferences.intensities (redundant with dims for the three shared axes).
   useEffect(() => {
-    if (didInitialFetchRef.current) return;
     if (!inventoryInitialized) return;
     if (inventory.length === 0) return;
 
-    didInitialFetchRef.current = true;
-    fetchRecommendations();
-    filterRefetchEnabledRef.current = true;
-  }, [inventoryInitialized, inventory.length]);  // eslint-disable-line react-hooks/exhaustive-deps
+    const signature = JSON.stringify({
+      occasion: selectedOccasion,
+      spirits: selectedSpirits,
+      styles: selectedStyles,
+      stylePreset: preferences.stylePreset,
+      dims: preferences.dims,
+      safetyMode: preferences.safetyMode,
+    });
 
-  // Stage 3b-4: Debounced refetch when filter chips change.
-  // Gated by filterRefetchEnabledRef so it does not fire on initial mount
-  // or before the first auto-fetch has run. Resets pour index so the user
-  // sees the top-ranked result for the new filter set.
-  useEffect(() => {
-    if (!filterRefetchEnabledRef.current) return;
+    if (signature === lastFetchSignatureRef.current) return;
+
     const t = setTimeout(() => {
+      lastFetchSignatureRef.current = signature;
       setCurrentPourIndex(0);
       fetchRecommendations();
     }, 300);
     return () => clearTimeout(t);
-  }, [selectedOccasion, selectedSpirits, selectedStyles]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [
+    inventoryInitialized,
+    inventory.length,
+    selectedOccasion,
+    selectedSpirits,
+    selectedStyles,
+    preferences,
+  ]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
