@@ -1732,12 +1732,6 @@ export default function TabOneScreen() {
   //   // Don't auto-regenerate — user taps sticky footer to see cocktails
   // };
 
-  // const handleSkipAddToBar = () => {
-  //   dismissGuide(GUIDE_KEYS.ADD_BAR);
-  //   setGuideAddBarVisible(false);
-  //   setShowAddToBar(false);
-  //   // Don't auto-regenerate — user taps sticky footer to see cocktails
-  // };
 
   const saveEditIngredient = async () => {
     if (!editingId) return;
@@ -2268,113 +2262,6 @@ export default function TabOneScreen() {
       onCancel={() => setShowStaplesModal(false)}
     />
 
-    {/* BYPASSED: auto-add replaces manual add-to-bar flow — bottom sheet removed */}
-    {/* <Modal
-      visible={showAddToBar && newIngredients.length > 0}
-      transparent
-      animationType="slide"
-      onRequestClose={handleSkipAddToBar}
-    >
-      <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.5)" }}>
-        <Pressable style={{ flex: 1 }} onPress={handleSkipAddToBar} />
-        <View style={{
-          backgroundColor: OaklandDusk.bg.card,
-          borderTopLeftRadius: 20,
-          borderTopRightRadius: 20,
-          paddingTop: 12,
-          paddingHorizontal: 16,
-          paddingBottom: 36,
-          maxHeight: "70%",
-        }}>
-          <View style={{
-            width: 36, height: 4, borderRadius: 2,
-            backgroundColor: OaklandDusk.bg.border,
-            alignSelf: "center", marginBottom: 16,
-          }} />
-          <View style={{
-            flexDirection: "row", alignItems: "center", gap: 8,
-            padding: 8, borderRadius: 8,
-            backgroundColor: "rgba(200,120,40,.08)",
-            marginBottom: 10,
-          }}>
-            <View style={{
-              width: 20, height: 20, borderRadius: 10,
-              backgroundColor: OaklandDusk.brand.gold,
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <Text style={{ fontSize: 12, fontWeight: "800", color: OaklandDusk.bg.void }}>
-                {newIngredients.length}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 14, fontWeight: "700", color: OaklandDusk.brand.gold }}>
-              {isZh ? "偵測到新食材！" : "New ingredients detected!"}
-            </Text>
-          </View>
-          <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-            {newIngredients.map((ing) => {
-              const isAdded = addedToBar.has(ing.canonical);
-              return (
-                <View key={ing.id ?? ing.canonical} style={{
-                  flexDirection: "row", alignItems: "center",
-                  paddingVertical: 10,
-                  borderBottomWidth: 0.5,
-                  borderBottomColor: OaklandDusk.bg.border,
-                }}>
-                  <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
-                    {ing.display}
-                  </Text>
-                  {isAdded ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <FontAwesome name="check" size={12} color="#6B8F6B" />
-                      <Text style={{ fontSize: 12, color: "#6B8F6B" }}>Added</Text>
-                    </View>
-                  ) : (
-                    <Pressable
-                      onPress={() => handleQuickAddToBar(ing)}
-                      style={{
-                        backgroundColor: OaklandDusk.brand.gold,
-                        paddingHorizontal: 12, paddingVertical: 5,
-                        borderRadius: 8,
-                      }}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                        {isZh ? "加入" : "Add"}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              );
-            })}
-          </ScrollView>
-          <View style={{ gap: 8, marginTop: 14 }}>
-            <HintBubble
-              storageKey={GUIDE_KEYS.ADD_BAR}
-              visible={guideAddBarVisible}
-              onDismiss={() => setGuideAddBarVisible(false)}
-              hintType="tap"
-              hintColor="charcoal"
-            >
-              <Pressable onPress={handleAddAllToBar} style={{
-                backgroundColor: OaklandDusk.brand.gold,
-                paddingVertical: 14, borderRadius: 12, alignItems: "center",
-              }}>
-                <Text style={{ fontSize: 14, fontWeight: "800", color: OaklandDusk.bg.void }}>
-                  {isZh ? "全部加入 My Bar" : "Add all to My Bar"}
-                </Text>
-              </Pressable>
-            </HintBubble>
-            <Pressable onPress={handleSkipAddToBar}>
-              <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
-                {isZh ? "跳過 — 直接看雞尾酒" : "Skip — just show cocktails"}
-              </Text>
-            </Pressable>
-            <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
-              {addedToBar.size} of {newIngredients.length} saved
-            </Text>
-          </View>
-        </View>
-      </View>
-    </Modal> */}
     </>
   );
 }

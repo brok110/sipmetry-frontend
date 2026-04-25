@@ -29,7 +29,7 @@ export type InteractionType =
   | "made";
 
 export type InteractionContext = {
-  source?: "scan" | "recommend" | "explore" | "restock" | "detail";
+  source?: "scan" | "recommend" | "restock" | "detail";
   has_ingredients?: boolean;
   position?: number;
   view_duration_ms?: number;
