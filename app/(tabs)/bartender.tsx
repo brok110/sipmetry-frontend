@@ -321,21 +321,6 @@ export default function BartenderScreen() {
     });
   }, [currentPick, isFavorite, toggleFavorite, track]);
 
-  const handleSkip = useCallback(() => {
-    if (!currentPick) return;
-    track({
-      recipe_key: currentPick.iba_code,
-      interaction_type: "skip",
-      context: { source: "recommend" },
-    });
-    // Move to next pour after recording skip
-    setCurrentPourIndex((i) => {
-      const len = resultsRef.current.length;
-      if (len === 0) return i;
-      return (i + 1) % len;
-    });
-  }, [currentPick, track]);
-
   // Stage 2c: Pour navigation (cyclic via modulo, stable refs for runOnJS)
   const nextPour = useCallback(() => {
     const len = resultsRef.current.length;
@@ -578,13 +563,6 @@ export default function BartenderScreen() {
                 color={isSaved ? OaklandDusk.brand.gold : `${OaklandDusk.text.primary}94`}
               />
               <Text style={styles.actionLabel}>SAVE</Text>
-            </Pressable>
-            <Pressable
-              style={styles.spreadAction}
-              onPress={handleSkip}
-            >
-              <FontAwesome name="times" size={18} color={`${OaklandDusk.text.primary}94`} />
-              <Text style={styles.actionLabel}>SKIP</Text>
             </Pressable>
             <Pressable
               style={styles.spreadAction}
@@ -948,7 +926,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // Action buttons row (Save / Skip / Another)
+  // Action buttons row (Save / Another)
   spreadActions: {
     flexDirection: "row",
     justifyContent: "center",
