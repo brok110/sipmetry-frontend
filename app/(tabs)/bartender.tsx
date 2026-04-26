@@ -261,8 +261,10 @@ export default function BartenderScreen() {
 
       if (preferences.safetyMode?.avoidHighProof) {
         const isHighProof = (pick: Pick) => {
+          // recipe_vec values are 0..3 scale (matches backend clamp01to3).
+          // Threshold ≥ 2.5 = top sixth = "high proof" recipe.
           const strength = Number(pick.recipe_vec?.alcoholStrength ?? 0);
-          return strength > 3.5;
+          return strength >= 2.5;
         };
         recs = recs.filter((r: Pick) => !isHighProof(r));
         away = away.filter((r: Pick) => !isHighProof(r));
