@@ -145,6 +145,7 @@ const SPIRIT_CHIPS: { val: string; label: string }[] = [
   { val: "rum",     label: "RUM" },
   { val: "tequila", label: "TEQUILA" },
   { val: "brandy",  label: "BRANDY" },
+  { val: "vodka",   label: "VODKA" },
 ];
 
 export default function BartenderScreen() {
