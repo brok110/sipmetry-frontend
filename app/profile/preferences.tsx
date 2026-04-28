@@ -34,7 +34,7 @@ const SLIDER_DIM_MAP: Record<string, "sweetness" | "bitterness" | "alcoholStreng
 };
 
 function LearnedDimRow({ label, value }: { label: string; value: number }) {
-  const pct = Math.round((value / 5) * 100);
+  const pct = Math.round((value / 3) * 100);
   return (
     <View style={{ gap: 4 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -302,11 +302,11 @@ export default function TabZeroPreferencesScreen() {
     const merged: Record<string, number> = {};
 
     for (const { key } of LEARNED_DISPLAY_DIMS) {
-      const learnedVal = Number(learnedVector[key] ?? 2.5);
+      const learnedVal = Number(learnedVector[key] ?? 1.5);
 
       if (key in SLIDER_DIM_MAP) {
-        const sliderNorm = (draftSliderValues[key] / 3) * 5;
-        merged[key] = Math.max(0, Math.min(5, sliderNorm * 0.6 + learnedVal * 0.4));
+        const sliderVal = Number(draftSliderValues[key]);
+        merged[key] = Math.max(0, Math.min(3, sliderVal * 0.6 + learnedVal * 0.4));
       } else {
         merged[key] = learnedVal;
       }
@@ -353,15 +353,14 @@ export default function TabZeroPreferencesScreen() {
     setPreferences(newPrefs);
 
     if (session?.access_token) {
-      const toScale5 = (v: number) => Math.round((v / 3) * 5 * 10) / 10;
       apiFetch("/preferences/save", {
         session,
         method: "POST",
         body: {
           manual_vector: {
-            sweetness: toScale5(draftSweetness),
-            bitterness: toScale5(draftBitterness),
-            alcoholStrength: toScale5(draftAlcohol),
+            sweetness: Number(draftSweetness),
+            bitterness: Number(draftBitterness),
+            alcoholStrength: Number(draftAlcohol),
           },
           safety_mode: newPrefs.safetyMode,
         },

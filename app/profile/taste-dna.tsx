@@ -36,12 +36,12 @@ function RadarChart({ data, size = 280 }: { data: RadarDim[]; size?: number }) {
     };
   };
 
-  // Grid rings (1-5)
-  const rings = [1, 2, 3, 4, 5];
+  // Grid rings (1-3)
+  const rings = [1, 2, 3];
 
   // Data polygon points
   const dataPoints = data.map((d, i) => {
-    const r = (d.value / 5) * maxR;
+    const r = (d.value / 3) * maxR;
     return getPoint(i, r);
   });
   const dataPolygon = dataPoints.map((p) => `${p.x},${p.y}`).join(" ");
@@ -55,10 +55,10 @@ function RadarChart({ data, size = 280 }: { data: RadarDim[]; size?: number }) {
             key={ring}
             cx={cx}
             cy={cy}
-            r={(ring / 5) * maxR}
+            r={(ring / 3) * maxR}
             fill="none"
             stroke="#e5e7eb"
-            strokeWidth={ring === 5 ? 1.5 : 0.5}
+            strokeWidth={ring === 3 ? 1.5 : 0.5}
           />
         ))}
 
@@ -323,7 +323,7 @@ export default function TasteDNAScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "700" }}>
-                  {s.label} — {s.value.toFixed(1)}/5
+                  {s.label} — {s.value.toFixed(1)}/3
                 </Text>
                 {s.representative ? (
                   <Text style={{ color: "#888", fontSize: 12 }}>
@@ -345,7 +345,7 @@ export default function TasteDNAScreen() {
           {unexplored.map((u) => (
             <View key={u.key} style={{ gap: 6 }}>
               <Text style={{ fontWeight: "700" }}>
-                {u.label} — {u.value.toFixed(1)}/5
+                {u.label} — {u.value.toFixed(1)}/3
               </Text>
               {Array.isArray(u.suggestions) && u.suggestions.length > 0 ? (
                 <View style={{ gap: 4 }}>

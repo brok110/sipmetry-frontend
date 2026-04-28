@@ -384,7 +384,7 @@ function evaluateRecipeSafety(result: any): {
   };
 }
 
-function normalizeVector05(vec: any): Record<string, number | null> | null {
+function normalizeVector(vec: any): Record<string, number | null> | null {
   if (!vec || typeof vec !== "object") return null;
   const out: Record<string, number | null> = {};
   for (const [k, v] of Object.entries(vec)) {
@@ -393,7 +393,7 @@ function normalizeVector05(vec: any): Record<string, number | null> | null {
       continue;
     }
     const n = Number(v);
-    out[k] = Number.isFinite(n) ? clamp(n, 0, 5) : null;
+    out[k] = Number.isFinite(n) ? clamp(n, 0, 3) : null;
   }
   return out;
 }
@@ -857,11 +857,11 @@ export default function TabOneScreen() {
 
   // Use the learned vector when the user has not explicitly set preferences.
   // If the user HAS edited their preferences, those always take priority.
-  const resolvedVector05 = useMemo(() => {
+  const normalizedPrefVector = useMemo(() => {
     if (resolvedMeta.source !== "user" && learnedVector) {
-      return normalizeVector05(learnedVector);
+      return normalizeVector(learnedVector);
     }
-    return normalizeVector05(resolvedVector);
+    return normalizeVector(resolvedVector);
   }, [resolvedVector, resolvedMeta.source, learnedVector]);
 
   const preprocessImageForAnalyze = async (
@@ -1181,7 +1181,7 @@ export default function TabOneScreen() {
         body: {
           detected_ingredients: mergedIngredients,
           locale: localeForApi,
-          user_preference_vector: resolvedVector05,
+          user_preference_vector: normalizedPrefVector,
         },
       });
 
@@ -1330,7 +1330,7 @@ export default function TabOneScreen() {
         ingredients_canonical: activeCanonical,
         prefs: {
           resolvedMeta: resolvedMeta ?? null,
-          resolvedVector: resolvedVector05 ?? null,
+          resolvedVector: normalizedPrefVector ?? null,
         },
         hasPersonalSignal,
         unknown_ingredients: unknownIngredients,
