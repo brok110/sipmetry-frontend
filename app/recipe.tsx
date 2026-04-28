@@ -241,7 +241,7 @@ export default function TabTwoScreen() {
     return fromParam || fromLegacy || "";
   }, [params.iba_code, legacyRecipe]);
 
-  const { ratingsByKey, setRating, clearRating } = useFeedback();
+  const { ratingsByKey, setRating } = useFeedback();
   const { favoritesByKey, toggleFavorite, isAtLimit: favoritesAtLimit } = useFavorites();
   const { inventory, initialized: inventoryInitialized, refreshInventory, recordInventoryUse } = useInventory();
   const { track } = useInteractions();
@@ -701,18 +701,21 @@ export default function TabTwoScreen() {
   const sendFeedback = async (next: FeedbackRating) => {
     setError(null);
 
-    // Stage 1: track like/dislike
     track({
       recipe_key: recipeKey,
       interaction_type: next === "like" ? "like" : "dislike",
-      context: { source: "detail", has_ingredients: ingredientsFromScan.length > 0 },
+      context: {
+        source: "detail",
+        has_ingredients: ingredientsFromScan.length > 0,
+        app_version: "RECIPES_V1",
+        recipe,
+        ingredients: ingredientsFromScan,
+      },
     });
-    // Stage 3: first-interaction toast (only on like)
+
     if (next === "like") maybeShowFirstInteractionToast("like");
-    // Stage 4: mark positive action (suppress skip on leave)
     if (next === "like") hadPositiveActionRef.current = true;
 
-    const prev = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
     const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
 
     setRating(recipeKey, next, {
@@ -723,24 +726,6 @@ export default function TabTwoScreen() {
       recipe,
       ingredients: ingredientsFromScan,
     });
-
-    try {
-      const resp = await apiFetch("/feedback", {
-        session,
-        method: "POST",
-        body: { recipe_key: recipeKey, rating: next, recipe, ingredients: ingredientsFromScan, context: { app_version: "RECIPES_V1" } },
-      });
-
-      if (!resp.ok) {
-        const t = await resp.text();
-        throw new Error(`Feedback API failed: ${resp.status} ${t}`);
-      }
-
-    } catch (e: any) {
-      if (prev) setRating(recipeKey, prev);
-      else clearRating(recipeKey);
-      setError(e?.message ?? "Failed to send feedback.");
-    }
   };
 
   const createShareAndGo = async () => {

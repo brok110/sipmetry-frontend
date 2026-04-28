@@ -35,6 +35,9 @@ export type InteractionContext = {
   view_duration_ms?: number;
   mood?: string;
   ingredient_keys?: string[];
+  app_version?: string;
+  recipe?: unknown;
+  ingredients?: string[];
 };
 
 export type TrackParams = {
