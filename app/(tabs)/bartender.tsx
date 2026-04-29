@@ -563,7 +563,6 @@ export default function BartenderScreen() {
               <Text style={styles.indexTitle}>
                 {`${indexEntries.length} MORE ON TONIGHT`}
               </Text>
-              <Text style={styles.indexSub}>ranked by fit to your bar &amp; taste</Text>
             </View>
 
             {/* Stage 3b: Filter disclosure */}
@@ -575,7 +574,10 @@ export default function BartenderScreen() {
                 }}
               >
                 <Text style={[styles.filterToggle, filterOpen && styles.filterToggleOpen]}>
-                  {filterOpen ? "Narrow the list  −" : "Narrow the list  +"}
+                  Narrow the list{"  "}
+                  <Text style={styles.filterToggleIcon}>
+                    {filterOpen ? "−" : "+"}
+                  </Text>
                 </Text>
               </Pressable>
             </View>
@@ -585,8 +587,25 @@ export default function BartenderScreen() {
               <View style={styles.chipsPanel}>
                 <View style={styles.chipsGroup}>
                   <Text style={styles.chipsLabel}>OCCASION</Text>
+                  {/* Stage 3: forced 2+2 symmetric layout (home/meal + party/nightcap) */}
                   <View style={styles.chipRow}>
-                    {OCCASION_CHIPS.map((c) => {
+                    {OCCASION_CHIPS.slice(0, 2).map((c) => {
+                      const active = selectedOccasion === c.val;
+                      return (
+                        <Pressable
+                          key={c.val}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => setSelectedOccasion(active ? null : c.val)}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <View style={[styles.chipRow, { marginTop: V3.spacing.chipRowGap }]}>
+                    {OCCASION_CHIPS.slice(2, 4).map((c) => {
                       const active = selectedOccasion === c.val;
                       return (
                         <Pressable
@@ -604,8 +623,25 @@ export default function BartenderScreen() {
                 </View>
                 <View style={styles.chipsGroup}>
                   <Text style={styles.chipsLabel}>STYLE</Text>
+                  {/* Stage 3: forced 3+2 layout (bitter/smoky/herbal + fruity/sparkling) */}
                   <View style={styles.chipRow}>
-                    {STYLE_CHIPS.map((c) => {
+                    {STYLE_CHIPS.slice(0, 3).map((c) => {
+                      const active = selectedStyles.includes(c.val);
+                      return (
+                        <Pressable
+                          key={c.val}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => toggle(selectedStyles, c.val, setSelectedStyles)}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <View style={[styles.chipRow, { marginTop: V3.spacing.chipRowGap }]}>
+                    {STYLE_CHIPS.slice(3, 5).map((c) => {
                       const active = selectedStyles.includes(c.val);
                       return (
                         <Pressable
@@ -973,13 +1009,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     textAlign: "center",
   },
-  indexSub: {
-    ...V3.type.indexSub,
-    color: `${OaklandDusk.text.primary}94`,  // textDim equivalent
-    textAlign: "center",
-    marginTop: 6,
-  },
-
   // ─────── Stage 3b: Filter disclosure + chips panel ───────
   filterDisclosure: {
     alignItems: "center" as const,
@@ -997,6 +1026,11 @@ const styles = StyleSheet.create({
   filterToggleOpen: {
     color: OaklandDusk.brand.gold,
     borderBottomColor: V3.colors.goldLine,    // 18% gold
+  },
+  // Stage 3: + / − icon visual emphasis (always gold, +6px size bump)
+  filterToggleIcon: {
+    fontSize: 16,
+    color: OaklandDusk.brand.gold,
   },
   chipsPanel: {
     marginTop: V3.spacing.chipsPanelMarginTop,      // 16
