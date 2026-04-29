@@ -47,3 +47,5 @@ yarn-error.*
 app/.vscode/
 
 .env.local
+BARTENDER_HERO_TRIM_*.md
+*_STAGE_*.md
