@@ -623,8 +623,25 @@ export default function BartenderScreen() {
                 </View>
                 <View style={styles.chipsGroup}>
                   <Text style={styles.chipsLabel}>BASE SPIRIT</Text>
+                  {/* Stage 2: forced 3+3 symmetric layout (gin/whiskey/rum + tequila/brandy/vodka) */}
                   <View style={styles.chipRow}>
-                    {SPIRIT_CHIPS.map((c) => {
+                    {SPIRIT_CHIPS.slice(0, 3).map((c) => {
+                      const active = selectedSpirits.includes(c.val);
+                      return (
+                        <Pressable
+                          key={c.val}
+                          style={[styles.chip, active && styles.chipActive]}
+                          onPress={() => toggle(selectedSpirits, c.val, setSelectedSpirits)}
+                        >
+                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <View style={[styles.chipRow, { marginTop: V3.spacing.chipRowGap }]}>
+                    {SPIRIT_CHIPS.slice(3, 6).map((c) => {
                       const active = selectedSpirits.includes(c.val);
                       return (
                         <Pressable
