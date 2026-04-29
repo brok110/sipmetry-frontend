@@ -70,14 +70,6 @@ type Pick = {
 
 
 
-function getTimeOfDay(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "good morning";
-  if (h < 17) return "good afternoon";
-  if (h < 22) return "good evening";
-  return "late";
-}
-
 // Splits backend explain string into uppercase segments on " · ".
 // Returns [] for empty/undefined input. Handles 1, 2, or more segments.
 // Examples:
@@ -383,7 +375,6 @@ export default function BartenderScreen() {
       <View style={styles.root}>
         <View style={styles.masthead}>
           <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
         </View>
         <View style={styles.centerFill}>
           <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
@@ -398,7 +389,6 @@ export default function BartenderScreen() {
       <View style={styles.root}>
         <View style={styles.masthead}>
           <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
         </View>
         <View style={styles.centerFill}>
           <View style={styles.skeletonThumb} />
@@ -420,7 +410,6 @@ export default function BartenderScreen() {
       <View style={styles.root}>
         <View style={styles.masthead}>
           <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
         </View>
         <View style={styles.centerFill}>
           <Text style={styles.stateMsg}>Something went wrong.</Text>
@@ -442,7 +431,6 @@ export default function BartenderScreen() {
       <View style={styles.root}>
         <View style={styles.masthead}>
           <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
         </View>
         <View style={styles.centerFill}>
           <Text style={styles.stateMsg}>add bottles to start</Text>
@@ -457,7 +445,6 @@ export default function BartenderScreen() {
       <View style={styles.root}>
         <View style={styles.masthead}>
           <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-          <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
         </View>
         <View style={styles.centerFill}>
           <Text style={styles.stateMsg}>no matches right now</Text>
@@ -473,11 +460,6 @@ export default function BartenderScreen() {
   const ingredientsText = (currentPick?.ingredient_keys || [])
     .map(k => k.replace(/_/g, " "))
     .join(" · ");
-  const missingItem = (currentPick?.missing_items?.[0] || "").replace(/_/g, " ");
-  const barStatusText = currentPick?.missing_count === 0
-    ? `all ${currentPick.ingredient_keys?.length || ""} ingredients on your shelf.`
-    : `one away — ${missingItem}.`;
-
   // Stage 3a: Index list entries (exclude current hero, append oneAway picks)
   const indexEntries = [
     ...results.filter((_, i) => i !== currentPourIndex),
@@ -489,7 +471,17 @@ export default function BartenderScreen() {
       {/* Masthead */}
       <View style={styles.masthead}>
         <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-        <Text style={styles.mastheadMeta}>{getTimeOfDay()}</Text>
+        <View style={styles.mastheadCounterRow}>
+          <Text style={[styles.mastheadCounter, styles.mastheadCounterCur]}>
+            {String(currentPourIndex + 1).padStart(2, "0")}
+          </Text>
+          <Text style={[styles.mastheadCounter, styles.mastheadCounterSep]}>
+            {" / "}
+          </Text>
+          <Text style={styles.mastheadCounter}>
+            {String(total).padStart(2, "0")}
+          </Text>
+        </View>
       </View>
 
       <ScrollView
@@ -498,19 +490,6 @@ export default function BartenderScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.spread}>
-          {/* Pour counter */}
-          <View style={styles.pourCounterRow}>
-            <Text style={[styles.pourCounter, { color: OaklandDusk.text.primary }]}>
-              {String(currentPourIndex + 1).padStart(2, "0")}
-            </Text>
-            <Text style={[styles.pourCounter, { color: `${OaklandDusk.text.primary}2E`, marginHorizontal: 6 }]}>
-              /
-            </Text>
-            <Text style={styles.pourCounter}>
-              {String(total).padStart(2, "0")}
-            </Text>
-          </View>
-
           {/* Drink illustration with gold corner frame + Stage 2c swipe gesture */}
           <GestureDetector gesture={swipeGesture}>
             <Animated.View style={[styles.drinkIllustration, animatedIllustrationStyle]}>
@@ -543,9 +522,6 @@ export default function BartenderScreen() {
             </View>
           )}
 
-          {/* Bar status */}
-          <Text style={styles.barStatus}>{barStatusText}</Text>
-
           {/* See the recipe CTA */}
           <Pressable
             style={styles.seeRecipeBtn}
@@ -576,11 +552,6 @@ export default function BartenderScreen() {
             </Pressable>
           </View>
 
-          {/* Swipe hint (Stage 2b: static; Stage 2c adds gesture) */}
-          <Text style={styles.swipeHint}>← swipe for another →</Text>
-
-          {/* Scroll cue */}
-          <Text style={styles.scrollCue}>⌄</Text>
         </View>
 
         {/* Stage 3a: Index List */}
@@ -742,9 +713,23 @@ const styles = StyleSheet.create({
   mastheadTitle: {
     ...V3.type.masthead,
   },
-  mastheadMeta: {
-    ...V3.type.mastheadMeta,
-    color: `${OaklandDusk.text.primary}94`,
+  // Hero masthead counter (right side) — replaces the old mastheadMeta greeting
+  mastheadCounterRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+  },
+  mastheadCounter: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 11,
+    letterSpacing: 3.3,  // 0.3em at 11px
+    color: `${OaklandDusk.text.primary}94`,  // textDim
+    textTransform: "uppercase",
+  },
+  mastheadCounterCur: {
+    color: OaklandDusk.text.primary,
+  },
+  mastheadCounterSep: {
+    color: `${OaklandDusk.text.primary}2E`,  // 18% — match removed hero pourCounter sep
   },
 
   // Center fill for loading/error/empty states
@@ -812,20 +797,9 @@ const styles = StyleSheet.create({
   // Spread (main hero card container)
   spread: {
     paddingHorizontal: V3.spacing.spreadPaddingH,
-    paddingTop: 16,  // was V3.spacing.spreadPaddingTop (40); tightened for single-page layout
+    paddingTop: 28,  // post hero-trim: restores masthead → glass breathing room (was 16 paired with pourCounterRow)
     paddingBottom: V3.spacing.spreadPaddingBottom,
     alignItems: "center",
-  },
-
-  // Pour counter
-  pourCounterRow: {
-    flexDirection: "row",
-    marginBottom: 16,
-  },
-  pourCounter: {
-    ...V3.type.pourCounter,
-    color: OaklandDusk.brand.gold,
-    textTransform: "uppercase",
   },
 
   // Drink illustration with gold corner frame
@@ -907,14 +881,6 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
 
-  // Bar status
-  barStatus: {
-    ...V3.type.barStatus,
-    color: `${OaklandDusk.text.primary}52`,
-    textAlign: "center",
-    marginBottom: 14,
-  },
-
   // See the recipe CTA (ghost button)
   seeRecipeBtn: {
     borderWidth: 1,
@@ -960,26 +926,6 @@ const styles = StyleSheet.create({
     ...V3.type.actionLabel,
     color: `${OaklandDusk.text.primary}52`,
     textTransform: "uppercase",
-  },
-
-  // Swipe hint (static, Stage 2c will add gesture feedback)
-  swipeHint: {
-    fontFamily: V3.fonts.mono,
-    fontSize: 9,
-    letterSpacing: 2.25,
-    color: `${OaklandDusk.text.primary}52`,
-    textTransform: "uppercase",
-    textAlign: "center",
-    marginTop: 6,
-    marginBottom: 0,
-  },
-
-  // Scroll cue (static arrow)
-  scrollCue: {
-    fontSize: 18,
-    color: `${OaklandDusk.text.primary}2E`,
-    textAlign: "center",
-    paddingVertical: 4,
   },
 
   // ─────── Stage 3a: Index List ───────
