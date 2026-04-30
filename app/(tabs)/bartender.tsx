@@ -199,10 +199,17 @@ export default function BartenderScreen() {
     if (!inventoryInitialized) return;
     if (inventory.length === 0) return;
 
+    // Sort array filters so chip tap order doesn't change the signature.
+    // Without this, tapping [gin, vodka] vs [vodka, gin] triggers two fetches
+    // for the same logical filter set.
+    // selectedExcludes left as-is — see ROUND_4_BACKLOG "Bartender excludes
+    // wiring audit"; state is currently never mutated (no UI), so sorting
+    // it is moot until that's resolved.
     const signature = JSON.stringify({
       occasion: selectedOccasion,
-      spirits: selectedSpirits,
-      styles: selectedStyles,
+      spirits: [...selectedSpirits].sort(),
+      styles: [...selectedStyles].sort(),
+      excludes: selectedExcludes,
       stylePreset: preferences.stylePreset,
       dims: preferences.dims,
       safetyMode: preferences.safetyMode,
