@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from '@/context/auth';
 import { FavoritesProvider } from '@/context/favorites';
 import { FeedbackProvider } from '@/context/feedback';
 import { InteractionProvider } from '@/context/interactions';
+import { IngredientKeysProvider } from '@/context/ingredientKeys';
 import { InventoryProvider } from '@/context/inventory';
 import { LearnedPreferencesProvider } from '@/context/learnedPreferences';
 import { LowStockAlertProvider } from '@/context/lowStockAlert';
@@ -85,12 +86,14 @@ export default Sentry.wrap(function RootLayout() {
       <FavoritesProvider>
       <FeedbackProvider>
       <LowStockAlertProvider>
+      <IngredientKeysProvider>
       <InventoryProvider>
         <SpotlightProvider>
           <RootLayoutNav />
           <SpotlightOverlay />
         </SpotlightProvider>
       </InventoryProvider>
+      </IngredientKeysProvider>
       </LowStockAlertProvider>
       </FeedbackProvider>
       </FavoritesProvider>

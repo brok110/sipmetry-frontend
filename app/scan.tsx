@@ -14,6 +14,7 @@ import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
 import { useInteractions } from "@/context/interactions";
+import { useIngredientKeys } from "@/context/ingredientKeys";
 import { useInventory } from "@/context/inventory";
 import { useLearnedPreferences } from "@/context/learnedPreferences";
 import {
@@ -568,6 +569,7 @@ export default function TabOneScreen() {
   const [showPhotoTips, setShowPhotoTips] = useState(true);
 
   const [newIngredient, setNewIngredient] = useState("");
+  const [pickedCanonical, setPickedCanonical] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
 
@@ -602,6 +604,11 @@ export default function TabOneScreen() {
   const [gpStep4Visible, setGpStep4Visible] = useState(false);
   const { session } = useAuth();
   const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem } = useInventory();
+  const ingredientKeys = useIngredientKeys();
+  const filtered = useMemo(
+    () => newIngredient.trim().length > 0 ? ingredientKeys.filter(newIngredient, 8) : [],
+    [newIngredient, ingredientKeys.filter]
+  );
 
   const isInInventory = useCallback((canonical: string): boolean => {
     const key = String(canonical ?? "").trim().toLowerCase().replace(/\s+/g, "_");
@@ -1580,13 +1587,14 @@ export default function TabOneScreen() {
     }
   };
 
-  const addIngredient = async () => {
-    const v = newIngredient.trim();
+  const addIngredient = async (preResolved?: { display: string; canonical: string }) => {
+    const v = preResolved?.display ?? newIngredient.trim();
     if (!v) return;
 
     const exists = activeIngredients.some((x) => String(x.display || "").toLowerCase() === v.toLowerCase());
     if (exists) {
       setNewIngredient("");
+      setPickedCanonical(null);
       return;
     }
 
@@ -1598,14 +1606,18 @@ export default function TabOneScreen() {
       {
         id: newId,
         display: v,
-        canonical: "",
+        canonical: preResolved?.canonical ?? "",
         isUserAdded: true,
       },
     ]);
 
     setNewIngredient("");
+    setPickedCanonical(null);
     setHasRecommended(false);
     setHasRecommendedLocal(false);
+
+    // If canonical is pre-resolved, skip the async resolution step.
+    if (preResolved?.canonical) return;
 
     try {
       const canon = await resolveCanonicalForDisplay(v);
@@ -2081,44 +2093,96 @@ export default function TabOneScreen() {
         {/* Stage 2: accumulating + review — handled via Alert dialogs; no inline UI */}
 
         <View style={{ marginTop: 12, gap: 8 }}>
-          <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>Add ingredient</Text>
+          <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>
+            {isZh ? "新增原料" : "Add ingredient"}
+          </Text>
 
-          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-            <TextInput
-              value={newIngredient}
-              onChangeText={setNewIngredient}
-              placeholder='e.g., "simple syrup"'
-              placeholderTextColor={OaklandDusk.text.tertiary}
-              autoCapitalize="none"
-              maxLength={80}
+          <TextInput
+            value={newIngredient}
+            onChangeText={(text) => {
+              setNewIngredient(text);
+              setPickedCanonical(null); // reset selection when user edits
+            }}
+            editable={ingredientKeys.data.isLoaded}
+            placeholder={ingredientKeys.data.isLoaded ? 'e.g., "simple syrup"' : "Loading…"}
+            placeholderTextColor={OaklandDusk.text.tertiary}
+            autoCapitalize="none"
+            maxLength={80}
+            style={{
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderColor: OaklandDusk.bg.border,
+              backgroundColor: OaklandDusk.bg.surface,
+              color: OaklandDusk.text.primary,
+              fontSize: 13,
+            }}
+          />
+
+          {/* Autocomplete dropdown */}
+          {filtered.length > 0 && pickedCanonical === null && (
+            <View
               style={{
-                flex: 1,
+                backgroundColor: OaklandDusk.bg.card,
                 borderWidth: 1,
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
                 borderColor: OaklandDusk.bg.border,
-                backgroundColor: OaklandDusk.bg.surface,
-                color: OaklandDusk.text.primary,
-                fontSize: 13,
-              }}
-            />
-            <Pressable
-              onPress={addIngredient}
-              disabled={loading || !newIngredient.trim()}
-              style={{
-                backgroundColor: OaklandDusk.brand.gold,
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderRadius: 8,
-                opacity: loading || !newIngredient.trim() ? 0.4 : 1,
+                borderRadius: 10,
+                overflow: "hidden",
+                marginTop: 2,
               }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                {isZh ? "加入" : "Add"}
-              </Text>
-            </Pressable>
-          </View>
+              {filtered.map((item, idx) => (
+                <Pressable
+                  key={item.canonical}
+                  onPress={() => {
+                    setNewIngredient(item.display);
+                    setPickedCanonical(item.canonical);
+                  }}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                    borderBottomWidth: idx < filtered.length - 1 ? 1 : 0,
+                    borderBottomColor: OaklandDusk.bg.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 13, color: OaklandDusk.text.primary }}>
+                    {item.display}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          <Pressable
+            onPress={() =>
+              addIngredient(
+                pickedCanonical
+                  ? { display: newIngredient.trim(), canonical: pickedCanonical }
+                  : undefined
+              )
+            }
+            disabled={loading || !pickedCanonical}
+            style={{
+              backgroundColor: OaklandDusk.brand.gold,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
+              borderRadius: 8,
+              alignItems: "center",
+              opacity: loading || !pickedCanonical ? 0.4 : 1,
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: "700", color: OaklandDusk.bg.void }}>
+              {isZh ? "加入" : "Add"}
+            </Text>
+          </Pressable>
+
+          {/* Unknown ingredient error */}
+          {newIngredient.trim().length > 0 && pickedCanonical === null && filtered.length === 0 && (
+            <Text style={{ fontSize: 11, color: OaklandDusk.semantic.error }}>
+              {isZh ? "找不到此原料" : "Not a recognized ingredient"}
+            </Text>
+          )}
 
           {/* Stage 10: Flavor Explorer — future feature, not yet implemented */}
 
