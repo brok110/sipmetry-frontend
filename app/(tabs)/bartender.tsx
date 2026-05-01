@@ -448,6 +448,17 @@ export default function BartenderScreen() {
 
   // Branch 4: Empty recommendations (has inventory, no matches)
   if (!hasResults) {
+    const hasActiveFilters =
+      selectedOccasion !== null ||
+      selectedSpirits.length > 0 ||
+      selectedStyles.length > 0;
+
+    const handleClearFilters = () => {
+      setSelectedOccasion(null);
+      setSelectedSpirits([]);
+      setSelectedStyles([]);
+    };
+
     return (
       <View style={styles.root}>
         <View style={styles.masthead}>
@@ -455,6 +466,17 @@ export default function BartenderScreen() {
         </View>
         <View style={styles.centerFill}>
           <Text style={styles.stateMsg}>no matches right now</Text>
+          {hasActiveFilters && (
+            <>
+              <Text style={styles.stateSubMsg}>try clearing your filters</Text>
+              <Pressable
+                style={styles.retryBtn}
+                onPress={handleClearFilters}
+              >
+                <Text style={styles.retryBtnText}>CLEAR FILTERS</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     );
