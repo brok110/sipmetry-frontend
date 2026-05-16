@@ -174,6 +174,7 @@ export default function BartenderScreen() {
   const [hint, setHint] = useState<{ preset: string; message_en: string; message_zh: string; suggested_ingredients: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [explorationMode, setExplorationMode] = useState(false);
 
   // Stage 2c: Keep resultsRef synced for stable useCallback refs (swipe gesture)
   useEffect(() => {
@@ -192,12 +193,17 @@ export default function BartenderScreen() {
   // Preconditions: inventory hydrated + non-empty (same as old Stage 2b guard).
   // Debounce: 300ms with setTimeout cleanup so rapid chip taps coalesce.
   //
-  // Signature intentionally excludes inventory.length (adding a bottle does
-  // not imply the user wants new recs — they can tap "Another" manually) and
+  // Signature mostly ignores inventory mutations (adding/removing within a
+  // non-empty bar doesn't refetch — user can tap "Another" manually). The one
+  // exception is the empty↔non-empty transition via inventoryEmpty below,
+  // which DOES refetch so exploration_mode banner appears when the bar
+  // empties and disappears when the first bottle is added. Also excludes
   // preferences.intensities (redundant with dims for the three shared axes).
   useEffect(() => {
     if (!inventoryInitialized) return;
-    if (inventory.length === 0) return;
+    // Empty inventory no longer short-circuits — backend injects a starter bar
+    // when detected_ingredients is empty, and meta.exploration_mode in the
+    // response tells us we're in starter-bar mode (drives the banner + mark).
 
     // Sort array filters so chip tap order doesn't change the signature.
     // Without this, tapping [gin, vodka] vs [vodka, gin] triggers two fetches
@@ -213,6 +219,11 @@ export default function BartenderScreen() {
       stylePreset: preferences.stylePreset,
       dims: preferences.dims,
       safetyMode: preferences.safetyMode,
+      // Boolean (not length) so adding 2nd/3rd/Nth bottle still doesn't
+      // refetch — only the empty↔non-empty transition flips it. Deleting
+      // the last bottle re-triggers fetch so backend can inject the
+      // starter bar and exploration_mode banner appears.
+      inventoryEmpty: inventory.length === 0,
     });
 
     if (signature === lastFetchSignatureRef.current) return;
@@ -256,6 +267,7 @@ export default function BartenderScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Request failed");
+      setExplorationMode(data?.meta?.exploration_mode === true);
       let recs = data.recommendations || [];
       let away = data.one_away || [];
 
@@ -372,7 +384,6 @@ export default function BartenderScreen() {
 
   // ─────── Stage 2b: Branch render ───────
   const total = results.length;
-  const hasInventory = inventory.length > 0;
   const hasResults = total > 0;
 
   // Branch 0: Inventory context not yet initialized (v2 new)
@@ -432,21 +443,11 @@ export default function BartenderScreen() {
     );
   }
 
-  // Branch 3: Empty inventory
-  if (!hasInventory) {
-    return (
-      <View style={styles.root}>
-        <View style={styles.masthead}>
-          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-        </View>
-        <View style={styles.centerFill}>
-          <Text style={styles.stateMsg}>add bottles to start</Text>
-        </View>
-      </View>
-    );
-  }
+  // Branch 3 removed in Stage 3: backend injects a starter bar when inventory
+  // is empty, so the user always lands on recommendations — exploration mode
+  // banner (below) handles the "no bottles yet" signal instead.
 
-  // Branch 4: Empty recommendations (has inventory, no matches)
+  // Branch 4: Empty recommendations (no matches)
   if (!hasResults) {
     const hasActiveFilters =
       selectedOccasion !== null ||
@@ -513,6 +514,20 @@ export default function BartenderScreen() {
         </View>
       </View>
 
+      {/* Stage 3: Exploration-mode banner — only shows when backend used a
+          starter bar (empty inventory). Tap routes to scan flow.
+          TODO(zh): Brok to review zh copy — currently English-only. */}
+      {explorationMode && (
+        <Pressable
+          style={styles.explorationBanner}
+          onPress={() => router.push("/scan")}
+        >
+          <Text style={styles.explorationBannerText}>
+            EXPLORING WITH A SAMPLE BAR  ·  TAP TO SCAN YOUR BOTTLES
+          </Text>
+        </Pressable>
+      )}
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -527,6 +542,12 @@ export default function BartenderScreen() {
               <CocktailThumbnail imageUrl={currentPick?.image_url} size={DRINK_SIZE} />
             </Animated.View>
           </GestureDetector>
+
+          {/* Stage 3: faint exploring kicker — sits above the name as a
+              subliminal cue. Brand-aligned but kept way below hero weight. */}
+          {explorationMode && (
+            <Text style={styles.exploringMark}>EXPLORING</Text>
+          )}
 
           {/* Drink name */}
           <Text style={styles.drinkName}>
@@ -812,6 +833,37 @@ const styles = StyleSheet.create({
   },
   mastheadCounterSep: {
     color: `${OaklandDusk.text.primary}2E`,  // 18% — match removed hero pourCounter sep
+  },
+
+  // Stage 3: Exploration-mode banner (starter-bar mode signal)
+  explorationBanner: {
+    marginHorizontal: 26,
+    marginTop: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: V3.colors.goldLine,        // 28% gold
+    backgroundColor: V3.colors.goldSoft,    // 12% gold
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  explorationBannerText: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: OaklandDusk.brand.gold,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  // Stage 3: Faint "EXPLORING" mark above drink name in hero card
+  exploringMark: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 9,
+    letterSpacing: 2.7,
+    color: `${OaklandDusk.brand.gold}52`,   // ~32% gold — soft watermark
+    textTransform: "uppercase",
+    marginBottom: 6,
+    textAlign: "center",
   },
 
   // Center fill for loading/error/empty states
