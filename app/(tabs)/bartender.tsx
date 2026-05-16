@@ -171,7 +171,6 @@ export default function BartenderScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [results, setResults] = useState<Pick[]>([]);
   const [oneAway, setOneAway] = useState<Pick[]>([]);
-  const [hint, setHint] = useState<{ preset: string; message_en: string; message_zh: string; suggested_ingredients: string[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [explorationMode, setExplorationMode] = useState(false);
@@ -267,6 +266,14 @@ export default function BartenderScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Request failed");
+      // Stage 4 #5: backend signals the empty-inventory starter-bar fallback
+      // couldn't be loaded (Stage 2 backend change). Surface a precise error
+      // instead of falling through to the generic "no matches" branch, which
+      // would offer CLEAR FILTERS — useless when there are no filters set.
+      if (data?.meta?.reason === "starter_bar_unavailable") {
+        setError("STARTER_BAR_UNAVAILABLE");
+        return;
+      }
       setExplorationMode(data?.meta?.exploration_mode === true);
       let recs = data.recommendations || [];
       let away = data.one_away || [];
@@ -284,7 +291,6 @@ export default function BartenderScreen() {
 
       setResults(recs);
       setOneAway(away);
-      setHint(data.hint || null);
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
     } finally {
@@ -424,20 +430,42 @@ export default function BartenderScreen() {
 
   // Branch 2: Error with retry
   if (error && !loading) {
+    const isStarterBarUnavailable = error === "STARTER_BAR_UNAVAILABLE";
     return (
       <View style={styles.root}>
         <View style={styles.masthead}>
           <Text style={styles.mastheadTitle}>SIPMETRY</Text>
         </View>
         <View style={styles.centerFill}>
-          <Text style={styles.stateMsg}>Something went wrong.</Text>
-          <Text style={styles.stateSubMsg}>{error}</Text>
-          <Pressable
-            style={styles.retryBtn}
-            onPress={() => fetchRecommendations()}
-          >
-            <Text style={styles.retryBtnText}>TRY AGAIN</Text>
-          </Pressable>
+          {isStarterBarUnavailable ? (
+            <>
+              <Text style={styles.stateMsg}>We couldn&apos;t load the sample bar</Text>
+              <Text style={styles.stateSubMsg}>TRY AGAIN OR SCAN YOUR BOTTLES</Text>
+              <Pressable
+                style={styles.retryBtn}
+                onPress={() => fetchRecommendations()}
+              >
+                <Text style={styles.retryBtnText}>TRY AGAIN</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.retryBtn, { marginTop: 12 }]}
+                onPress={() => router.push("/scan")}
+              >
+                <Text style={styles.retryBtnText}>SCAN BOTTLES</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.stateMsg}>Something went wrong.</Text>
+              <Text style={styles.stateSubMsg}>{error}</Text>
+              <Pressable
+                style={styles.retryBtn}
+                onPress={() => fetchRecommendations()}
+              >
+                <Text style={styles.retryBtnText}>TRY AGAIN</Text>
+              </Pressable>
+            </>
+          )}
         </View>
       </View>
     );
