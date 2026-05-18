@@ -207,9 +207,10 @@ export default function BartenderScreen() {
     // Sort array filters so chip tap order doesn't change the signature.
     // Without this, tapping [gin, vodka] vs [vodka, gin] triggers two fetches
     // for the same logical filter set.
-    // selectedExcludes left as-is — see ROUND_4_BACKLOG "Bartender excludes
-    // wiring audit"; state is currently never mutated (no UI), so sorting
-    // it is moot until that's resolved.
+    // selectedExcludes intentionally not sorted — state is never mutated
+    // (no UI input layer wired). Backend /bartender-recommend already
+    // accepts excludes tokens; only the frontend trigger is missing.
+    // TODO(post-launch): see docs/BARTENDER_EXCLUDES_AUDIT.md
     const signature = JSON.stringify({
       occasion: selectedOccasion,
       spirits: [...selectedSpirits].sort(),
