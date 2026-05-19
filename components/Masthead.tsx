@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
 
@@ -10,7 +10,12 @@ type MastheadProps = {
 export default function Masthead({ counter }: MastheadProps) {
   return (
     <View style={styles.masthead}>
-      <Text style={styles.mastheadTitle}>SIPMETRY</Text>
+      <Image
+        source={require("@/assets/images/sipmetry-icon.png")}
+        style={styles.logo}
+        resizeMode="contain"
+        accessibilityLabel="Sipmetry"
+      />
       {counter && (
         <View style={styles.mastheadCounterRow}>
           <Text style={[styles.mastheadCounter, styles.mastheadCounterCur]}>
@@ -29,19 +34,20 @@ export default function Masthead({ counter }: MastheadProps) {
 }
 
 const styles = StyleSheet.create({
+  logo: {
+    width: 24,
+    height: 24,
+  },
   masthead: {
     paddingHorizontal: 26,
     paddingTop: 20,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "baseline",
-  },
-  mastheadTitle: {
-    ...V3.type.masthead,
+    alignItems: "center",
   },
   mastheadCounterRow: {
     flexDirection: "row",
-    alignItems: "baseline",
+    alignItems: "center",
   },
   mastheadCounter: {
     fontFamily: V3.fonts.mono,
