@@ -1,6 +1,7 @@
 import { apiFetch } from "@/lib/api";
 import { getTasteTags } from "@/lib/tasteTags";
 import CocktailThumbnail from "@/components/CocktailThumbnail";
+import Masthead from "@/components/Masthead";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
 import { useAuth } from "@/context/auth";
@@ -398,9 +399,7 @@ export default function BartenderScreen() {
   if (!inventoryInitialized) {
     return (
       <View style={styles.root}>
-        <View style={styles.masthead}>
-          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-        </View>
+        <Masthead />
         <View style={styles.centerFill}>
           <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
         </View>
@@ -412,9 +411,7 @@ export default function BartenderScreen() {
   if (loading && !hasResults) {
     return (
       <View style={styles.root}>
-        <View style={styles.masthead}>
-          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-        </View>
+        <Masthead />
         <View style={styles.centerFill}>
           <View style={styles.skeletonThumb} />
           <View style={styles.skeletonLineLong} />
@@ -434,9 +431,7 @@ export default function BartenderScreen() {
     const isStarterBarUnavailable = error === "STARTER_BAR_UNAVAILABLE";
     return (
       <View style={styles.root}>
-        <View style={styles.masthead}>
-          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-        </View>
+        <Masthead />
         <View style={styles.centerFill}>
           {isStarterBarUnavailable ? (
             <>
@@ -491,9 +486,7 @@ export default function BartenderScreen() {
 
     return (
       <View style={styles.root}>
-        <View style={styles.masthead}>
-          <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-        </View>
+        <Masthead />
         <View style={styles.centerFill}>
           <Text style={styles.stateMsg}>no matches right now</Text>
           {hasActiveFilters && (
@@ -528,20 +521,7 @@ export default function BartenderScreen() {
   return (
     <View style={styles.root}>
       {/* Masthead */}
-      <View style={styles.masthead}>
-        <Text style={styles.mastheadTitle}>SIPMETRY</Text>
-        <View style={styles.mastheadCounterRow}>
-          <Text style={[styles.mastheadCounter, styles.mastheadCounterCur]}>
-            {String(currentPourIndex + 1).padStart(2, "0")}
-          </Text>
-          <Text style={[styles.mastheadCounter, styles.mastheadCounterSep]}>
-            {" / "}
-          </Text>
-          <Text style={styles.mastheadCounter}>
-            {String(total).padStart(2, "0")}
-          </Text>
-        </View>
-      </View>
+      <Masthead counter={{ current: currentPourIndex + 1, total }} />
 
       {/* Stage 3: Exploration-mode banner — only shows when backend used a
           starter bar (empty inventory). Tap routes to scan flow.
@@ -832,36 +812,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: OaklandDusk.bg.void,
-  },
-
-  // Masthead
-  masthead: {
-    paddingHorizontal: 26,
-    paddingTop: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "baseline",
-  },
-  mastheadTitle: {
-    ...V3.type.masthead,
-  },
-  // Hero masthead counter (right side) — replaces the old mastheadMeta greeting
-  mastheadCounterRow: {
-    flexDirection: "row",
-    alignItems: "baseline",
-  },
-  mastheadCounter: {
-    fontFamily: V3.fonts.mono,
-    fontSize: 11,
-    letterSpacing: 3.3,  // 0.3em at 11px
-    color: `${OaklandDusk.text.primary}94`,  // textDim
-    textTransform: "uppercase",
-  },
-  mastheadCounterCur: {
-    color: OaklandDusk.text.primary,
-  },
-  mastheadCounterSep: {
-    color: `${OaklandDusk.text.primary}2E`,  // 18% — match removed hero pourCounter sep
   },
 
   // Stage 3: Exploration-mode banner (starter-bar mode signal)
