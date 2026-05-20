@@ -74,6 +74,7 @@ export default function TabLayout() {
           name="bartender"
           options={{
             title: "Bartender",
+            headerShown: false,
             tabBarIcon: ({ color }) => <TabBarIcon name="glass" color={color} />,
           }}
         />

@@ -1,5 +1,6 @@
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
 
@@ -7,9 +8,15 @@ type MastheadProps = {
   counter?: { current: number; total: number };
 };
 
+// Gap below the top safe-area edge. With a native header present this
+// adds to insets.top=0 (header consumes the inset); with the header
+// hidden it sits below the real status-bar / Dynamic Island inset.
+const MASTHEAD_TOP_GAP = 20;
+
 export default function Masthead({ counter }: MastheadProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.masthead}>
+    <View style={[styles.masthead, { paddingTop: insets.top + MASTHEAD_TOP_GAP }]}>
       <Image
         source={require("@/assets/images/sipmetry-icon.png")}
         style={styles.logo}
@@ -40,7 +47,6 @@ const styles = StyleSheet.create({
   },
   masthead: {
     paddingHorizontal: 26,
-    paddingTop: 20,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
