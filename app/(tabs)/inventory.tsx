@@ -855,11 +855,11 @@ export default function MyBarScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      <Text style={styles.barCount}>
-        {inventory.length === 0
-          ? 'No bottles yet'
-          : `${inventory.length} bottle${inventory.length === 1 ? '' : 's'}`}
-      </Text>
+      {inventory.length > 0 && (
+        <Text style={styles.barCount}>
+          {`${inventory.length} bottle${inventory.length === 1 ? '' : 's'}`}
+        </Text>
+      )}
 
 
       {/* Sort Dropdown Modal */}
