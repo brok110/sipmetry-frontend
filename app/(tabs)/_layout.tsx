@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useRef } from "react";
 import { AppState, AppStateStatus } from "react-native";
 
 import LowStockBanner from "@/components/LowStockBanner";
-import { useClientOnlyValue } from "@/components/useClientOnlyValue";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { useInventory } from "@/context/inventory";
 
@@ -60,21 +59,13 @@ export default function TabLayout() {
             fontSize: 10,
             letterSpacing: 0.5,
           },
-          headerShown: useClientOnlyValue(false, true),
-          headerStyle: {
-            backgroundColor: OaklandDusk.bg.void,
-          },
-          headerTintColor: OaklandDusk.text.primary,
-          headerTitleStyle: {
-            color: OaklandDusk.text.primary,
-          },
+          headerShown: false,
         }}
       >
         <Tabs.Screen
           name="bartender"
           options={{
             title: "Bartender",
-            headerShown: false,
             tabBarIcon: ({ color }) => <TabBarIcon name="glass" color={color} />,
           }}
         />
@@ -83,7 +74,6 @@ export default function TabLayout() {
           name="inventory"
           options={{
             title: "My Bar",
-            headerShown: false,
             tabBarIcon: ({ color }) => <TabBarIcon name="archive" color={color} />,
           }}
         />
@@ -92,7 +82,6 @@ export default function TabLayout() {
           name="cart"
           options={{
             title: "Smart Restock",
-            headerShown: false,
             tabBarIcon: ({ color }) => <TabBarIcon name="shopping-cart" color={color} />,
           }}
         />
@@ -101,7 +90,6 @@ export default function TabLayout() {
           name="profile"
           options={{
             title: "Profile",
-            headerShown: false,
             tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
           }}
         />
