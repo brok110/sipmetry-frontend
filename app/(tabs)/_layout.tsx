@@ -83,6 +83,7 @@ export default function TabLayout() {
           name="inventory"
           options={{
             title: "My Bar",
+            headerShown: false,
             tabBarIcon: ({ color }) => <TabBarIcon name="archive" color={color} />,
           }}
         />

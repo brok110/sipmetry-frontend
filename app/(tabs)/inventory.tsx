@@ -7,6 +7,7 @@ import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
+import Masthead from '@/components/Masthead'
 import RegistrationPrompt from '@/components/RegistrationPrompt'
 import SwipeRow from '@/components/ui/SwipeRow'
 import { useAuth } from '@/context/auth'
@@ -35,6 +36,7 @@ import Animated, {
   runOnJS,
   withTiming,
 } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 type SortBy =
   | 'date_added'
@@ -575,6 +577,7 @@ function InventoryCardWithGuide({
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 export default function MyBarScreen() {
+  const insets = useSafeAreaInsets()
   const { session, isAnonymous } = useAuth()
   const { trackAndOpenPurchaseLink } = usePurchaseIntent()
   const {
@@ -828,73 +831,35 @@ export default function MyBarScreen() {
     )
   }
 
+  const headerActions = (
+    <View style={{ flexDirection: 'row', gap: 9 }}>
+      <Pressable onPress={promptScanBottles} hitSlop={8} style={styles.iconBtn}>
+        <CameraIcon size={16} />
+      </Pressable>
+      {inventory.length > 0 && (
+        <Pressable onPress={() => setShowSortDropdown(true)} hitSlop={8} style={styles.iconBtn}>
+          <FilterIcon />
+        </Pressable>
+      )}
+    </View>
+  )
+
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
+    <Masthead actions={headerActions} />
     <ScrollView
+      style={{ flex: 1 }}
       contentContainerStyle={styles.container}
       keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
       }
     >
-      {/* Heading row with Filter icon */}
-      <View style={styles.headingRow}>
-        <View>
-          <Text style={styles.heading}>My Bar</Text>
-          <Text style={styles.subheading}>
-            {inventory.length === 0
-              ? 'No bottles yet'
-              : `${inventory.length} bottle${inventory.length === 1 ? '' : 's'}`}
-          </Text>
-        </View>
-
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-          {/* Scan Bottle button */}
-          <Pressable
-            onPress={promptScanBottles}
-            hitSlop={8}
-            style={{ alignItems: 'center', gap: 2 }}
-          >
-            <View style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              borderWidth: 1,
-              borderColor: 'rgba(200,120,40,0.3)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <CameraIcon size={18} />
-            </View>
-            <Text style={{ fontSize: 10, color: OaklandDusk.brand.gold }}>Scan</Text>
-          </Pressable>
-
-          {/* Sort button */}
-          {inventory.length > 0 ? (
-            <Pressable
-              onPress={() => setShowSortDropdown(true)}
-              hitSlop={8}
-              style={{
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <View style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
-                borderWidth: 1,
-                borderColor: 'rgba(200,120,40,0.3)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <FilterIcon />
-              </View>
-              <Text style={{ fontSize: 10, color: OaklandDusk.brand.gold }}>Sort</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
+      <Text style={styles.barCount}>
+        {inventory.length === 0
+          ? 'No bottles yet'
+          : `${inventory.length} bottle${inventory.length === 1 ? '' : 's'}`}
+      </Text>
 
 
       {/* Sort Dropdown Modal */}
@@ -910,7 +875,8 @@ export default function MyBarScreen() {
           onPress={() => setShowSortDropdown(false)}
         >
           {/* Dropdown panel: stop propagation so tapping inside doesn't close */}
-          <Pressable style={styles.dropdown} onPress={(e) => e.stopPropagation()}>
+          {/* marginTop = insets.top + MASTHEAD_TOP_GAP (20) + iconBtn height (32) + gap (8) */}
+          <Pressable style={[styles.dropdown, { marginTop: insets.top + 60 }]} onPress={(e) => e.stopPropagation()}>
             <Text style={styles.dropdownTitle}>Sort by</Text>
             {DROPDOWN_SORT_OPTIONS.map(({ key, label }) => {
               const isActive = sortBy === key
@@ -1155,22 +1121,19 @@ const styles = StyleSheet.create({
     padding: 32,
   },
 
-  // Heading row
-  headingRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+  iconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(200,120,40,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  heading: {
-    fontSize: 28,
-    fontWeight: '600',
-    marginBottom: 2,
+  barCount: {
+    fontSize: 22,
+    fontWeight: '500',
     color: OaklandDusk.text.primary,
-  },
-  subheading: {
-    fontSize: 14,
-    color: OaklandDusk.text.tertiary,
   },
 
   // Filter button
@@ -1187,7 +1150,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   dropdown: {
-    marginTop: 100,
     marginRight: 16,
     backgroundColor: OaklandDusk.bg.card,
     borderRadius: 14,
