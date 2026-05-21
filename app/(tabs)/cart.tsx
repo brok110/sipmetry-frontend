@@ -14,6 +14,7 @@ import * as Sentry from "@sentry/react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/context/auth";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
+import Masthead from "@/components/Masthead";
 import { useFavorites } from "@/context/favorites";
 import { useInventory } from "@/context/inventory";
 import { useFeedback } from "@/context/feedback";
@@ -251,20 +252,24 @@ export default function CartScreen() {
   // Not logged in
   if (!session) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 16, backgroundColor: OaklandDusk.bg.void }}>
-        <FontAwesome name="shopping-cart" size={48} color={OaklandDusk.text.tertiary} />
-        <Text style={{ fontSize: 20, fontWeight: "900", color: OaklandDusk.text.primary }}>Smart Restock</Text>
-        <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
-          Sign in to get personalized bottle recommendations based on your bar.
-        </Text>
+      <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
+        <Masthead />
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 16 }}>
+          <FontAwesome name="shopping-cart" size={48} color={OaklandDusk.text.tertiary} />
+          <Text style={{ fontSize: 20, fontWeight: "900", color: OaklandDusk.text.primary }}>Smart Restock</Text>
+          <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
+            Sign in to get personalized bottle recommendations based on your bar.
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, position: "relative" }}>
+    <View style={{ flex: 1, position: "relative", backgroundColor: OaklandDusk.bg.void }}>
+    <Masthead />
     <ScrollView
-      style={{ backgroundColor: OaklandDusk.bg.void }}
+      style={{ flex: 1 }}
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
       refreshControl={
