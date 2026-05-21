@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { openUrl } from '@/lib/openUrl';
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
+import Masthead from "@/components/Masthead";
 
 import { apiFetch } from "@/lib/api";
 
@@ -128,353 +129,356 @@ export default function ProfileScreen() {
   }, [isZh, session, signOut]);
 
   return (
-    <ScrollView
-      style={{ backgroundColor: OaklandDusk.bg.void }}
-      contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Create Account banner — anonymous users only */}
-      {isAnonymous && (
-        <Pressable
-          onPress={() => router.push('/login')}
-          style={{
-            backgroundColor: OaklandDusk.bg.surface,
-            borderWidth: 1,
-            borderColor: OaklandDusk.brand.gold,
-            borderRadius: 12,
-            padding: 16,
-            alignItems: 'center',
-            gap: 4,
-            marginBottom: 4,
-          }}
-        >
-          <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '800', fontSize: 16 }}>
-            Create Account
-          </Text>
-          <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 13 }}>
-            Protect your data across devices
-          </Text>
-        </Pressable>
-      )}
-
-      {/* Avatar / email card */}
-      <View style={{
-        padding: 20,
-        borderRadius: 14,
-        backgroundColor: OaklandDusk.bg.card,
-        alignItems: "center",
-        gap: 10,
-      }}>
-        <FontAwesome name="user-circle" size={40} color={OaklandDusk.brand.gold} />
-        {userEmail ? (
-          <Text style={{ textAlign: "center", fontWeight: "600", color: OaklandDusk.text.primary }}>{userEmail}</Text>
-        ) : (
-          <>
-            <Text style={{ textAlign: "center", color: OaklandDusk.text.secondary }}>Not signed in</Text>
-            <Pressable
-              onPress={() => router.push("/login?mode=signin")}
-              style={{
-                borderRadius: 999,
-                paddingHorizontal: 20,
-                paddingVertical: 10,
-                backgroundColor: OaklandDusk.brand.gold,
-              }}
-            >
-              <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>Sign In</Text>
-            </Pressable>
-          </>
-        )}
-      </View>
-
-      {/* Menu items */}
-      <View style={{ gap: 8 }}>
-        <HintBubble
-          storageKey={GUIDE_KEYS.PROFILE_PREFS_ROW}
-          visible={guidePrefsRowVisible}
-          onDismiss={() => {
-            setGuidePrefsRowVisible(false);
-            isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
-              if (!d) setGuideFavsRowVisible(true);
-            });
-          }}
-          hintType="tap"
-          hintColor="skyblue"
-        >
-          <ProfileRow
-            icon="sliders"
-            label="Preferences"
-            onPress={() => {
-              if (guidePrefsRowVisible) {
-                setGuidePrefsRowVisible(false);
-                dismissGuide(GUIDE_KEYS.PROFILE_PREFS_ROW);
-                isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
-                  if (!d) setGuideFavsRowVisible(true);
-                });
-              }
-              router.push("/profile/preferences");
-            }}
-          />
-        </HintBubble>
-        <HintBubble
-          storageKey={GUIDE_KEYS.PROFILE_FAVS_ROW}
-          visible={guideFavsRowVisible}
-          onDismiss={() => setGuideFavsRowVisible(false)}
-          hintType="tap"
-          hintColor="skyblue"
-        >
-          <ProfileRow
-            icon="heart"
-            label="Favorites"
-            onPress={() => {
-              if (guideFavsRowVisible) {
-                setGuideFavsRowVisible(false);
-                dismissGuide(GUIDE_KEYS.PROFILE_FAVS_ROW);
-              }
-              router.push("/profile/favorites");
-            }}
-          />
-        </HintBubble>
-        <ProfileRow
-          icon="flask"
-          label="Taste DNA"
-          onPress={() => router.push("/profile/taste-dna")}
-        />
-
-        {/* Recipe unit toggle */}
-        <View style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingVertical: 12,
-          paddingHorizontal: 14,
-          borderRadius: 12,
-          backgroundColor: OaklandDusk.bg.card,
-        }}>
-          <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
-            Recipe Units
-          </Text>
-          <View style={{ flexDirection: "row", gap: 0 }}>
-            <Pressable
-              onPress={() => setDisplayUnit("oz")}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderTopLeftRadius: 10,
-                borderBottomLeftRadius: 10,
-                borderWidth: 1,
-                borderColor: OaklandDusk.bg.border,
-                backgroundColor: displayUnit === "oz" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
-              }}
-            >
-              <Text style={{
-                fontWeight: "700",
-                fontSize: 13,
-                color: displayUnit === "oz" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
-              }}>oz</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setDisplayUnit("ml")}
-              style={{
-                paddingHorizontal: 16,
-                paddingVertical: 8,
-                borderTopRightRadius: 10,
-                borderBottomRightRadius: 10,
-                borderWidth: 1,
-                borderLeftWidth: 0,
-                borderColor: OaklandDusk.bg.border,
-                backgroundColor: displayUnit === "ml" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
-              }}
-            >
-              <Text style={{
-                fontWeight: "700",
-                fontSize: 13,
-                color: displayUnit === "ml" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
-              }}>ml</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Sound Effects toggle */}
-        <View style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingVertical: 12,
-          paddingHorizontal: 14,
-          borderRadius: 12,
-          backgroundColor: OaklandDusk.bg.card,
-        }}>
-          <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
-            Sound Effects
-          </Text>
+    <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
+      <Masthead />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Create Account banner — anonymous users only */}
+        {isAnonymous && (
           <Pressable
-            onPress={() => {
-              const next = !soundsEnabled;
-              setSoundsEnabled(next);
-              SoundService.setEnabled(next);
-            }}
+            onPress={() => router.push('/login')}
             style={{
-              width: 44,
-              height: 26,
-              borderRadius: 999,
-              padding: 3,
-              backgroundColor: soundsEnabled ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
-              justifyContent: "center",
+              backgroundColor: OaklandDusk.bg.surface,
+              borderWidth: 1,
+              borderColor: OaklandDusk.brand.gold,
+              borderRadius: 12,
+              padding: 16,
+              alignItems: 'center',
+              gap: 4,
+              marginBottom: 4,
             }}
           >
-            <View
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: 999,
-                backgroundColor: OaklandDusk.text.primary,
-                alignSelf: soundsEnabled ? "flex-end" : "flex-start",
+            <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '800', fontSize: 16 }}>
+              Create Account
+            </Text>
+            <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 13 }}>
+              Protect your data across devices
+            </Text>
+          </Pressable>
+        )}
+
+        {/* Avatar / email card */}
+        <View style={{
+          padding: 20,
+          borderRadius: 14,
+          backgroundColor: OaklandDusk.bg.card,
+          alignItems: "center",
+          gap: 10,
+        }}>
+          <FontAwesome name="user-circle" size={40} color={OaklandDusk.brand.gold} />
+          {userEmail ? (
+            <Text style={{ textAlign: "center", fontWeight: "600", color: OaklandDusk.text.primary }}>{userEmail}</Text>
+          ) : (
+            <>
+              <Text style={{ textAlign: "center", color: OaklandDusk.text.secondary }}>Not signed in</Text>
+              <Pressable
+                onPress={() => router.push("/login?mode=signin")}
+                style={{
+                  borderRadius: 999,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  backgroundColor: OaklandDusk.brand.gold,
+                }}
+              >
+                <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>Sign In</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        {/* Menu items */}
+        <View style={{ gap: 8 }}>
+          <HintBubble
+            storageKey={GUIDE_KEYS.PROFILE_PREFS_ROW}
+            visible={guidePrefsRowVisible}
+            onDismiss={() => {
+              setGuidePrefsRowVisible(false);
+              isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
+                if (!d) setGuideFavsRowVisible(true);
+              });
+            }}
+            hintType="tap"
+            hintColor="skyblue"
+          >
+            <ProfileRow
+              icon="sliders"
+              label="Preferences"
+              onPress={() => {
+                if (guidePrefsRowVisible) {
+                  setGuidePrefsRowVisible(false);
+                  dismissGuide(GUIDE_KEYS.PROFILE_PREFS_ROW);
+                  isGuideDismissed(GUIDE_KEYS.PROFILE_FAVS_ROW).then((d) => {
+                    if (!d) setGuideFavsRowVisible(true);
+                  });
+                }
+                router.push("/profile/preferences");
               }}
             />
+          </HintBubble>
+          <HintBubble
+            storageKey={GUIDE_KEYS.PROFILE_FAVS_ROW}
+            visible={guideFavsRowVisible}
+            onDismiss={() => setGuideFavsRowVisible(false)}
+            hintType="tap"
+            hintColor="skyblue"
+          >
+            <ProfileRow
+              icon="heart"
+              label="Favorites"
+              onPress={() => {
+                if (guideFavsRowVisible) {
+                  setGuideFavsRowVisible(false);
+                  dismissGuide(GUIDE_KEYS.PROFILE_FAVS_ROW);
+                }
+                router.push("/profile/favorites");
+              }}
+            />
+          </HintBubble>
+          <ProfileRow
+            icon="flask"
+            label="Taste DNA"
+            onPress={() => router.push("/profile/taste-dna")}
+          />
+
+          {/* Recipe unit toggle */}
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            borderRadius: 12,
+            backgroundColor: OaklandDusk.bg.card,
+          }}>
+            <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
+              Recipe Units
+            </Text>
+            <View style={{ flexDirection: "row", gap: 0 }}>
+              <Pressable
+                onPress={() => setDisplayUnit("oz")}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderTopLeftRadius: 10,
+                  borderBottomLeftRadius: 10,
+                  borderWidth: 1,
+                  borderColor: OaklandDusk.bg.border,
+                  backgroundColor: displayUnit === "oz" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
+                }}
+              >
+                <Text style={{
+                  fontWeight: "700",
+                  fontSize: 13,
+                  color: displayUnit === "oz" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
+                }}>oz</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setDisplayUnit("ml")}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 8,
+                  borderTopRightRadius: 10,
+                  borderBottomRightRadius: 10,
+                  borderWidth: 1,
+                  borderLeftWidth: 0,
+                  borderColor: OaklandDusk.bg.border,
+                  backgroundColor: displayUnit === "ml" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
+                }}
+              >
+                <Text style={{
+                  fontWeight: "700",
+                  fontSize: 13,
+                  color: displayUnit === "ml" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
+                }}>ml</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Sound Effects toggle */}
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            paddingVertical: 12,
+            paddingHorizontal: 14,
+            borderRadius: 12,
+            backgroundColor: OaklandDusk.bg.card,
+          }}>
+            <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
+              Sound Effects
+            </Text>
+            <Pressable
+              onPress={() => {
+                const next = !soundsEnabled;
+                setSoundsEnabled(next);
+                SoundService.setEnabled(next);
+              }}
+              style={{
+                width: 44,
+                height: 26,
+                borderRadius: 999,
+                padding: 3,
+                backgroundColor: soundsEnabled ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
+                justifyContent: "center",
+              }}
+            >
+              <View
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: 999,
+                  backgroundColor: OaklandDusk.text.primary,
+                  alignSelf: soundsEnabled ? "flex-end" : "flex-start",
+                }}
+              />
+            </Pressable>
+          </View>
+
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                isZh ? "📸 拍照小技巧" : "Photo Tips",
+                isZh
+                  ? "🏷️ 讓酒瓶標籤正面朝向鏡頭，距離約 30-50cm\n\n💡 確保光線充足，標籤文字清晰可見\n\n🍾 一次拍 1-4 瓶，標籤之間不要互相遮擋\n\n🔍 如果某瓶辨識失敗，可以單獨拍那瓶的標籤特寫"
+                  : "🏷️ Face bottle labels toward the camera, about 30-50cm away\n\n💡 Make sure lighting is good and label text is clearly visible\n\n🍾 Capture 1-4 bottles at a time, don't let labels overlap\n\n🔍 If a bottle isn't recognized, try a close-up of just that label"
+              );
+            }}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: OaklandDusk.bg.card,
+            }}
+          >
+            <FontAwesome name="camera" size={16} color={OaklandDusk.text.secondary} />
+            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+              {isZh ? "拍照小技巧" : "Photo tips"}
+            </Text>
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => router.push("/profile/feedback" as any)}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: OaklandDusk.bg.card,
+            }}
+          >
+            <FontAwesome name="comment" size={16} color={OaklandDusk.text.secondary} />
+            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+              {isZh ? "意見回饋" : "Send Feedback"}
+            </Text>
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => openUrl("https://brok110.github.io/sipmetry-frontend/privacy")}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: OaklandDusk.bg.card,
+            }}
+          >
+            <FontAwesome name="lock" size={16} color={OaklandDusk.text.secondary} />
+            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+              {isZh ? "隱私政策" : "Privacy Policy"}
+            </Text>
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => openUrl("https://brok110.github.io/sipmetry-frontend/terms")}
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 10,
+              paddingVertical: 12,
+              paddingHorizontal: 14,
+              borderRadius: 12,
+              backgroundColor: OaklandDusk.bg.card,
+            }}
+          >
+            <FontAwesome name="file-text-o" size={16} color={OaklandDusk.text.secondary} />
+            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+              {isZh ? "服務條款" : "Terms of Service"}
+            </Text>
+            <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
           </Pressable>
         </View>
 
-        <Pressable
-          onPress={() => {
-            Alert.alert(
-              isZh ? "📸 拍照小技巧" : "Photo Tips",
-              isZh
-                ? "🏷️ 讓酒瓶標籤正面朝向鏡頭，距離約 30-50cm\n\n💡 確保光線充足，標籤文字清晰可見\n\n🍾 一次拍 1-4 瓶，標籤之間不要互相遮擋\n\n🔍 如果某瓶辨識失敗，可以單獨拍那瓶的標籤特寫"
-                : "🏷️ Face bottle labels toward the camera, about 30-50cm away\n\n💡 Make sure lighting is good and label text is clearly visible\n\n🍾 Capture 1-4 bottles at a time, don't let labels overlap\n\n🔍 If a bottle isn't recognized, try a close-up of just that label"
-            );
-          }}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-            borderRadius: 12,
-            backgroundColor: OaklandDusk.bg.card,
-          }}
-        >
-          <FontAwesome name="camera" size={16} color={OaklandDusk.text.secondary} />
-          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
-            {isZh ? "拍照小技巧" : "Photo tips"}
-          </Text>
-          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
-        </Pressable>
+        {/* Sign out + Delete account */}
+        {userEmail && (
+          <View style={{ gap: 10 }}>
+            <Pressable
+              onPress={signOut}
+              style={{
+                borderWidth: 1,
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: "center",
+                borderColor: OaklandDusk.bg.border,
+                backgroundColor: OaklandDusk.bg.card,
+              }}
+            >
+              <Text style={{ fontWeight: "700", color: OaklandDusk.accent.crimson }}>Sign Out</Text>
+            </Pressable>
 
-        <Pressable
-          onPress={() => router.push("/profile/feedback" as any)}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-            borderRadius: 12,
-            backgroundColor: OaklandDusk.bg.card,
-          }}
-        >
-          <FontAwesome name="comment" size={16} color={OaklandDusk.text.secondary} />
-          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
-            {isZh ? "意見回饋" : "Send Feedback"}
-          </Text>
-          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => openUrl("https://brok110.github.io/sipmetry-frontend/privacy")}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-            borderRadius: 12,
-            backgroundColor: OaklandDusk.bg.card,
-          }}
-        >
-          <FontAwesome name="lock" size={16} color={OaklandDusk.text.secondary} />
-          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
-            {isZh ? "隱私政策" : "Privacy Policy"}
-          </Text>
-          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => openUrl("https://brok110.github.io/sipmetry-frontend/terms")}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 10,
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-            borderRadius: 12,
-            backgroundColor: OaklandDusk.bg.card,
-          }}
-        >
-          <FontAwesome name="file-text-o" size={16} color={OaklandDusk.text.secondary} />
-          <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
-            {isZh ? "服務條款" : "Terms of Service"}
-          </Text>
-          <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
-        </Pressable>
-      </View>
-
-      {/* Sign out + Delete account */}
-      {userEmail && (
-        <View style={{ gap: 10 }}>
+            <Pressable
+              onPress={handleDeleteAccount}
+              disabled={deleting}
+              style={{
+                borderRadius: 12,
+                paddingVertical: 12,
+                alignItems: "center",
+                opacity: deleting ? 0.5 : 1,
+              }}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color={OaklandDusk.text.tertiary} />
+              ) : (
+                <Text style={{ fontSize: 13, color: OaklandDusk.text.disabled }}>
+                  {isZh ? "刪除帳號" : "Delete Account"}
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        )}
+        {__DEV__ && (
           <Pressable
-            onPress={signOut}
+            onPress={async () => {
+              await resetAllGuides();
+              Alert.alert("Done", "All guide bubbles reset. Restart the app to see them.");
+            }}
             style={{
-              borderWidth: 1,
               borderRadius: 12,
-              paddingVertical: 12,
+              paddingVertical: 10,
               alignItems: "center",
+              borderWidth: 1,
               borderColor: OaklandDusk.bg.border,
               backgroundColor: OaklandDusk.bg.card,
             }}
           >
-            <Text style={{ fontWeight: "700", color: OaklandDusk.accent.crimson }}>Sign Out</Text>
+            <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>
+              Reset Guide Bubbles (DEV)
+            </Text>
           </Pressable>
-
-          <Pressable
-            onPress={handleDeleteAccount}
-            disabled={deleting}
-            style={{
-              borderRadius: 12,
-              paddingVertical: 12,
-              alignItems: "center",
-              opacity: deleting ? 0.5 : 1,
-            }}
-          >
-            {deleting ? (
-              <ActivityIndicator size="small" color={OaklandDusk.text.tertiary} />
-            ) : (
-              <Text style={{ fontSize: 13, color: OaklandDusk.text.disabled }}>
-                {isZh ? "刪除帳號" : "Delete Account"}
-              </Text>
-            )}
-          </Pressable>
-        </View>
-      )}
-      {__DEV__ && (
-        <Pressable
-          onPress={async () => {
-            await resetAllGuides();
-            Alert.alert("Done", "All guide bubbles reset. Restart the app to see them.");
-          }}
-          style={{
-            borderRadius: 12,
-            paddingVertical: 10,
-            alignItems: "center",
-            borderWidth: 1,
-            borderColor: OaklandDusk.bg.border,
-            backgroundColor: OaklandDusk.bg.card,
-          }}
-        >
-          <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>
-            Reset Guide Bubbles (DEV)
-          </Text>
-        </Pressable>
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
+    </View>
   );
 }
