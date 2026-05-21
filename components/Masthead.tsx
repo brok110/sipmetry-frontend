@@ -6,6 +6,7 @@ import { V3 } from "@/constants/v3DesignTokens";
 
 type MastheadProps = {
   counter?: { current: number; total: number };
+  actions?: React.ReactNode;
 };
 
 // Gap below the top safe-area edge. With a native header present this
@@ -13,7 +14,7 @@ type MastheadProps = {
 // hidden it sits below the real status-bar / Dynamic Island inset.
 const MASTHEAD_TOP_GAP = 20;
 
-export default function Masthead({ counter }: MastheadProps) {
+export default function Masthead({ counter, actions }: MastheadProps) {
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.masthead, { paddingTop: insets.top + MASTHEAD_TOP_GAP }]}>
@@ -36,6 +37,7 @@ export default function Masthead({ counter }: MastheadProps) {
           </Text>
         </View>
       )}
+      {actions}
     </View>
   );
 }
