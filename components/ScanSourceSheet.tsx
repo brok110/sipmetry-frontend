@@ -1,17 +1,33 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import React from "react";
-import { Modal, Pressable, Text, View } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Modal, Pressable, Switch, Text, View } from "react-native";
 import OaklandDusk from "@/constants/OaklandDusk";
 
-export type ScanSource = "camera" | "library" | "guest";
+export type ScanSourceResult = {
+  source: "camera" | "library";
+  guest: boolean;
+};
 
 type ScanSourceSheetProps = {
   visible: boolean;
   onClose: () => void;
-  onPick: (source: ScanSource) => void;
+  onPick: (result: ScanSourceResult) => void;
 };
 
 export default function ScanSourceSheet({ visible, onClose, onPick }: ScanSourceSheetProps) {
+  const [guest, setGuest] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+    setGuest(false);
+  }, [visible]);
+
+  const accentColor = guest ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary;
+  const iconColor = guest ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary;
+  const titleColor = guest ? OaklandDusk.text.primary : OaklandDusk.text.tertiary;
+  const subtitleColor = guest ? OaklandDusk.text.secondary : OaklandDusk.text.tertiary;
+  const guestRowBg = guest ? `${OaklandDusk.brand.gold}14` : "transparent";
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable
@@ -41,8 +57,54 @@ export default function ScanSourceSheet({ visible, onClose, onPick }: ScanSource
             Scan Bottles
           </Text>
 
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 16,
+              paddingVertical: 16,
+              paddingLeft: 0,
+              paddingRight: 20,
+              backgroundColor: guestRowBg,
+            }}
+          >
+            <View
+              style={{
+                width: 3,
+                alignSelf: "stretch",
+                backgroundColor: accentColor,
+                marginRight: 1,
+              }}
+            />
+            <View style={{ width: 28, alignItems: "center" }}>
+              <FontAwesome name="users" size={20} color={iconColor} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ fontSize: 16, fontWeight: "600", color: titleColor }}>
+                Guest bar
+              </Text>
+              <Text style={{ fontSize: 12, color: subtitleColor }}>
+                Scan won&apos;t be saved to My Bar
+              </Text>
+            </View>
+            <Switch
+              value={guest}
+              onValueChange={setGuest}
+              trackColor={{ false: OaklandDusk.bg.border, true: OaklandDusk.brand.gold }}
+              thumbColor={guest ? OaklandDusk.text.primary : OaklandDusk.text.tertiary}
+              ios_backgroundColor={OaklandDusk.bg.border}
+            />
+          </View>
+
+          <View
+            style={{
+              borderTopWidth: 1,
+              borderTopColor: OaklandDusk.bg.border,
+              marginTop: 8,
+            }}
+          />
           <Pressable
-            onPress={() => onPick("camera")}
+            onPress={() => onPick({ source: "camera", guest })}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -60,7 +122,7 @@ export default function ScanSourceSheet({ visible, onClose, onPick }: ScanSource
           </Pressable>
 
           <Pressable
-            onPress={() => onPick("library")}
+            onPress={() => onPick({ source: "library", guest })}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -75,46 +137,6 @@ export default function ScanSourceSheet({ visible, onClose, onPick }: ScanSource
             <Text style={{ fontSize: 16, fontWeight: "600", color: OaklandDusk.text.primary }}>
               Choose Photos
             </Text>
-          </Pressable>
-
-          <View
-            style={{
-              borderTopWidth: 1,
-              borderTopColor: OaklandDusk.bg.border,
-              marginTop: 8,
-            }}
-          />
-          <Pressable
-            onPress={() => onPick("guest")}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 16,
-              paddingVertical: 16,
-              paddingLeft: 0,
-              paddingRight: 20,
-              backgroundColor: `${OaklandDusk.brand.gold}0F`,
-            }}
-          >
-            <View
-              style={{
-                width: 3,
-                alignSelf: "stretch",
-                backgroundColor: OaklandDusk.brand.gold,
-                marginRight: 1,
-              }}
-            />
-            <View style={{ width: 28, alignItems: "center" }}>
-              <FontAwesome name="users" size={20} color={OaklandDusk.brand.gold} />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <Text style={{ fontSize: 16, fontWeight: "600", color: OaklandDusk.text.primary }}>
-                Scan a guest bar
-              </Text>
-              <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>
-                Won&apos;t be saved to My Bar
-              </Text>
-            </View>
           </Pressable>
 
           <View
