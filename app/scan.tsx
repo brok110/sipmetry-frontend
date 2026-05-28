@@ -708,75 +708,44 @@ export default function TabOneScreen() {
     }
   }, [searchParams.photoUri, searchParams.photoUris]);
 
-  // Path choice alert — fires when scan phase becomes "choice"
+  // Path resolver — fires when scan phase becomes "choice" (batch drained).
+  // searchParams.intent decides the path; no user-facing alert.
+  //   "guest"                       → quick_look (no inventory writes)
+  //   "addToBar" / undefined / else → inventory (auto-add bottles)
+  // Both branches transition to "accumulating" and bump batchCompleteCount
+  // so the "Scan More or Done" alert fires exactly once per batch.
   useEffect(() => {
     if (scanPhase !== "choice" || multiScanResults.length === 0) return;
 
-    if (searchParams.intent === "addToBar") {
-      setScanMode("inventory");
-      (async () => {
-        if (session) {
-          for (const ing of multiScanResults) {
-            if (isAlcoholicIngredient(ing.canonical) !== true) continue;
-            if (isInInventory(ing.canonical)) continue;
-            try {
-              await addInventoryItem({
-                ingredient_key: ing.canonical,
-                display_name: ing.display,
-                total_ml: DEFAULT_BOTTLE_ML,
-                remaining_pct: 100,
-              });
-            } catch {}
-          }
-          await refreshInventory({ silent: true });
-        }
-        setScanPhase("accumulating");
-        setBatchCompleteCount((c) => c + 1);
-      })();
+    if (searchParams.intent === "guest") {
+      setScanMode("quick_look");
+      setScanPhase("accumulating");
+      setBatchCompleteCount((c) => c + 1);
       return;
     }
 
-    const n = multiScanResults.length;
-    Alert.alert(
-      "What would you like to do?",
-      `${n} bottle${n !== 1 ? "s" : ""} identified`,
-      [
-        {
-          text: "Add to My Bar",
-          onPress: async () => {
-            setScanMode("inventory");
-            if (session) {
-              for (const ing of multiScanResults) {
-                if (isAlcoholicIngredient(ing.canonical) !== true) continue;
-                if (isInInventory(ing.canonical)) continue;
-                try {
-                  await addInventoryItem({
-                    ingredient_key: ing.canonical,
-                    display_name: ing.display,
-                    total_ml: DEFAULT_BOTTLE_ML,
-                    remaining_pct: 100,
-                  });
-                } catch {}
-              }
-              await refreshInventory({ silent: true });
-            }
-            // Trigger "Scan More or Done" alert (after all inventory adds complete)
-            setScanPhase("accumulating");
-            setBatchCompleteCount((c) => c + 1);
-          },
-        },
-        {
-          text: "Just See Recipes",
-          onPress: () => {
-            setScanMode("quick_look");
-            // Same "Scan More or Done" flow as inventory
-            setScanPhase("accumulating");
-            setBatchCompleteCount((c) => c + 1);
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    // intent === "addToBar" or undefined/falsy → auto-inventory
+    setScanMode("inventory");
+    (async () => {
+      if (session) {
+        for (const ing of multiScanResults) {
+          if (isAlcoholicIngredient(ing.canonical) !== true) continue;
+          if (isInInventory(ing.canonical)) continue;
+          try {
+            await addInventoryItem({
+              ingredient_key: ing.canonical,
+              display_name: ing.display,
+              total_ml: DEFAULT_BOTTLE_ML,
+              remaining_pct: 100,
+            });
+          } catch {}
+        }
+        await refreshInventory({ silent: true });
+      }
+      // Trigger "Scan More or Done" alert (after all inventory adds complete)
+      setScanPhase("accumulating");
+      setBatchCompleteCount((c) => c + 1);
+    })();
   }, [scanPhase, multiScanResults.length]);
 
   // "Scan More or Done" alert — fires once per completed batch via batchCompleteCount
@@ -1558,7 +1527,7 @@ export default function TabOneScreen() {
 
       // Pop next queued photo.
       // Only transition phase AFTER the whole batch (queue) is drained — this ensures
-      // "What would you like to do?" and "Scan More or Done" each appear exactly once.
+      // the intent resolver and "Scan More or Done" each run exactly once per batch.
       const nextAsset = imageQueueRef.current.shift();
       if (nextAsset) {
         // More photos remaining — continue processing silently
