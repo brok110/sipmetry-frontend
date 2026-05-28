@@ -1,10 +1,11 @@
 import { apiFetch } from '@/lib/api'
 import { openUrl } from '@/lib/openUrl'
-import * as ImagePicker from 'expo-image-picker'
+import { pickBottlePhotoFromCamera, pickBottlePhotoFromLibrary } from '@/lib/pickBottlePhoto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import OaklandDusk from '@/constants/OaklandDusk'
 import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
+import ScanSourceSheet, { ScanSourceResult } from '@/components/ScanSourceSheet'
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
 import Masthead from '@/components/Masthead'
@@ -598,6 +599,7 @@ export default function MyBarScreen() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [editItem, setEditItem] = useState<InventoryItem | null>(null)
+  const [scanSheetVisible, setScanSheetVisible] = useState(false)
 
   // ── Guide bubble state (Stage 5) ──────────────────────────────────────────
   const [guideMyBarEmptyVisible, setGuideMyBarEmptyVisible] = useState(false)
@@ -645,46 +647,32 @@ export default function MyBarScreen() {
   const [showStaplesModal, setShowStaplesModal] = useState(false)
 
   const promptScanBottles = () => {
-    Alert.alert('Scan Bottles', 'How would you like to scan?', [
-      {
-        text: 'Take Photo',
-        onPress: async () => {
-          const perm = await ImagePicker.requestCameraPermissionsAsync()
-          if (!perm.granted) {
-            Alert.alert('Permission required', 'Please allow camera access.')
-            return
-          }
-          const result = await ImagePicker.launchCameraAsync({ quality: 0.9, exif: false, base64: false })
-          if (!result.canceled && result.assets?.[0]) {
-            router.push({ pathname: '/scan', params: { photoUri: result.assets[0].uri } })
-          }
-        },
-      },
-      {
-        text: 'Choose Photos',
-        onPress: async () => {
-          const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
-          if (!perm.granted) {
-            Alert.alert('Permission required', 'Please allow photo library access.')
-            return
-          }
-          const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsMultipleSelection: true,
-            quality: 0.9,
-            exif: false,
-            base64: false,
-          })
-          if (!result.canceled && result.assets?.length) {
-            router.push({
-              pathname: '/scan',
-              params: { photoUris: JSON.stringify(result.assets.map(a => a.uri)) },
-            })
-          }
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ])
+    setScanSheetVisible(true)
+  }
+
+  const handleScanSourcePick = async (result: ScanSourceResult) => {
+    try {
+      const picked =
+        result.source === 'camera'
+          ? await pickBottlePhotoFromCamera()
+          : await pickBottlePhotoFromLibrary()
+
+      setScanSheetVisible(false)
+
+      if (!picked) return
+
+      const intent = result.guest === true ? 'guest' : 'addToBar'
+      const assets = picked.assets
+      const params =
+        assets.length === 1
+          ? { photoUri: assets[0].uri, intent }
+          : { photoUris: JSON.stringify(assets.map((a) => a.uri)), intent }
+
+      router.push({ pathname: '/scan', params })
+    } catch (e: any) {
+      setScanSheetVisible(false)
+      Alert.alert('Scan picker error', String(e?.message ?? e))
+    }
   }
 
   const handleSortSelect = (key: SortBy) => {
@@ -1081,6 +1069,12 @@ export default function MyBarScreen() {
         </HintBubble>
       </View>
     )}
+
+    <ScanSourceSheet
+      visible={scanSheetVisible}
+      onClose={() => setScanSheetVisible(false)}
+      onPick={handleScanSourcePick}
+    />
 
     <StaplesModal
       visible={showStaplesModal}
