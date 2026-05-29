@@ -4,7 +4,6 @@ import { apiFetch } from "@/lib/api";
 import { getTasteTags } from "@/lib/tasteTags";
 import { SoundService } from "@/lib/sounds";
 import { log, warn } from "@/lib/logger";
-import AddToInventoryModal from "@/components/AddToInventoryModal";
 import StaplesModal, { DEFAULT_STAPLES } from "@/components/StaplesModal";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, isGoldenPathStepReady } from "@/components/GuideBubble";
 import SwipeRow from "@/components/ui/SwipeRow";
@@ -573,9 +572,6 @@ export default function TabOneScreen() {
   const [pickedCanonical, setPickedCanonical] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState("");
-
-  // Inventory Modal state
-  const [inventoryModalTarget, setInventoryModalTarget] = useState<ActiveIngredient | null>(null);
 
   // Staples Modal state
   const [showStaplesModal, setShowStaplesModal] = useState(false);
@@ -1673,34 +1669,6 @@ export default function TabOneScreen() {
     setEditingValue(current ?? "");
   };
 
-  const handleAddToInventory = async (payload: {
-    ingredient_key: string;
-    display_name: string;
-    total_ml: number;
-    remaining_pct: number;
-  }) => {
-    // Canonicalize the ingredient_key before sending to avoid duplicates
-    // caused by the AI returning inconsistent keys (e.g. "rum" vs "white_rum").
-    // Falls back to the raw key if the network call fails — the backend
-    // POST /inventory also applies smartCanonicalize as a safety net.
-    let canonicalKey = payload.ingredient_key;
-    try {
-      const canonResponse = await apiFetch("/canonicalize", {
-        session,
-        method: "POST",
-        body: { items: [payload.ingredient_key] },
-      });
-      const canonData = await canonResponse.json();
-      canonicalKey = canonData?.canonical?.[0] || payload.ingredient_key;
-      if (canonicalKey !== payload.ingredient_key) {
-        log(`[handleAddToInventory] canonicalized: "${payload.ingredient_key}" → "${canonicalKey}"`);
-      }
-    } catch (err) {
-      warn("[handleAddToInventory] canonicalize failed, using raw key:", err);
-    }
-    await addInventoryItem({ ...payload, ingredient_key: canonicalKey });
-  };
-
   // BYPASSED: auto-add replaces manual add-to-bar flow
   // ── Add to My Bar helpers (Stage 3) ──────────────────────────────────────
   // const handleQuickAddToBar = async (ing: ActiveIngredient) => {
@@ -2284,16 +2252,6 @@ export default function TabOneScreen() {
       </View>
     )}
     </KeyboardAvoidingView>
-
-    {inventoryModalTarget ? (
-      <AddToInventoryModal
-        visible={true}
-        ingredientKey={inventoryModalTarget.canonical}
-        displayName={inventoryModalTarget.display}
-        onClose={() => setInventoryModalTarget(null)}
-        onConfirm={handleAddToInventory}
-      />
-    ) : null}
 
     <StaplesModal
       visible={showStaplesModal}
