@@ -126,23 +126,6 @@ export default function RecommendationsScreen() {
   const oneMissing = recipes.filter((r) => r.bucket === "one_missing");
   const twoMissing = recipes.filter((r) => r.bucket === "two_missing");
 
-  // Stage 3: compute top missing ingredients — only shown in inventory mode where
-  // both recommendations and Smart Restock are based on My Bar (consistent data source).
-  // In quick_look mode this is omitted because 1-missing/2-missing sections already show what's needed.
-  const topMissing = useMemo(() => {
-    if (!isInventoryMode) return [];
-    const missingTally: Record<string, number> = {};
-    for (const recipe of [...oneMissing, ...twoMissing]) {
-      for (const item of (recipe.missing_items ?? [])) {
-        const key = String(item ?? "").trim();
-        if (key) missingTally[key] = (missingTally[key] || 0) + 1;
-      }
-    }
-    return Object.entries(missingTally)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2);
-  }, [oneMissing, twoMissing, isInventoryMode]);
-
   const formatIngredientName = (key: string) => {
     const s = key.replace(/_/g, " ").trim();
     return s.charAt(0).toUpperCase() + s.slice(1);
