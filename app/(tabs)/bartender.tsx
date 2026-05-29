@@ -445,7 +445,7 @@ export default function BartenderScreen() {
               </Pressable>
               <Pressable
                 style={[styles.retryBtn, { marginTop: 12 }]}
-                onPress={() => router.push("/scan")}
+                onPress={() => router.push({ pathname: "/scan", params: { intent: "addToBar" } })}
               >
                 <Text style={styles.retryBtnText}>SCAN BOTTLES</Text>
               </Pressable>
@@ -529,7 +529,7 @@ export default function BartenderScreen() {
       {explorationMode && (
         <Pressable
           style={styles.explorationBanner}
-          onPress={() => router.push("/scan")}
+          onPress={() => router.push({ pathname: "/scan", params: { intent: "addToBar" } })}
         >
           <Text style={styles.explorationBannerText}>
             EXPLORING WITH A SAMPLE BAR  ·  TAP TO SCAN YOUR BOTTLES

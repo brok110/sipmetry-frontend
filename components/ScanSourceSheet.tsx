@@ -12,15 +12,23 @@ type ScanSourceSheetProps = {
   visible: boolean;
   onClose: () => void;
   onPick: (result: ScanSourceResult) => void;
+  lockGuest?: boolean;
+  forceGuest?: boolean;
 };
 
-export default function ScanSourceSheet({ visible, onClose, onPick }: ScanSourceSheetProps) {
+export default function ScanSourceSheet({
+  visible,
+  onClose,
+  onPick,
+  lockGuest,
+  forceGuest,
+}: ScanSourceSheetProps) {
   const [guest, setGuest] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
-    setGuest(false);
-  }, [visible]);
+    setGuest(lockGuest ? !!forceGuest : false);
+  }, [visible, lockGuest, forceGuest]);
 
   const accentColor = guest ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary;
   const iconColor = guest ? OaklandDusk.brand.gold : OaklandDusk.text.tertiary;
@@ -90,6 +98,7 @@ export default function ScanSourceSheet({ visible, onClose, onPick }: ScanSource
             <Switch
               value={guest}
               onValueChange={setGuest}
+              disabled={lockGuest === true}
               trackColor={{ false: OaklandDusk.bg.border, true: OaklandDusk.brand.gold }}
               thumbColor={guest ? OaklandDusk.text.primary : OaklandDusk.text.tertiary}
               ios_backgroundColor={OaklandDusk.bg.border}

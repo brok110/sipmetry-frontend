@@ -30,7 +30,8 @@ import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
-import { showBottlePhotoActionSheet, type PickedPhoto } from "@/lib/pickBottlePhoto";
+import { showBottlePhotoActionSheet, pickBottlePhotoFromCamera, pickBottlePhotoFromLibrary, type PickedPhoto } from "@/lib/pickBottlePhoto";
+import ScanSourceSheet, { ScanSourceResult } from "@/components/ScanSourceSheet";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -579,6 +580,9 @@ export default function TabOneScreen() {
   // Staples Modal state
   const [showStaplesModal, setShowStaplesModal] = useState(false);
 
+  // Scan source sheet state (Stage 4)
+  const [scanMoreSheetVisible, setScanMoreSheetVisible] = useState(false);
+
   // Dual-path scan state (Stage 2)
   type ScanMode = "undecided" | "inventory" | "quick_look";
   const [scanMode, setScanMode] = useState<ScanMode>("undecided");
@@ -794,27 +798,7 @@ export default function TabOneScreen() {
       [
         {
           text: "Scan More",
-          onPress: async () => {
-            const picked = await showBottlePhotoActionSheet();
-            if (!picked) {
-              setScanPhase("review");
-              return;
-            }
-            const assets = picked.assets;
-            if (assets.length === 0) {
-              setScanPhase("review");
-              return;
-            }
-            imageQueueRef.current = assets.slice(1).map((a: PickedPhoto) => ({
-              uri: a.uri,
-              base64: a.base64,
-            }));
-            const first = assets[0];
-            setImageUri(first.uri);
-            setPickedBase64(first.base64);
-            setAutoAnalyze(true);
-            setStage("idle");
-          },
+          onPress: () => setScanMoreSheetVisible(true),
         },
         {
           text: "Done",
@@ -1628,6 +1612,38 @@ export default function TabOneScreen() {
     setStage("idle");
   };
 
+  // Scan More mid-session: pick photos and queue them onto the existing scan.
+  // Does NOT call resetScan — continues the current session's mode.
+  const handleScanMorePick = async (result: ScanSourceResult) => {
+    try {
+      const picked =
+        result.source === "camera"
+          ? await pickBottlePhotoFromCamera()
+          : await pickBottlePhotoFromLibrary();
+
+      setScanMoreSheetVisible(false);
+
+      if (!picked || picked.assets.length === 0) {
+        setScanPhase("review");
+        return;
+      }
+
+      const assets = picked.assets;
+      imageQueueRef.current = assets.slice(1).map((a: PickedPhoto) => ({
+        uri: a.uri,
+        base64: a.base64,
+      }));
+      const first = assets[0];
+      setImageUri(first.uri);
+      setPickedBase64(first.base64);
+      setAutoAnalyze(true);
+      setStage("idle");
+    } catch (e: any) {
+      setScanMoreSheetVisible(false);
+      Alert.alert("Scan picker error", String(e?.message ?? e));
+    }
+  };
+
   const resetScan = () => {
     setScanMode("undecided");
     setMultiScanResults([]);
@@ -2293,6 +2309,17 @@ export default function TabOneScreen() {
         regenerateRecipes(ingredientSource, staplesKeys, mode);
       }}
       onCancel={() => setShowStaplesModal(false)}
+    />
+
+    <ScanSourceSheet
+      visible={scanMoreSheetVisible}
+      onClose={() => {
+        setScanMoreSheetVisible(false);
+        setScanPhase("review");
+      }}
+      onPick={handleScanMorePick}
+      lockGuest={true}
+      forceGuest={scanMode === "quick_look"}
     />
 
     </>
