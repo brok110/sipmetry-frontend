@@ -1,6 +1,7 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Slider from "@react-native-community/slider";
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { useNavigation } from "@react-navigation/native";
 import React, { useEffect, useMemo, useState } from "react";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
@@ -38,8 +39,8 @@ function LearnedDimRow({ label, value }: { label: string; value: number }) {
   return (
     <View style={{ gap: 4 }}>
       <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text style={{ fontSize: 13, fontWeight: "700", color: OaklandDusk.text.primary }}>{label}</Text>
-        <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }}>{value.toFixed(1)}</Text>
+        <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>{label}</Text>
+        <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>{value.toFixed(1)}</Text>
       </View>
       <View style={{ height: 6, borderRadius: 3, backgroundColor: OaklandDusk.bg.border, overflow: "hidden" }}>
         <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: OaklandDusk.brand.gold }} />
@@ -378,7 +379,7 @@ export default function TabZeroPreferencesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
       <ScrollView contentContainerStyle={{ padding: 14, gap: 8, paddingBottom: 30 }} keyboardShouldPersistTaps="handled">
-        <Text style={{ fontSize: 20, fontWeight: "700", color: OaklandDusk.text.primary }}>Taste profile</Text>
+        <Text style={[Type.display, { color: OaklandDusk.text.primary }]}>Taste profile</Text>
 
         {/* Flavor card */}
         <HintBubble
@@ -399,8 +400,8 @@ export default function TabZeroPreferencesScreen() {
               opacity: disabled ? 0.7 : 1,
             }}
           >
-            <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Flavor</Text>
-            <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Pick a flavor you like (you can change it anytime).</Text>
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Flavor</Text>
+            <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>Pick a flavor you like (you can change it anytime).</Text>
 
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {STYLE_PRESETS.map((x) => (
@@ -432,16 +433,16 @@ export default function TabZeroPreferencesScreen() {
             opacity: disabled ? 0.7 : 1,
           }}
         >
-          <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Taste</Text>
-          <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Slide to adjust intensity (0–3).</Text>
+          <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Taste</Text>
+          <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>Slide to adjust intensity (0–3).</Text>
 
           <View style={{ gap: 8 }}>
             <View style={{ gap: 4 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <FontAwesome name="glass" size={14} color={OaklandDusk.text.secondary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.primary }}>Alcohol Strength</Text>
-                  <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{alcoholWord}</Text>
+                  <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Alcohol Strength</Text>
+                  <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>{alcoholWord}</Text>
                 </View>
                 <Text style={{ color: OaklandDusk.text.tertiary, fontWeight: "700" }}>{Number(draftAlcohol)}</Text>
               </View>
@@ -461,8 +462,8 @@ export default function TabZeroPreferencesScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <FontAwesome name="cube" size={14} color={OaklandDusk.text.secondary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.primary }}>Sweetness</Text>
-                  <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{sweetnessWord}</Text>
+                  <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Sweetness</Text>
+                  <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>{sweetnessWord}</Text>
                 </View>
                 <Text style={{ color: OaklandDusk.text.tertiary, fontWeight: "700" }}>{Number(draftSweetness)}</Text>
               </View>
@@ -482,8 +483,8 @@ export default function TabZeroPreferencesScreen() {
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <FontAwesome name="leaf" size={14} color={OaklandDusk.text.secondary} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.primary }}>Bitterness</Text>
-                  <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{bitternessWord}</Text>
+                  <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Bitterness</Text>
+                  <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>{bitternessWord}</Text>
                 </View>
                 <Text style={{ color: OaklandDusk.text.tertiary, fontWeight: "700" }}>{Number(draftBitterness)}</Text>
               </View>
@@ -513,8 +514,8 @@ export default function TabZeroPreferencesScreen() {
             opacity: disabled ? 0.7 : 1,
           }}
         >
-          <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.text.primary }}>Safety Mode</Text>
-          <Text style={{ color: OaklandDusk.text.secondary, fontSize: 12 }}>Filter out recommendations based on safety preferences.</Text>
+          <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Safety Mode</Text>
+          <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>Filter out recommendations based on safety preferences.</Text>
 
           <View style={{ gap: 4 }}>
             <SafetyToggleRow
@@ -564,7 +565,7 @@ export default function TabZeroPreferencesScreen() {
                 opacity: disabled || !hasChanges ? 0.35 : 1,
               }}
             >
-              <Text style={{ fontWeight: "700", fontSize: 13, color: OaklandDusk.bg.void }}>
+              <Text style={[Type.button, { color: OaklandDusk.bg.void }]}>
                 {saving ? "Saved ✓" : "Save preferences"}
               </Text>
             </Pressable>
@@ -584,12 +585,12 @@ export default function TabZeroPreferencesScreen() {
               opacity: disabled ? 0.55 : 0.9,
             }}
           >
-            <Text style={{ fontWeight: "600", fontSize: 13, color: OaklandDusk.text.secondary }}>Reset</Text>
+            <Text style={[Type.button, { color: OaklandDusk.text.secondary }]}>Reset</Text>
           </Pressable>
         </View>
 
         {!hydrated ? (
-          <Text style={{ color: OaklandDusk.text.tertiary }}>Loading saved preferences…</Text>
+          <Text style={[Type.body, { color: OaklandDusk.text.tertiary }]}>Loading saved preferences…</Text>
         ) : null}
 
         {false && isLoggedIn && (
@@ -605,7 +606,7 @@ export default function TabZeroPreferencesScreen() {
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <FontAwesome name="bar-chart" size={14} color={OaklandDusk.text.secondary} />
-              <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary, flex: 1 }}>Learned from your history</Text>
+              <Text style={[Type.heading, { color: OaklandDusk.text.primary, flex: 1 }]}>Learned from your history</Text>
               <Pressable onPress={refreshLearned} hitSlop={8}>
                 <FontAwesome name="refresh" size={14} color={learnedLoading ? OaklandDusk.text.disabled : OaklandDusk.text.secondary} />
               </Pressable>
@@ -615,7 +616,7 @@ export default function TabZeroPreferencesScreen() {
               <ActivityIndicator size="small" color={OaklandDusk.brand.gold} />
             ) : learnedVector && eventCount > 0 ? (
               <>
-                <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }}>
+                <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>
                   Based on {eventCount} rating{eventCount === 1 ? "" : "s"} • updates automatically
                 </Text>
                 <View style={{ gap: 10 }}>
@@ -627,7 +628,7 @@ export default function TabZeroPreferencesScreen() {
                 </View>
               </>
             ) : (
-              <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>
+              <Text style={[Type.body, { color: OaklandDusk.text.tertiary }]}>
                 Rate a few cocktails and your taste profile will appear here.
               </Text>
             )}
