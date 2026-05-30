@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api";
 
 import { useAuth } from "@/context/auth";
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { useUnitPreference } from "@/hooks/useUnitPreference";
 import { SoundService } from '@/lib/sounds';
 
@@ -35,7 +36,7 @@ function ProfileRow({
       }}
     >
       <FontAwesome name={icon} size={18} color={OaklandDusk.text.secondary} />
-      <Text style={{ fontWeight: "600", flex: 1, color: OaklandDusk.text.primary }}>{label}</Text>
+      <Text style={[Type.heading, { flex: 1, color: OaklandDusk.text.primary }]}>{label}</Text>
       <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
     </Pressable>
   );
@@ -151,10 +152,10 @@ export default function ProfileScreen() {
               marginBottom: 4,
             }}
           >
-            <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '800', fontSize: 16 }}>
+            <Text style={[Type.heading, { color: OaklandDusk.brand.gold }]}>
               Create Account
             </Text>
-            <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 13 }}>
+            <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>
               Protect your data across devices
             </Text>
           </Pressable>
@@ -170,10 +171,10 @@ export default function ProfileScreen() {
         }}>
           <FontAwesome name="user-circle" size={40} color={OaklandDusk.brand.gold} />
           {userEmail ? (
-            <Text style={{ textAlign: "center", fontWeight: "600", color: OaklandDusk.text.primary }}>{userEmail}</Text>
+            <Text style={[Type.heading, { textAlign: "center", color: OaklandDusk.text.primary }]}>{userEmail}</Text>
           ) : (
             <>
-              <Text style={{ textAlign: "center", color: OaklandDusk.text.secondary }}>Not signed in</Text>
+              <Text style={[Type.body, { textAlign: "center", color: OaklandDusk.text.secondary }]}>Not signed in</Text>
               <Pressable
                 onPress={() => router.push("/login?mode=signin")}
                 style={{
@@ -183,7 +184,7 @@ export default function ProfileScreen() {
                   backgroundColor: OaklandDusk.brand.gold,
                 }}
               >
-                <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>Sign In</Text>
+                <Text style={[Type.button, { color: OaklandDusk.bg.void }]}>Sign In</Text>
               </Pressable>
             </>
           )}
@@ -253,7 +254,7 @@ export default function ProfileScreen() {
             borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
           }}>
-            <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
               Recipe Units
             </Text>
             <View style={{ flexDirection: "row", gap: 0 }}>
@@ -307,7 +308,7 @@ export default function ProfileScreen() {
             borderRadius: 12,
             backgroundColor: OaklandDusk.bg.card,
           }}>
-            <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary }}>
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
               Sound Effects
             </Text>
             <Pressable
@@ -357,7 +358,7 @@ export default function ProfileScreen() {
             }}
           >
             <FontAwesome name="camera" size={16} color={OaklandDusk.text.secondary} />
-            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            <Text style={[Type.body, { flex: 1, color: OaklandDusk.text.primary }]}>
               {isZh ? "拍照小技巧" : "Photo tips"}
             </Text>
             <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
@@ -376,7 +377,7 @@ export default function ProfileScreen() {
             }}
           >
             <FontAwesome name="comment" size={16} color={OaklandDusk.text.secondary} />
-            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            <Text style={[Type.body, { flex: 1, color: OaklandDusk.text.primary }]}>
               {isZh ? "意見回饋" : "Send Feedback"}
             </Text>
             <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
@@ -395,7 +396,7 @@ export default function ProfileScreen() {
             }}
           >
             <FontAwesome name="lock" size={16} color={OaklandDusk.text.secondary} />
-            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            <Text style={[Type.body, { flex: 1, color: OaklandDusk.text.primary }]}>
               {isZh ? "隱私政策" : "Privacy Policy"}
             </Text>
             <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
@@ -414,7 +415,7 @@ export default function ProfileScreen() {
             }}
           >
             <FontAwesome name="file-text-o" size={16} color={OaklandDusk.text.secondary} />
-            <Text style={{ flex: 1, fontSize: 14, color: OaklandDusk.text.primary }}>
+            <Text style={[Type.body, { flex: 1, color: OaklandDusk.text.primary }]}>
               {isZh ? "服務條款" : "Terms of Service"}
             </Text>
             <Text style={{ fontSize: 16, color: OaklandDusk.text.tertiary }}>›</Text>
@@ -435,7 +436,7 @@ export default function ProfileScreen() {
                 backgroundColor: OaklandDusk.bg.card,
               }}
             >
-              <Text style={{ fontWeight: "700", color: OaklandDusk.accent.crimson }}>Sign Out</Text>
+              <Text style={[Type.button, { color: OaklandDusk.accent.crimson }]}>Sign Out</Text>
             </Pressable>
 
             <Pressable
@@ -451,7 +452,7 @@ export default function ProfileScreen() {
               {deleting ? (
                 <ActivityIndicator size="small" color={OaklandDusk.text.tertiary} />
               ) : (
-                <Text style={{ fontSize: 13, color: OaklandDusk.text.disabled }}>
+                <Text style={[Type.caption, { color: OaklandDusk.text.disabled }]}>
                   {isZh ? "刪除帳號" : "Delete Account"}
                 </Text>
               )}
@@ -473,7 +474,7 @@ export default function ProfileScreen() {
               backgroundColor: OaklandDusk.bg.card,
             }}
           >
-            <Text style={{ fontSize: 13, color: OaklandDusk.text.tertiary }}>
+            <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>
               Reset Guide Bubbles (DEV)
             </Text>
           </Pressable>

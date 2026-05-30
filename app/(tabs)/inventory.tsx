@@ -3,6 +3,7 @@ import { openUrl } from '@/lib/openUrl'
 import { pickBottlePhotoFromCamera, pickBottlePhotoFromLibrary } from '@/lib/pickBottlePhoto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import OaklandDusk from '@/constants/OaklandDusk'
+import Type from '@/constants/typography'
 import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
 import ScanSourceSheet, { ScanSourceResult } from '@/components/ScanSourceSheet'
@@ -1125,8 +1126,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   barCount: {
-    fontSize: 22,
-    fontWeight: '500',
+    ...Type.title,
     color: OaklandDusk.text.primary,
   },
 
@@ -1158,11 +1158,8 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   dropdownTitle: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...Type.label,
     color: OaklandDusk.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
     paddingHorizontal: 16,
     paddingVertical: 6,
   },
@@ -1177,8 +1174,7 @@ const styles = StyleSheet.create({
     backgroundColor: OaklandDusk.bg.surface,
   },
   dropdownItemText: {
-    fontSize: 15,
-    fontWeight: '500',
+    ...Type.body,
     color: OaklandDusk.text.secondary,
   },
   dropdownItemTextActive: {
@@ -1199,8 +1195,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   errorText: {
+    ...Type.body,
     color: OaklandDusk.semantic.error,
-    fontWeight: '700',
   },
   emptyBox: {
     padding: 24,
@@ -1211,25 +1207,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    ...Type.title,
     color: OaklandDusk.text.primary,
   },
   emptySubtitle: {
-    fontSize: 14,
+    ...Type.body,
     color: OaklandDusk.text.tertiary,
     textAlign: 'center',
-    lineHeight: 20,
   },
   list: {
     gap: 12,
   },
   sectionHeader: {
-    fontSize: 11,
-    fontWeight: '700',
+    ...Type.label,
     color: OaklandDusk.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
     marginTop: 12,
     marginBottom: 4,
     paddingLeft: 2,
@@ -1250,13 +1241,12 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   cardName: {
-    fontSize: 16,
-    fontWeight: '800',
+    ...Type.heading,
     marginBottom: 2,
     color: OaklandDusk.text.primary,
   },
   cardMeta: {
-    fontSize: 13,
+    ...Type.caption,
     color: OaklandDusk.text.tertiary,
   },
 
@@ -1333,17 +1323,13 @@ const modalStyles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '900',
+    ...Type.title,
     marginBottom: 4,
     color: OaklandDusk.text.primary,
   },
   fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...Type.label,
     color: OaklandDusk.text.tertiary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
     marginTop: 4,
   },
   input: {
