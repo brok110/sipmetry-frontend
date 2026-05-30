@@ -5,6 +5,7 @@ import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady } from "@/c
 import { FlatList, Platform, Pressable, Text, View } from "react-native";
 
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { normalizeIngredientKey } from "@/context/ontology";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiFetch } from "@/lib/api";
@@ -228,7 +229,8 @@ export default function RecommendationsScreen() {
 
           {/* Left: name + flavor tags + View recipe */}
           <View style={{ flex: 1, paddingRight: 12, marginLeft: 12, gap: 6 }}>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.text.primary }}>
+            {/* Type.heading — drink name / card title */}
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
               {name}
             </Text>
 
@@ -289,7 +291,8 @@ export default function RecommendationsScreen() {
             <View style={{ gap: 6 }}>
             {miss.map((m: string) => (
               <View key={m} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text style={{ fontSize: 13, color: OaklandDusk.accent.crimson }} numberOfLines={1}>
+                {/* Type.caption — missing ingredient name */}
+                <Text style={[Type.caption, { color: OaklandDusk.accent.crimson }]} numberOfLines={1}>
                   {m.replace(/_/g, " ")}
                 </Text>
               </View>
@@ -304,8 +307,9 @@ export default function RecommendationsScreen() {
 
   const SectionHeader = ({ title, count }: { title: string; count: number }) => {
     if (count === 0) return null;
+    // Type.title — section heading (Ready to make / N ingredient away)
     return (
-      <Text style={{ fontSize: 13, fontWeight: "700", color: OaklandDusk.text.secondary, marginTop: 8 }}>
+      <Text style={[Type.title, { color: OaklandDusk.text.secondary, marginTop: 8 }]}>
         {title} ({count})
       </Text>
     );
@@ -358,11 +362,13 @@ export default function RecommendationsScreen() {
         borderBottomWidth: 0.5,
         borderBottomColor: OaklandDusk.bg.border,
       }}>
-        <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.brand.gold }}>
+        {/* Type.display — page-level heading */}
+        <Text style={[Type.display, { color: OaklandDusk.brand.gold }]}>
           Cocktails
         </Text>
         {ingredientCount > 0 && (
-          <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>
+          // Type.caption — subtitle
+          <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
             Based on {ingredientCount} scanned ingredient{ingredientCount !== 1 ? "s" : ""}
           </Text>
         )}
@@ -374,8 +380,10 @@ export default function RecommendationsScreen() {
         contentContainerStyle={{ padding: 16, gap: 8, paddingBottom: 140 }}
         ListEmptyComponent={
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
-            <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>No matches found</Text>
-            <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
+            {/* Type.title — empty state heading */}
+            <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>No matches found</Text>
+            {/* Type.body — empty state description */}
+            <Text style={[Type.body, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
               Try scanning more bottles or adding ingredients to your bar.
             </Text>
           </View>
@@ -385,8 +393,10 @@ export default function RecommendationsScreen() {
             {recipes.length > 0 && <SectionHeader title="Ready to make" count={ready.length} />}
             {ready.length === 0 && isInventoryMode && recipes.length > 0 ? (
               <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
-                <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>You're close!</Text>
-                <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
+                {/* Type.title — empty state heading */}
+                <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>You're close!</Text>
+                {/* Type.body — empty state description */}
+                <Text style={[Type.body, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
                   Add one more bottle to your bar and you'll start unlocking cocktails.
                 </Text>
               </View>
@@ -453,7 +463,8 @@ export default function RecommendationsScreen() {
           {/* Restock mini cards — inventory mode only, top 2 primary picks */}
           {isInventoryMode && restockPicks.length > 0 && (
             <View style={{ marginBottom: 10 }}>
-              <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary, letterSpacing: 0.5, marginBottom: 8 }}>
+              {/* Type.label — restock section kicker */}
+              <Text style={[Type.label, { color: OaklandDusk.text.secondary, marginBottom: 8 }]}>
                 WANT MORE COCKTAILS?
               </Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
@@ -478,7 +489,8 @@ export default function RecommendationsScreen() {
                         +{pick.unlocks_count}
                       </Text>
                     </View>
-                    <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>
+                    {/* Type.caption — unlock count description */}
+                    <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
                       Unlocks {pick.unlocks_count} cocktail{pick.unlocks_count > 1 ? "s" : ""}
                     </Text>
                   </Pressable>
