@@ -774,7 +774,7 @@ export default function TabOneScreen() {
       if (addedCount > 0) {
         title = `${addedCount} bottle${addedCount !== 1 ? "s" : ""} added to My Bar`;
       } else if (alcoholic.length > 0) {
-        title = "Already in your bar";
+        title = "All set — already in My Bar";
       } else {
         title = "No spirits found";
       }
