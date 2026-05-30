@@ -1,5 +1,6 @@
 import { useAuth } from '@/context/auth'
 import OaklandDusk from '@/constants/OaklandDusk'
+import Type from '@/constants/typography'
 import * as AppleAuthentication from 'expo-apple-authentication'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import React, { useState } from 'react'
@@ -111,16 +112,16 @@ export default function LoginScreen() {
       contentContainerStyle={{ padding: 24, gap: 16, paddingTop: 80 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={{ fontSize: 28, fontWeight: '900', color: OaklandDusk.brand.gold }}>Sipmetry</Text>
+      <Text style={[Type.display, { color: OaklandDusk.brand.gold }]}>Sipmetry</Text>
 
       {/* ── Confirmation / upgrade pending state ── */}
       {confirmationSent && (
         <>
           <View style={{ alignItems: 'center', paddingTop: 40, gap: 16 }}>
-            <Text style={{ fontSize: 22, fontWeight: '700', color: OaklandDusk.text.primary, textAlign: 'center' }}>
+            <Text style={[Type.title, { color: OaklandDusk.text.primary, textAlign: 'center' }]}>
               Check your inbox
             </Text>
-            <Text style={{ color: OaklandDusk.text.secondary, textAlign: 'center', lineHeight: 22 }}>
+            <Text style={[Type.body, { color: OaklandDusk.text.secondary, textAlign: 'center' }]}>
               We sent a confirmation link to{'\n'}
               <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '600' }}>{email}</Text>
               {'\n\n'}
@@ -149,7 +150,7 @@ export default function LoginScreen() {
               marginTop: 24,
             }}
           >
-            <Text style={{ color: OaklandDusk.brand.gold, fontWeight: '600' }}>
+            <Text style={[Type.caption, { color: OaklandDusk.brand.gold }]}>
               {isAnonymous ? '← Back to My Bar' : 'Back to Sign In'}
             </Text>
           </Pressable>
@@ -159,7 +160,7 @@ export default function LoginScreen() {
       {/* ── Main form ── */}
       {!confirmationSent && (
         <>
-          <Text style={{ color: OaklandDusk.text.secondary, marginBottom: 8 }}>
+          <Text style={[Type.body, { color: OaklandDusk.text.secondary, marginBottom: 8 }]}>
             {upgradeMode
               ? 'Create an account to keep your data safe'
               : isSignUp ? 'Create your account' : 'Sign in to continue'}
@@ -203,7 +204,7 @@ export default function LoginScreen() {
           />
 
           {error ? (
-            <Text style={{ color: OaklandDusk.semantic.error }}>{error}</Text>
+            <Text style={[Type.body, { color: OaklandDusk.semantic.error }]}>{error}</Text>
           ) : null}
 
           {/* Primary action button */}
@@ -218,7 +219,7 @@ export default function LoginScreen() {
               opacity: loading ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: OaklandDusk.bg.void, fontWeight: '800' }}>
+            <Text style={[Type.button, { color: OaklandDusk.bg.void }]}>
               {loading
                 ? 'Loading...'
                 : upgradeMode
@@ -231,7 +232,7 @@ export default function LoginScreen() {
           {upgradeMode ? (
             // Anonymous upgrade mode: offer escape hatch to sign in to existing account
             <Pressable onPress={() => { setForceSignIn(true); setError(null) }}>
-              <Text style={{ textAlign: 'center', color: OaklandDusk.text.secondary }}>
+              <Text style={[Type.caption, { textAlign: 'center', color: OaklandDusk.text.secondary }]}>
                 Already registered?{' '}
                 <Text style={{ color: OaklandDusk.brand.gold }}>Sign in instead</Text>
               </Text>
@@ -242,7 +243,7 @@ export default function LoginScreen() {
               if (forceSignIn) setForceSignIn(false)
               setError(null)
             }}>
-              <Text style={{ textAlign: 'center', color: OaklandDusk.text.secondary }}>
+              <Text style={[Type.caption, { textAlign: 'center', color: OaklandDusk.text.secondary }]}>
                 {isSignUp
                   ? <>{`Already have an account? `}<Text style={{ color: OaklandDusk.brand.gold }}>Sign in</Text></>
                   : <>{`Don't have an account? `}<Text style={{ color: OaklandDusk.brand.gold }}>Sign up</Text></>
@@ -291,7 +292,7 @@ export default function LoginScreen() {
               opacity: loading ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: OaklandDusk.text.primary, fontWeight: '600', fontSize: 16 }}>
+            <Text style={[Type.button, { color: OaklandDusk.text.primary }]}>
               {isAnonymous ? 'Continue with Google' : 'Continue with Google'}
             </Text>
           </Pressable>
@@ -299,7 +300,7 @@ export default function LoginScreen() {
           {/* Back to My Bar — anonymous users only */}
           {isAnonymous && (
             <Pressable onPress={() => router.back()}>
-              <Text style={{ textAlign: 'center', color: OaklandDusk.text.secondary, marginTop: 8 }}>
+              <Text style={[Type.caption, { textAlign: 'center', color: OaklandDusk.text.secondary, marginTop: 8 }]}>
                 ← Back to My Bar
               </Text>
             </Pressable>

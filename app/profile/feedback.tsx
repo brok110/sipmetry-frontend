@@ -14,6 +14,7 @@ import {
 
 import { useAuth } from "@/context/auth";
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { apiFetch } from "@/lib/api";
 
 const CATEGORIES = [
@@ -81,7 +82,7 @@ export default function FeedbackScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} keyboardShouldPersistTaps="handled">
-        <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
+        <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
           {isZh ? "選擇類別" : "Category"}
         </Text>
 
@@ -122,7 +123,7 @@ export default function FeedbackScreen() {
           })}
         </View>
 
-        <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.text.primary }}>
+        <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
           {isZh ? "詳細說明" : "Details"}
         </Text>
 
@@ -146,7 +147,7 @@ export default function FeedbackScreen() {
           }}
         />
 
-        <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, textAlign: "right" }}>
+        <Text style={[Type.caption, { color: OaklandDusk.text.tertiary, textAlign: "right" }]}>
           {content.length} / 5000
         </Text>
 
@@ -161,12 +162,7 @@ export default function FeedbackScreen() {
             opacity: submitting ? 0.6 : 1,
           }}
         >
-          <Text
-            style={{
-              fontWeight: "800",
-              color: canSubmit ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
-            }}
-          >
+          <Text style={[Type.button, { color: canSubmit ? OaklandDusk.bg.void : OaklandDusk.text.tertiary }]}>
             {submitting
               ? isZh ? "提交中..." : "Submitting..."
               : isZh ? "送出回饋" : "Submit Feedback"}

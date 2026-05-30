@@ -3,6 +3,9 @@ import React, { useMemo } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 
+import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
+
 export default function TabFourScreen() {
   const router = useRouter();
 
@@ -43,28 +46,35 @@ export default function TabFourScreen() {
 
   return (
     <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }} keyboardShouldPersistTaps="handled">
-      <Text style={{ fontSize: 22, fontWeight: "900" }}>Share Recipe</Text>
+      {/* Type.display — page heading */}
+      <Text style={[Type.display, { color: OaklandDusk.text.primary }]}>Share Recipe</Text>
 
-      <Text style={{ color: "#555" }}>
+      {/* Type.body — description */}
+      <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>
         Ask your friend to scan this QR code. It will open the recipe link.
       </Text>
 
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, gap: 10 }}>
-        <Text style={{ fontWeight: "900" }}>QR Code</Text>
+        {/* Type.heading — card section title */}
+        <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>QR Code</Text>
 
         {hasLink ? (
           <View style={{ alignItems: "center", paddingVertical: 10, gap: 10 }}>
             <QRCode value={shareUrl} size={220} />
 
-            <Text style={{ color: "#666" }}>Share link:</Text>
-            <Text selectable style={{ fontWeight: "800" }}>
+            {/* Type.caption — "Share link:" label */}
+            <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>Share link:</Text>
+            {/* Type.caption — share URL (selectable) */}
+            <Text selectable style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
               {shareUrl}
             </Text>
 
-            {shareId ? <Text style={{ color: "#999" }}>ID: {shareId}</Text> : null}
+            {/* Type.caption — share ID */}
+            {shareId ? <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>ID: {shareId}</Text> : null}
           </View>
         ) : (
-          <Text style={{ color: "#666" }}>
+          // Type.body — no link fallback
+          <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>
             No share link found. Please go back and tap Share again.
           </Text>
         )}
@@ -86,7 +96,8 @@ export default function TabFourScreen() {
           paddingVertical: 8,
         }}
       >
-        <Text style={{ fontWeight: "800" }}>Back to Recipe</Text>
+        {/* Type.button — back CTA */}
+        <Text style={[Type.button, { color: OaklandDusk.brand.gold }]}>Back to Recipe</Text>
       </Pressable>
     </ScrollView>
   );

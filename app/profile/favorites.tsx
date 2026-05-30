@@ -9,6 +9,7 @@ import Card from "@/components/ui/Card";
 import Pill from "@/components/ui/Pill";
 import SwipeRow from "@/components/ui/SwipeRow";
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { useFeedback } from "@/context/feedback";
 import { aggregateIngredientVectors, buildFourWordDescriptor } from "@/context/ontology";
 import { useAuth } from "@/context/auth";
@@ -288,12 +289,12 @@ export default function TabThreeScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
-      <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary, marginBottom: 16 }}>
+      <Text style={[Type.display, { color: OaklandDusk.text.primary, marginBottom: 16 }]}>
         Favorites
       </Text>
 
       {favoritesList.length === 0 ? (
-        <Text style={{ color: OaklandDusk.text.tertiary }}>(No favorites yet)</Text>
+        <Text style={[Type.body, { color: OaklandDusk.text.tertiary }]}>(No favorites yet)</Text>
       ) : (
         <View>
           {favoritesList.map((fav: any) => {
@@ -314,7 +315,7 @@ export default function TabThreeScreen() {
                     {/* Thumbnail — tap opens lightbox */}
                     <CocktailThumbnail imageUrl={fav.image_url} />
                     <Pressable style={{ flex: 1, marginLeft: 12 }} onPress={() => openFavorite(key)}>
-                      <Text style={{ fontSize: 15, fontWeight: "600", color: OaklandDusk.text.primary }}>
+                      <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                         {title}
                       </Text>
                       {(() => {
@@ -362,7 +363,7 @@ export default function TabThreeScreen() {
       )}
 
       {favoritesList.length > 0 && (
-        <Text style={{ fontSize: 11, color: OaklandDusk.text.disabled, textAlign: "center", marginTop: 16 }}>
+        <Text style={[Type.caption, { color: OaklandDusk.text.disabled, textAlign: "center", marginTop: 16 }]}>
           Swipe left to unfavorite
         </Text>
       )}
