@@ -8,6 +8,7 @@ import StaplesModal, { DEFAULT_STAPLES } from "@/components/StaplesModal";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, isGoldenPathStepReady } from "@/components/GuideBubble";
 import SwipeRow from "@/components/ui/SwipeRow";
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { DEFAULT_BOTTLE_ML } from "@/constants/defaults";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
@@ -1805,7 +1806,7 @@ export default function TabOneScreen() {
 
       {imageUri ? (
         <View style={{ gap: 8 }}>
-          <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Preview</Text>
+          <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Preview</Text>
           <Image
             source={{ uri: imageUri }}
             style={{ width: "100%", height: 260, borderRadius: 12 }}
@@ -1824,10 +1825,12 @@ export default function TabOneScreen() {
               gap: 12,
             }}>
               <ActivityIndicator size="large" color={OaklandDusk.brand.gold} />
-              <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.brand.gold }}>
+              {/* Type.heading — loading state title */}
+              <Text style={[Type.heading, { color: OaklandDusk.brand.gold }]}>
                 {isZh ? "正在辨識你的酒瓶..." : "Identifying your bottles..."}
               </Text>
-              <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, textAlign: "center" }}>
+              {/* Type.caption — loading sub-description */}
+              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary, textAlign: "center" }]}>
                 {isZh ? "這通常需要幾秒鐘" : "This usually takes a few seconds"}
               </Text>
             </View>
@@ -1837,7 +1840,8 @@ export default function TabOneScreen() {
         <View style={{ gap: 12 }}>
           <View style={{ alignItems: "center", paddingVertical: 20, gap: 8 }}>
             <FontAwesome name="camera" size={40} color={OaklandDusk.text.tertiary} />
-            <Text style={{ fontSize: 16, color: OaklandDusk.text.secondary, textAlign: "center" }}>
+            {/* Type.body — empty state description */}
+            <Text style={[Type.body, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
               {isZh ? "掃描你的酒瓶，找到完美雞尾酒" : "Scan your bottles to find cocktails"}
             </Text>
           </View>
@@ -1868,14 +1872,15 @@ export default function TabOneScreen() {
 
       {error ? (
         <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
-          <Text style={{ fontWeight: "800", color: OaklandDusk.accent.crimson }}>Something went wrong</Text>
+          <Text style={[Type.heading, { color: OaklandDusk.accent.crimson }]}>Something went wrong</Text>
           <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
         </View>
       ) : null}
 
       {safety && (safety.risk_level !== "none" || safety.non_consumable_items.length > 0) ? (
         <View style={{ padding: 12, borderWidth: 2, borderRadius: 12, borderColor: OaklandDusk.brand.rust, backgroundColor: OaklandDusk.brand.tagBg }}>
-          <Text style={{ fontWeight: "900", marginBottom: 6, color: OaklandDusk.brand.sundown }}>
+          {/* Type.heading — safety warning title */}
+          <Text style={[Type.heading, { color: OaklandDusk.brand.sundown, marginBottom: 6 }]}>
             Heads up
           </Text>
 
@@ -1889,7 +1894,8 @@ export default function TabOneScreen() {
 
           {safety.non_consumable_items.length > 0 ? (
             <View style={{ gap: 4 }}>
-              <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>
+              {/* Type.heading — verify sub-heading */}
+              <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                 Please verify:
               </Text>
               {safety.non_consumable_items.map((x, i) => (
@@ -1901,10 +1907,12 @@ export default function TabOneScreen() {
       ) : null}
 
       <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
-        <Text style={{ fontWeight: "800", marginBottom: 8, color: OaklandDusk.text.primary }}>Ingredients (editable)</Text>
+        {/* Type.heading — section title */}
+        <Text style={[Type.heading, { color: OaklandDusk.text.primary, marginBottom: 8 }]}>Ingredients (editable)</Text>
 
         {activeIngredients.length === 0 ? (
-          <Text style={{ color: OaklandDusk.text.tertiary }}>(No ingredients yet)</Text>
+          // Type.body — empty state placeholder
+          <Text style={[Type.body, { color: OaklandDusk.text.tertiary }]}>(No ingredients yet)</Text>
         ) : (
           <View style={{ gap: 8 }}>
             {activeIngredients.map((ing, idx) => {
