@@ -4,23 +4,8 @@
 // Note: React Native letterSpacing is in px, not em.
 // Conversion: letterSpacing_px = fontSize × em_value
 
+// Colors removed 2026-05 — unified to OaklandDusk (#C87828 / #F0E4C8). This file is fonts/type/spacing only.
 export const V3 = {
-  // Colors (align with existing OaklandDusk where possible)
-  colors: {
-    gold: "#C9A458",
-    goldDeep: "#9F7F3E",
-    goldSoft: "rgba(201, 164, 88, 0.12)",
-    goldLine: "rgba(201, 164, 88, 0.28)",
-    goldFaint: "rgba(201, 164, 88, 0.08)",
-    void: "#07060E",
-    card: "#0E0B1A",
-    cardRaised: "#141023",
-    text: "#EDE6D6",
-    textDim: "rgba(237, 230, 214, 0.58)",
-    textFaint: "rgba(237, 230, 214, 0.32)",
-    textGhost: "rgba(237, 230, 214, 0.18)",
-    danger: "rgba(184, 84, 80, 0.85)",
-  },
   // Font families (must match useFonts names in app/_layout.tsx)
   fonts: {
     bebas: "BebasNeue",
