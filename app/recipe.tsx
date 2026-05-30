@@ -1193,7 +1193,7 @@ export default function TabTwoScreen() {
       <Stack.Screen options={{ title: "", headerShown: false }} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
       >
         {/* C1: Nav bar */}
         <View style={{
@@ -1279,7 +1279,7 @@ export default function TabTwoScreen() {
         </View>
 
         {/* C1: Hero image */}
-        <View style={{ width: "100%", height: 250, backgroundColor: OaklandDusk.bg.void }}>
+        <View style={{ width: "100%", height: 150, backgroundColor: OaklandDusk.bg.void }}>
           {dbRecipe?.image_url ? (
             <Image
               source={{ uri: dbRecipe.image_url }}
@@ -1300,7 +1300,7 @@ export default function TabTwoScreen() {
         </View>
 
         {/* Main content */}
-        <View style={{ padding: 16, gap: 12 }}>
+        <View style={{ padding: 16, gap: 10 }}>
         {/* Type.display — recipe title */}
         <Text style={[Type.display, { color: OaklandDusk.text.primary }]}>
           {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
@@ -1443,15 +1443,15 @@ export default function TabTwoScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'center',
-            gap: 16,
-            marginTop: 12,
+            gap: 12,
+            marginTop: 8,
           }}>
             <Pressable
               onPress={() => setServings(s => Math.max(1, s - 1))}
               disabled={servings <= 1}
               hitSlop={10}
               style={{
-                width: 36, height: 36,
+                width: 32, height: 32,
                 borderRadius: 18,
                 borderWidth: 1,
                 borderColor: servings <= 1 ? OaklandDusk.bg.border : OaklandDusk.text.tertiary,
@@ -1472,7 +1472,7 @@ export default function TabTwoScreen() {
               disabled={servings >= 5}
               hitSlop={10}
               style={{
-                width: 36, height: 36,
+                width: 32, height: 32,
                 borderRadius: 18,
                 borderWidth: 1,
                 borderColor: servings >= 5 ? OaklandDusk.bg.border : OaklandDusk.text.tertiary,
@@ -1519,8 +1519,28 @@ export default function TabTwoScreen() {
           ) : null}
         </View>
 
-        {/* Primary CTA: Make this cocktail — placed after instructions per UX flow */}
-        {session && dbRecipe && madeDrinkState !== 'hidden' ? (
+        {error ? (
+          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.accent.crimson, borderRadius: 12, backgroundColor: OaklandDusk.accent.roseBg }}>
+            {/* Type.heading — error state title */}
+            <Text style={[Type.heading, { color: OaklandDusk.accent.crimson }]}>Error</Text>
+            {/* Type.body — error description */}
+            <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>{error}</Text>
+          </View>
+        ) : null}
+        </View>{/* end main content wrapper */}
+
+      </ScrollView>
+
+      {/* Sticky footer — primary CTA, non-overlapping (flex sibling of ScrollView) */}
+      {session && dbRecipe && madeDrinkState !== 'hidden' ? (
+        <View style={{
+          paddingHorizontal: 16,
+          paddingTop: 10,
+          paddingBottom: insets.bottom + 12,
+          backgroundColor: OaklandDusk.bg.void,
+          borderTopWidth: 0.5,
+          borderTopColor: OaklandDusk.bg.border,
+        }}>
           <HintBubble
             storageKey={GUIDE_KEYS.GP_STEP_6}
             visible={gpStep6Visible && madeDrinkState === 'idle'}
@@ -1574,19 +1594,8 @@ export default function TabTwoScreen() {
               </Text>
             </Pressable>
           </HintBubble>
-        ) : null}
-
-        {error ? (
-          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.accent.crimson, borderRadius: 12, backgroundColor: OaklandDusk.accent.roseBg }}>
-            {/* Type.heading — error state title */}
-            <Text style={[Type.heading, { color: OaklandDusk.accent.crimson }]}>Error</Text>
-            {/* Type.body — error description */}
-            <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>{error}</Text>
-          </View>
-        ) : null}
-        </View>{/* end main content wrapper */}
-
-      </ScrollView>
+        </View>
+      ) : null}
 
       {/* Stage 3: First-interaction feedback toast */}
       {feedbackToast && (
