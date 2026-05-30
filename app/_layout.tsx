@@ -55,7 +55,6 @@ SplashScreen.preventAutoHideAsync();
 
 export default Sentry.wrap(function RootLayout() {
   const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     BebasNeue: require('../assets/fonts/BebasNeue-Regular.ttf'),
     CormorantGaramond: require('../assets/fonts/CormorantGaramond-LightItalic.ttf'),
     DMMono: require('../assets/fonts/DMMono-Regular.ttf'),
@@ -226,7 +225,6 @@ function RootLayoutNav() {
         }} />
         <Stack.Screen name="age-gate" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
       </Stack>
     </ThemeProvider>
   );
