@@ -56,6 +56,7 @@ SplashScreen.preventAutoHideAsync();
 export default Sentry.wrap(function RootLayout() {
   const [loaded, error] = useFonts({
     BebasNeue: require('../assets/fonts/BebasNeue-Regular.ttf'),
+    EBGaramond: require('../assets/fonts/EBGaramond-SemiBold.ttf'),
     CormorantGaramond: require('../assets/fonts/CormorantGaramond-LightItalic.ttf'),
     DMMono: require('../assets/fonts/DMMono-Regular.ttf'),
     DMMonoMedium: require('../assets/fonts/DMMono-Medium.ttf'),

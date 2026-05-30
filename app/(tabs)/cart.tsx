@@ -21,6 +21,7 @@ import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
 import { openUrl } from "@/lib/openUrl";
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
@@ -230,7 +231,7 @@ export default function CartScreen() {
       setNotifiedKeys((prev) => new Set(prev).add(suggestion.ingredient_key));
 
       // 4. Show toast
-      setToastMessage("Noted \u2014 we'll help you find it soon.");
+      setToastMessage("Noted — we'll help you find it soon.");
 
       // 5. Open Google Shopping after short delay
       setTimeout(async () => {
@@ -256,8 +257,10 @@ export default function CartScreen() {
         <Masthead />
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 16 }}>
           <FontAwesome name="shopping-cart" size={48} color={OaklandDusk.text.tertiary} />
-          <Text style={{ fontSize: 20, fontWeight: "900", color: OaklandDusk.text.primary }}>Smart Restock</Text>
-          <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center" }}>
+          {/* Type.title — empty-state section title */}
+          <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>Smart Restock</Text>
+          {/* Type.body — sign-in description */}
+          <Text style={[Type.body, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
             Sign in to get personalized bottle recommendations based on your bar.
           </Text>
         </View>
@@ -278,8 +281,10 @@ export default function CartScreen() {
     >
       {/* Header */}
       <View style={{ gap: 4 }}>
-        <Text style={{ fontSize: 28, fontWeight: "600", color: OaklandDusk.text.primary }}>What to buy next?</Text>
-        <Text style={{ color: OaklandDusk.text.secondary, fontSize: 13 }}>
+        {/* Type.display — page-level heading */}
+        <Text style={[Type.display, { color: OaklandDusk.text.primary }]}>What to buy next?</Text>
+        {/* Type.caption — small secondary subtitle */}
+        <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
           Based on bottles you already own
         </Text>
       </View>
@@ -307,7 +312,8 @@ export default function CartScreen() {
                 alignItems: "center",
               }}
             >
-              <Text style={{ color: OaklandDusk.bg.void, fontWeight: "800", fontSize: 15 }}>
+              {/* Type.button — primary CTA */}
+              <Text style={[Type.button, { color: OaklandDusk.bg.void }]}>
                 Get Recommendations
               </Text>
             </Pressable>
@@ -319,24 +325,29 @@ export default function CartScreen() {
       {loading && !hasFetched && (
         <View style={{ padding: 40, alignItems: "center" }}>
           <ActivityIndicator size="large" color={OaklandDusk.brand.gold} />
-          <Text style={{ color: OaklandDusk.text.secondary, marginTop: 12 }}>Analyzing your bar...</Text>
+          {/* Type.body — loading state description */}
+          <Text style={[Type.body, { color: OaklandDusk.text.secondary, marginTop: 12 }]}>Analyzing your bar...</Text>
         </View>
       )}
 
       {/* Error */}
       {error && (
         <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
-          <Text style={{ color: OaklandDusk.semantic.error, fontSize: 13 }}>{error}</Text>
+          {/* Type.caption — error message */}
+          <Text style={[Type.caption, { color: OaklandDusk.semantic.error }]}>{error}</Text>
         </View>
       )}
 
       {/* Hero number — top PRIMARY suggestion's unlock count */}
       {hasFetched && primarySuggestions.length > 0 && !loading && (
         <View style={{ alignItems: "center", paddingVertical: 8 }}>
+          {/* LEAVE: 14px hero support text — no matching role */}
           <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>Add one bottle, make</Text>
+          {/* LEAVE: 48px hero number — outside type scale */}
           <Text style={{ fontSize: 48, fontWeight: "800", color: OaklandDusk.brand.gold, lineHeight: 56 }}>
             {primarySuggestions[0].unlocks_count} more
           </Text>
+          {/* LEAVE: 16px "cocktails" companion — no matching role */}
           <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.brand.gold }}>cocktails</Text>
         </View>
       )}
@@ -345,8 +356,10 @@ export default function CartScreen() {
         meta?.reason === "no_inventory" ? (
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
             <FontAwesome name="search" size={36} color={OaklandDusk.text.tertiary} />
-            <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>No bottles in your bar yet</Text>
-            <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center", fontSize: 13 }}>
+            {/* Type.heading — empty-state title */}
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>No bottles in your bar yet</Text>
+            {/* Type.caption — empty-state description */}
+            <Text style={[Type.caption, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
               Scan your bottles first, then come back for personalized recommendations.
             </Text>
             <Pressable
@@ -359,7 +372,8 @@ export default function CartScreen() {
                 marginTop: 8,
               }}
             >
-              <Text style={{ color: OaklandDusk.bg.void, fontWeight: "700", fontSize: 14 }}>
+              {/* Type.button — CTA */}
+              <Text style={[Type.button, { color: OaklandDusk.bg.void }]}>
                 Go to My Bar
               </Text>
             </Pressable>
@@ -367,8 +381,10 @@ export default function CartScreen() {
         ) : (
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
             <FontAwesome name="check-circle" size={36} color="#6B8F6B" />
-            <Text style={{ fontWeight: "700", color: OaklandDusk.text.primary }}>Your bar is well stocked!</Text>
-            <Text style={{ color: OaklandDusk.text.secondary, textAlign: "center", fontSize: 13 }}>
+            {/* Type.heading — empty-state title */}
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Your bar is well stocked!</Text>
+            {/* Type.caption — empty-state description */}
+            <Text style={[Type.caption, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
               Scan more bottles or add favorites to get better suggestions.
             </Text>
           </View>
@@ -411,7 +427,8 @@ export default function CartScreen() {
                 borderBottomRightRadius: 8,
                 zIndex: 1,
               }}>
-                <Text style={{ fontSize: 11, fontWeight: "800", color: OaklandDusk.bg.void }}>#1 pick</Text>
+                {/* Type.label — badge kicker */}
+                <Text style={[Type.label, { color: OaklandDusk.bg.void }]}>#1 pick</Text>
               </View>
             )}
 
@@ -419,23 +436,25 @@ export default function CartScreen() {
               {/* Row 1: Bottle name + category + big unlock number */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ fontSize: 17, fontWeight: "800", color: OaklandDusk.text.primary }}>
+                  {/* Type.heading — ingredient name / card title */}
+                  <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                     {s.display_name}
                   </Text>
                   {categoryLabel ? (
-                    <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary, marginTop: 2 }}>
+                    // Type.caption — category sub-label
+                    <Text style={[Type.caption, { color: OaklandDusk.text.tertiary, marginTop: 2 }]}>
                       {categoryLabel}
                     </Text>
                   ) : null}
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{
-                    fontSize: 22,
-                    fontWeight: "800",
+                  {/* Type.title — +N unlock badge (BebasNeue 22, gold if isTop) */}
+                  <Text style={[Type.title, {
                     color: isTop ? OaklandDusk.brand.gold : "#6B8F6B",
-                  }}>
+                  }]}>
                     +{s.unlocks_count}
                   </Text>
+                  {/* LEAVE: 10px sub-label — below caption floor (12px) */}
                   <Text style={{
                     fontSize: 10,
                     color: OaklandDusk.text.tertiary,
@@ -448,7 +467,8 @@ export default function CartScreen() {
               {/* Row 3: Unlocked recipes — tappable */}
               {showRecipes.length > 0 && (
                 <View style={{ gap: 4 }}>
-                  <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.text.tertiary, letterSpacing: 0.5 }}>
+                  {/* Type.label — section kicker */}
+                  <Text style={[Type.label, { color: OaklandDusk.text.tertiary }]}>
                     YOU COULD MAKE
                   </Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -485,12 +505,12 @@ export default function CartScreen() {
                             borderWidth: 0.5,
                             borderColor: "rgba(240,228,200,0.12)",
                           }}>
-                            <Text style={{
-                              fontSize: 12,
+                            {/* Type.caption — recipe name pill */}
+                            <Text style={[Type.caption, {
                               color: ibaCode ? OaklandDusk.brand.gold : OaklandDusk.text.secondary,
                               textDecorationLine: ibaCode ? "underline" : "none",
                               textDecorationColor: "rgba(200,152,88,0.3)",
-                            }}>
+                            }]}>
                               {name}
                             </Text>
                           </View>
@@ -499,7 +519,8 @@ export default function CartScreen() {
                     })}
                     {moreCount > 0 && (
                       <View style={{ paddingHorizontal: 8, paddingVertical: 3 }}>
-                        <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }}>+{moreCount} more</Text>
+                        {/* Type.caption — overflow count */}
+                        <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>+{moreCount} more</Text>
                       </View>
                     )}
                   </View>
@@ -519,14 +540,14 @@ export default function CartScreen() {
                       borderRadius: 2,
                     }} />
                   </View>
+                  {/* LEAVE: 11px metadata — DMMono+uppercase would distort "73% match" */}
                   <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, minWidth: 65 }}>
                     {prefPercent}% match
                   </Text>
                 </View>
               )}
 
-              {/* Row 5: Buy CTA — for the first item, HintBubble and Pressable share
-                  the same position:relative wrapper so measureInWindow captures the button. */}
+              {/* Row 5: Buy CTA */}
               {i === 0 ? (
                 <HintBubble
                   storageKey={GUIDE_KEYS.RESTOCK_FIND}
@@ -561,13 +582,13 @@ export default function CartScreen() {
                         ? "#4ade80"
                         : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
                     />
-                    <Text style={{
-                      fontSize: 14, fontWeight: "700",
+                    {/* Type.button — primary CTA */}
+                    <Text style={[Type.button, {
                       color: notifiedKeys.has(s.ingredient_key)
                         ? "#4ade80"
                         : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
-                    }}>
-                      {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
+                    }]}>
+                      {notifiedKeys.has(s.ingredient_key) ? "Noted ✓" : "I Want This"}
                     </Text>
                   </Pressable>
                 </HintBubble>
@@ -594,13 +615,13 @@ export default function CartScreen() {
                       ? "#4ade80"
                       : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
                   />
-                  <Text style={{
-                    fontSize: 14, fontWeight: "700",
+                  {/* Type.button — primary CTA */}
+                  <Text style={[Type.button, {
                     color: notifiedKeys.has(s.ingredient_key)
                       ? "#4ade80"
                       : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
-                  }}>
-                    {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
+                  }]}>
+                    {notifiedKeys.has(s.ingredient_key) ? "Noted ✓" : "I Want This"}
                   </Text>
                 </Pressable>
               )}
@@ -618,10 +639,12 @@ export default function CartScreen() {
             style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {/* LEAVE: 15px/700 section toggle — doesn't cleanly map to heading(17) or body(15/normal) */}
               <Text style={{ fontSize: 15, fontWeight: "700", color: exploreExpanded ? OaklandDusk.brand.gold : OaklandDusk.text.secondary }}>
                 Explore
               </Text>
               <View style={{ backgroundColor: "rgba(200,120,40,0.1)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+                {/* LEAVE: 11px pill count — label textTransform would uppercase "3 upgrades" */}
                 <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>
                   {exploreSuggestions.length} upgrade{exploreSuggestions.length > 1 ? "s" : ""}
                 </Text>
@@ -636,7 +659,8 @@ export default function CartScreen() {
 
           {/* Subtitle when collapsed */}
           {!exploreExpanded && (
-            <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 6 }}>
+            // Type.caption — collapsed section subtitle
+            <Text style={[Type.caption, { color: OaklandDusk.text.secondary, marginTop: 6 }]}>
               You can already make these with substitutes in your bar
             </Text>
           )}
@@ -664,13 +688,16 @@ export default function CartScreen() {
                     {/* Header: name + category + unlock count (gray, not gold) */}
                     <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.text.primary }}>
+                        {/* Type.heading — explore card ingredient name */}
+                        <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                           {s.display_name}
                         </Text>
-                        <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 2 }}>
+                        {/* Type.caption — category sub-label */}
+                        <Text style={[Type.caption, { color: OaklandDusk.text.secondary, marginTop: 2 }]}>
                           {s.category_key ? s.category_key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : ""}
                         </Text>
                       </View>
+                      {/* LEAVE: 14px/600 muted count — between caption(12) and body(15), no clean role */}
                       <Text style={{ fontSize: 14, fontWeight: "600", color: OaklandDusk.text.secondary }}>
                         +{s.unlocks_count}
                       </Text>
@@ -684,7 +711,8 @@ export default function CartScreen() {
                         paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
                       }}>
                         <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#639922" }} />
-                        <Text style={{ fontSize: 12, color: "#97C459" }}>
+                        {/* Type.caption — availability note */}
+                        <Text style={[Type.caption, { color: "#97C459" }]}>
                           You have {covering.user_has_display} as a substitute
                         </Text>
                       </View>
@@ -692,7 +720,8 @@ export default function CartScreen() {
 
                     {/* Alt description */}
                     {s.alt_description ? (
-                      <Text style={{ fontSize: 12, color: OaklandDusk.text.secondary }}>
+                      // Type.caption — alt description
+                      <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
                         {s.alt_description}
                       </Text>
                     ) : null}
@@ -700,7 +729,8 @@ export default function CartScreen() {
                     {/* Recipe pills — muted style */}
                     {showRecipes.length > 0 && (
                       <View>
-                        <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary, letterSpacing: 0.3, marginBottom: 4 }}>
+                        {/* Type.label — recipe section kicker */}
+                        <Text style={[Type.label, { color: OaklandDusk.text.secondary, marginBottom: 4 }]}>
                           ORIGINAL RECIPE USES {s.display_name.toUpperCase()} IN
                         </Text>
                         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
@@ -709,6 +739,7 @@ export default function CartScreen() {
                               backgroundColor: "rgba(200,120,40,0.08)",
                               paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
                             }}>
+                              {/* LEAVE: 11px recipe names — label would uppercase proper nouns */}
                               <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{name}</Text>
                             </View>
                           ))}
@@ -736,11 +767,11 @@ export default function CartScreen() {
                         size={12}
                         color={notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
                       />
-                      <Text style={{
-                        fontSize: 14, fontWeight: "700",
+                      {/* Type.button — explore CTA */}
+                      <Text style={[Type.button, {
                         color: notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
-                      }}>
-                        {notifiedKeys.has(s.ingredient_key) ? "Noted \u2713" : "I Want This"}
+                      }]}>
+                        {notifiedKeys.has(s.ingredient_key) ? "Noted ✓" : "I Want This"}
                       </Text>
                     </Pressable>
                   </View>
@@ -753,6 +784,7 @@ export default function CartScreen() {
 
       {/* Preference match info */}
       {hasFetched && filteredSuggestions.length > 0 && (
+        // LEAVE: 11px footnote — label textTransform would uppercase the hint text
         <Text style={{ color: OaklandDusk.text.tertiary, fontSize: 11, textAlign: "center", marginTop: 4 }}>
           Recommendations based on your inventory, favorites, and taste preferences.
           {"\n"}Pull down to refresh.
@@ -772,6 +804,7 @@ export default function CartScreen() {
           shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
         }}>
           <FontAwesome name="check-circle" size={16} color="#4ade80" />
+          {/* LEAVE: 13px toast message with hardcoded color — UI component, not content role */}
           <Text style={{ fontSize: 13, color: "#F2E8D8", flex: 1 }}>
             {toastMessage}
           </Text>
