@@ -821,8 +821,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: V3.colors.goldLine,        // 28% gold
-    backgroundColor: V3.colors.goldSoft,    // 12% gold
+    borderColor: `${OaklandDusk.brand.gold}47`,        // brand gold @28%
+    backgroundColor: `${OaklandDusk.brand.gold}1F`,    // brand gold @12%
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1081,11 +1081,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: V3.colors.textGhost,   // 18% white
+    borderBottomColor: `${OaklandDusk.text.primary}2E`,   // text primary @18%
   },
   filterToggleOpen: {
     color: OaklandDusk.brand.gold,
-    borderBottomColor: V3.colors.goldLine,    // 18% gold
+    borderBottomColor: `${OaklandDusk.brand.gold}47`,    // brand gold @28%
   },
   // Stage 3: + / − icon visual emphasis (always gold, +6px size bump)
   filterToggleIcon: {
@@ -1103,7 +1103,7 @@ const styles = StyleSheet.create({
   chipsLabel: {
     ...V3.type.chipLabel,
     textTransform: "uppercase" as const,
-    color: V3.colors.textFaint,
+    color: `${OaklandDusk.text.primary}52`,
     marginBottom: V3.spacing.chipsLabelGapBottom,   // 8
     textAlign: "center" as const,
   },
@@ -1117,12 +1117,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: V3.spacing.chipPaddingH,     // 13
     paddingVertical: V3.spacing.chipPaddingV,       // 7
     borderWidth: 1,
-    borderColor: V3.colors.textGhost,
+    borderColor: `${OaklandDusk.text.primary}2E`,
     backgroundColor: "transparent",
   },
   chipActive: {
     borderColor: OaklandDusk.brand.gold,
-    backgroundColor: V3.colors.goldSoft,
+    backgroundColor: `${OaklandDusk.brand.gold}1F`,
   },
   chipText: {
     ...V3.type.chip,
