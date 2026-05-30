@@ -31,6 +31,7 @@ import {
 } from "@/context/ontology";
 import { useFavorites } from "@/context/favorites";
 import OaklandDusk from "@/constants/OaklandDusk";
+import Type from "@/constants/typography";
 import { useUnitPreference } from "@/hooks/useUnitPreference";
 
 type DbRecipeIngredient = {
@@ -968,7 +969,7 @@ export default function TabTwoScreen() {
 
   const renderDbIngredients = () => {
     const list = Array.isArray(dbRecipe?.ingredients) ? dbRecipe!.ingredients : [];
-    if (list.length === 0) return <Text style={{ color: OaklandDusk.text.tertiary }}>(No ingredients)</Text>;
+    if (list.length === 0) return <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>(No ingredients)</Text>;
 
     const sorted = [...list].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
@@ -1161,7 +1162,7 @@ export default function TabTwoScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text style={{ fontSize: 20, fontWeight: "800", color: OaklandDusk.text.primary }}>Recipe</Text>
-          <Text style={{ color: OaklandDusk.text.secondary }}>No recipe selected. Go back to Scan and tap "View".</Text>
+          <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>No recipe selected. Go back to Scan and tap "View".</Text>
 
           {__DEV__ ? (
             <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 6, backgroundColor: OaklandDusk.bg.card }}>
@@ -1300,7 +1301,8 @@ export default function TabTwoScreen() {
 
         {/* Main content */}
         <View style={{ padding: 16, gap: 12 }}>
-        <Text style={{ fontSize: 22, fontWeight: "700", color: OaklandDusk.text.primary }}>
+        {/* Type.display — recipe title */}
+        <Text style={[Type.display, { color: OaklandDusk.text.primary }]}>
           {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
         </Text>
 
@@ -1364,8 +1366,10 @@ export default function TabTwoScreen() {
 
         {loading ? (
           <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, backgroundColor: OaklandDusk.bg.card }}>
-            <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Loading…</Text>
-            <Text style={{ color: OaklandDusk.text.secondary }}>
+            {/* Type.heading — loading state title */}
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Loading…</Text>
+            {/* Type.body — loading state description */}
+            <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>
               Fetching full recipe from backend using iba_code: {ibaCode || "(missing)"}
             </Text>
           </View>
@@ -1486,18 +1490,19 @@ export default function TabTwoScreen() {
           <View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <FontAwesome name="flask" size={14} color={OaklandDusk.brand.gold} />
-              <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Ingredients</Text>
+              {/* Type.title — section header */}
+              <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>Ingredients</Text>
             </View>
             {dbRecipe ? (
               renderDbIngredients()
             ) : loading ? (
-              <Text style={{ color: OaklandDusk.text.tertiary }}>(Loading full recipe…)</Text>
+              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>(Loading full recipe…)</Text>
             ) : error ? (
-              <Text style={{ color: OaklandDusk.semantic.error }}>Failed to load recipe: {error}</Text>
+              <Text style={[Type.body, { color: OaklandDusk.semantic.error }]}>Failed to load recipe: {error}</Text>
             ) : ibaCode ? (
-              <Text style={{ color: OaklandDusk.text.tertiary }}>(Waiting for full recipe…)</Text>
+              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>(Waiting for full recipe…)</Text>
             ) : (
-              <Text style={{ color: OaklandDusk.text.tertiary }}>(Missing iba_code)</Text>
+              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>(Missing iba_code)</Text>
             )}
           </View>
 
@@ -1505,9 +1510,11 @@ export default function TabTwoScreen() {
             <View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <FontAwesome name="list-ol" size={14} color={OaklandDusk.brand.gold} />
-                <Text style={{ fontWeight: "900", color: OaklandDusk.text.primary }}>Instructions</Text>
+                {/* Type.title — section header */}
+              <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>Instructions</Text>
               </View>
-              <Text style={{ color: OaklandDusk.text.secondary }}>{String(dbRecipe.instructions)}</Text>
+              {/* Type.body — instructions paragraph */}
+              <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>{String(dbRecipe.instructions)}</Text>
             </View>
           ) : null}
         </View>
@@ -1561,7 +1568,8 @@ export default function TabTwoScreen() {
               {madeDrinkLoading
                 ? <ActivityIndicator size="small" color={madeDrinkState === 'done' ? '#FFF' : '#1A1A2E'} />
                 : null}
-              <Text style={{ fontWeight: '900', color: madeDrinkState === 'done' ? '#FFF' : '#1A1A2E', fontSize: 18 }}>
+              {/* Type.button — primary CTA */}
+              <Text style={[Type.button, { color: madeDrinkState === 'done' ? '#FFF' : '#1A1A2E' }]}>
                 {madeDrinkState === 'done' ? 'Logged!' : 'I made this'}
               </Text>
             </Pressable>
@@ -1570,8 +1578,10 @@ export default function TabTwoScreen() {
 
         {error ? (
           <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.accent.crimson, borderRadius: 12, backgroundColor: OaklandDusk.accent.roseBg }}>
-            <Text style={{ fontWeight: "800", color: OaklandDusk.accent.crimson }}>Error</Text>
-            <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
+            {/* Type.heading — error state title */}
+            <Text style={[Type.heading, { color: OaklandDusk.accent.crimson }]}>Error</Text>
+            {/* Type.body — error description */}
+            <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>{error}</Text>
           </View>
         ) : null}
         </View>{/* end main content wrapper */}
