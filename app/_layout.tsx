@@ -184,6 +184,12 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: OaklandDusk.bg.void },
             headerTintColor: OaklandDusk.text.primary,
             headerTitleStyle: { color: OaklandDusk.text.primary },
+            headerLeft: () => (
+              <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
+                <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>Recipe</Text>
+              </Pressable>
+            ),
           }}
         />
         <Stack.Screen
