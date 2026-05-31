@@ -82,12 +82,13 @@ export default function TabFourScreen() {
 
       {/* ✅ [UPDATED] Back to the SAME Recipe (Tab 2) with params */}
       <Pressable
-        onPress={() =>
-          router.push({
-            pathname: "/recipe",
-            params: backParams,
-          })
-        }
+        onPress={() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace({ pathname: "/recipe", params: backParams });
+          }
+        }}
         style={{
           alignSelf: "flex-start",
           borderWidth: 1,
