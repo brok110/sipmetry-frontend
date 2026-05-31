@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { openUrl } from '@/lib/openUrl';
-import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, resetAllGuides } from "@/components/GuideBubble";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import Masthead from "@/components/Masthead";
 
 import { apiFetch } from "@/lib/api";
@@ -459,26 +459,7 @@ export default function ProfileScreen() {
             </Pressable>
           </View>
         )}
-        {__DEV__ && (
-          <Pressable
-            onPress={async () => {
-              await resetAllGuides();
-              Alert.alert("Done", "All guide bubbles reset. Restart the app to see them.");
-            }}
-            style={{
-              borderRadius: 12,
-              paddingVertical: 10,
-              alignItems: "center",
-              borderWidth: 1,
-              borderColor: OaklandDusk.bg.border,
-              backgroundColor: OaklandDusk.bg.card,
-            }}
-          >
-            <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>
-              Reset Guide Bubbles (DEV)
-            </Text>
-          </Pressable>
-        )}
+
       </ScrollView>
     </View>
   );
