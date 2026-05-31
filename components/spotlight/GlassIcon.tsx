@@ -15,12 +15,10 @@ import Animated, {
 
 import type { SpotlightColor } from './types';
 import { SPOTLIGHT, GLOW_COLORS, GLASS } from './SpotlightTokens';
+import type { IconPosition } from './placement';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-export type IconPosition = 'above' | 'below';
+// Re-export so existing importers (SpotlightOverlay) don't need to change yet.
+export type { IconPosition };
 
 interface GlassIconProps {
   icon: string;
@@ -41,9 +39,12 @@ export default function GlassIcon({ icon, color, centerX, centerY, arrowPosition
   const size = SPOTLIGHT.ICON_SIZE;
   const arrowSize = 10;
 
-  // Entrance animation: fade + slide up + scale
+  // Entrance animation: fade + slide + scale.
+  // 'center' has no directional preference — enter in place (translateY = 0).
   const opacity = useSharedValue(0);
-  const translateY = useSharedValue(arrowPosition === 'above' ? -8 : 8);
+  const translateY = useSharedValue(
+    arrowPosition === 'above' ? -8 : arrowPosition === 'center' ? 0 : 8
+  );
   const scale = useSharedValue(0.88);
 
   useEffect(() => {
@@ -68,9 +69,9 @@ export default function GlassIcon({ icon, color, centerX, centerY, arrowPosition
     alignItems: 'center' as const,
   };
 
+  // Arrow points toward the target — downward triangle when icon is above,
+  // upward triangle when icon is below. No arrow when centered on the target.
   const arrowAbove = arrowPosition === 'above';
-  // Arrow points toward the target — downward triangle when icon is above target,
-  // upward triangle when icon is below target.
   const arrowStyle = [
     styles.arrow,
     {
@@ -88,7 +89,7 @@ export default function GlassIcon({ icon, color, centerX, centerY, arrowPosition
   return (
     <Animated.View style={[containerStyle, animStyle]} pointerEvents="none">
       {/* Arrow on top (when icon is below target) */}
-      {!arrowAbove && <View style={arrowStyle} />}
+      {arrowPosition === 'below' && <View style={arrowStyle} />}
 
       {/*
        * Glass badge
@@ -125,7 +126,7 @@ export default function GlassIcon({ icon, color, centerX, centerY, arrowPosition
       </View>
 
       {/* Arrow on bottom (when icon is above target) */}
-      {arrowAbove && <View style={arrowStyle} />}
+      {arrowPosition === 'above' && <View style={arrowStyle} />}
     </Animated.View>
   );
 }

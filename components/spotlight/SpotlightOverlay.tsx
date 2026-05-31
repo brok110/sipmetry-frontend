@@ -3,42 +3,10 @@ import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { useSpotlight } from './SpotlightContext';
 import SpotlightSvg from './SpotlightSvg';
-import GlassIcon, { type IconPosition } from './GlassIcon';
+import GlassIcon from './GlassIcon';
+import { resolveIconPosition, iconCenter, clampToScreen } from './placement';
 import { SPOTLIGHT } from './SpotlightTokens';
-import type { TargetRect } from './types';
 import { dismissGuide, type GuideKey } from '../GuideBubble';
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function resolveIconPosition(
-  rect: TargetRect,
-  screenHeight: number,
-  requested: 'above' | 'below' | 'auto',
-): IconPosition {
-  if (requested !== 'auto') return requested;
-  // Target in the bottom 40% of the screen → icon goes above to stay visible.
-  return rect.y + rect.height > screenHeight * 0.6 ? 'above' : 'below';
-}
-
-function iconCenter(
-  rect: TargetRect,
-  position: IconPosition,
-): { x: number; y: number } {
-  const cx = rect.x + rect.width / 2;
-
-  if (position === 'above') {
-    return {
-      x: cx,
-      y: rect.y - SPOTLIGHT.PAD_Y - SPOTLIGHT.ICON_GAP - SPOTLIGHT.ICON_SIZE / 2,
-    };
-  }
-  return {
-    x: cx,
-    y: rect.y + rect.height + SPOTLIGHT.PAD_Y + SPOTLIGHT.ICON_GAP + SPOTLIGHT.ICON_SIZE / 2,
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -46,7 +14,7 @@ function iconCenter(
 
 export default function SpotlightOverlay() {
   const { activeHint, activeRect, overlayOpacity, hide } = useSpotlight();
-  const { height: screenH } = useWindowDimensions();
+  const { width: screenW, height: screenH } = useWindowDimensions();
 
   // Return null only after clearActive() runs (after fade-out completes), so
   // the SVG opacity animation can finish before this component unmounts.
@@ -70,8 +38,9 @@ export default function SpotlightOverlay() {
   const pw = activeRect.width  + SPOTLIGHT.PAD_X * 2;
   const ph = activeRect.height + SPOTLIGHT.PAD_Y * 2;
 
-  const iconPos = resolveIconPosition(activeRect, screenH, activeHint.iconPosition);
-  const center  = iconCenter(activeRect, iconPos);
+  const iconPos    = resolveIconPosition(activeRect, screenH, activeHint.iconPosition, activeHint.hintType);
+  const rawCenter  = iconCenter(activeRect, iconPos);
+  const center     = clampToScreen(rawCenter, screenW, screenH);
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
