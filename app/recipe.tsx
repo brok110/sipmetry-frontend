@@ -310,16 +310,18 @@ export default function TabTwoScreen() {
   // Recipe hints — chain: I made this → FAV ❤️ → SHARE 📤
   // FAV and SHARE are only triggered by "I made this", never auto-shown on mount.
   useEffect(() => {
+    // Gate on dbRecipe: the sticky "I made this" footer is conditionally rendered
+    // only after dbRecipe loads (line ~1441). Firing on mount would measure against
+    // an unmounted target. Re-runs when dbRecipe arrives, which is the correct time.
+    if (!dbRecipe) return;
+    let alive = true;
     (async () => {
-      // Only show GP_STEP_6 on mount. FAV and SHARE hints are triggered
-      // by the "I made this" button press, not on mount.
-      const gpReady = await isGoldenPathStepReady(6);
-      if (gpReady) {
-        setGpStep6Visible(true);
-      }
-      // Do NOT check or show RECIPE_FAV or RECIPE_SHARE here.
+      // Only show GP_STEP_6 once the recipe data has loaded. FAV and SHARE hints
+      // are triggered by the "I made this" button press, not here.
+      if ((await isGoldenPathStepReady(6)) && alive) setGpStep6Visible(true);
     })();
-  }, []);
+    return () => { alive = false; };
+  }, [dbRecipe]);
 
   useEffect(() => {
     let alive = true;
