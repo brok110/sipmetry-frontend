@@ -83,10 +83,15 @@ export function SpotlightProvider({ children }: { children: React.ReactNode }) {
       }
       if (!rect) return; // Still unmeasurable — skip silently rather than crash.
 
+      // Idempotent: if re-measuring an already-active hint, update the rect
+      // without re-running the enter animation (avoids flicker on onLayout re-fires).
+      const alreadyActive = activeKeyRef.current === hint.storageKey;
       activeKeyRef.current = hint.storageKey;
       setActiveHint(hint);
       setActiveRect(rect);
-      overlayOpacity.value = withTiming(1, { duration: SPOTLIGHT.ENTER_DURATION });
+      if (!alreadyActive) {
+        overlayOpacity.value = withTiming(1, { duration: SPOTLIGHT.ENTER_DURATION });
+      }
     };
 
     doShow();

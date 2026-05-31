@@ -1,10 +1,9 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet as RNSheet, View } from "react-native";
+import React, { useCallback, useEffect, useRef } from "react";
+import { Animated, Keyboard, StyleSheet as RNSheet, View } from "react-native";
 
 import { useSpotlight } from "./spotlight/SpotlightContext";
 import { useTargetMeasurement } from "./spotlight/useTargetMeasurement";
-import { SPOTLIGHT } from "./spotlight/SpotlightTokens";
 import type { SpotlightColor } from "./spotlight/types";
 
 // ── Guide keys ────────────────────────────────────────────────────────────────
@@ -179,36 +178,68 @@ function SpotlightHintBubble({
   // activeKey goes null while visible is still true in the parent.
   const hasBeenActiveRef = useRef(false);
 
+  // True once the wrapper View has fired its first onLayout.
+  // We gate the initial measure on this so we never measure before layout settles.
+  const hasLayoutRef = useRef(false);
+
+  // Refs for the pending debounce timer and rAF handle so we can cancel both.
+  const measureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
+
   // Keep a stable ref to onDismiss so the effect below doesn't need it as a dep.
   const onDismissRef = useRef(onDismiss);
   useEffect(() => { onDismissRef.current = onDismiss; }, [onDismiss]);
 
+  // Cancel any in-flight debounce timer or rAF.
+  const cancelMeasure = useCallback(() => {
+    if (measureTimerRef.current != null) { clearTimeout(measureTimerRef.current); measureTimerRef.current = null; }
+    if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+  }, []);
+
+  // Debounced measure+show: waits 60ms after the last trigger before measuring.
+  // Consolidates rapid onLayout fires and lets parent animations (e.g. KAV) settle
+  // before measureInWindow runs — prevents "wrong position → correct position" jump
+  // and eliminates SpotlightSvg withTiming jitter from rect corrections.
+  const measureAndShow = useCallback(() => {
+    cancelMeasure();
+    measureTimerRef.current = setTimeout(() => {
+      measureTimerRef.current = null;
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = null;
+        show({
+          storageKey,
+          measureFn: measure,
+          hintType,
+          color:        COLOR_MAP[hintColor],
+          icon:         ICON_MAP[storageKey] ?? null,
+          iconPosition: POSITION_MAP[storageKey] ?? "auto",
+          onDismiss: onDismissRef.current,
+        });
+      });
+    }, 60);
+  }, [storageKey, hintType, hintColor, measure, show, cancelMeasure]);
+
   // Show / hide in response to the visible prop.
   useEffect(() => {
-    if (!visible) {
-      hide(storageKey);
-      return;
-    }
+    if (!visible) { cancelMeasure(); hide(storageKey); return; }
+    // If layout hasn't fired yet, skip here — onLayout will trigger the first measure
+    // once the view is actually settled. This prevents a "wrong-then-correct" jump.
+    if (hasLayoutRef.current) measureAndShow();
 
-    // Small delay before measuring — lets the layout stabilise on first mount.
-    const timer = setTimeout(async () => {
-      const rect = await measure();
-      console.log(`[DEBUG] SpotlightHintBubble show: key=${storageKey} rect=`, rect);
-      show({
-        storageKey,
-        measureFn: measure,
-        hintType,
-        color:        COLOR_MAP[hintColor],
-        icon:         ICON_MAP[storageKey] ?? null,
-        iconPosition: POSITION_MAP[storageKey] ?? "auto",
-        onDismiss,
-      });
-    }, SPOTLIGHT.MEASURE_DELAY);
+    // Re-measure after keyboard animations fully complete.
+    // KeyboardAvoidingView behavior="padding" moves position:absolute children via a
+    // native-driver Animated animation. onLayout fires once at the start (not per
+    // frame), so our debounce can fire mid-animation and capture the wrong y.
+    // keyboardDidShow / keyboardDidHide fire only after the animation settles.
+    const subShow = Keyboard.addListener('keyboardDidShow', measureAndShow);
+    const subHide = Keyboard.addListener('keyboardDidHide', measureAndShow);
 
-    return () => clearTimeout(timer);
-    // Intentionally omitting onDismiss — it's captured via onDismissRef.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, storageKey]);
+    return () => {
+      cancelMeasure();
+      subShow.remove();
+      subHide.remove();
+    };
+  }, [visible, storageKey, measureAndShow, cancelMeasure, hide]);
 
   // Detect external dismissal: we were the active hint but activeKey became
   // null while the parent still has visible=true (e.g. Android BackHandler
@@ -226,7 +257,12 @@ function SpotlightHintBubble({
 
   if (children) {
     return (
-      <View ref={ref} collapsable={false} style={{ position: "relative" }}>
+      <View
+        ref={ref}
+        collapsable={false}
+        onLayout={() => { hasLayoutRef.current = true; if (visible) measureAndShow(); }}
+        style={{ position: "relative" }}
+      >
         {children}
       </View>
     );
@@ -236,6 +272,7 @@ function SpotlightHintBubble({
     <View
       ref={ref}
       collapsable={false}
+      onLayout={() => { hasLayoutRef.current = true; if (visible) measureAndShow(); }}
       style={RNSheet.absoluteFillObject}
       pointerEvents="none"
     />
