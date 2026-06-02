@@ -1,4 +1,5 @@
 import { useAuth } from '@/context/auth'
+import { SoundService } from '@/lib/sounds'
 import OaklandDusk from '@/constants/OaklandDusk'
 import Type from '@/constants/typography'
 import * as AppleAuthentication from 'expo-apple-authentication'
@@ -55,10 +56,12 @@ export default function LoginScreen() {
           return
         }
         setConfirmationSent(true)
+        SoundService.play('accountCreated')
       } else if (isSignUp) {
         const { error } = await signUpWithEmail(email, password)
         if (error) { setError(error); return }
         setConfirmationSent(true)
+        SoundService.play('accountCreated')
       } else {
         const { error } = await signInWithEmail(email, password)
         if (error) { setError(error); return }

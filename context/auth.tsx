@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase'
 import { registerPushToken } from '@/lib/pushNotifications'
+import { SoundService } from '@/lib/sounds'
 import type { Session, User } from '@supabase/supabase-js'
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { Platform } from 'react-native'
@@ -69,9 +70,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Read via ref to avoid stale closure (userRef tracks latest user)
       const wasAnonymous = userRef.current?.is_anonymous ?? false
+      const prevId = userRef.current?.id
 
       setSession(session)
       setUser(session?.user ?? null)
+
+      if (wasAnonymous && session?.user && !session.user.is_anonymous
+          && session.user.id === prevId) {
+        SoundService.play('accountCreated')
+      }
 
       // Detect anonymous session unexpectedly lost — data may be unrecoverable
       if (event === 'SIGNED_OUT' && wasAnonymous) {

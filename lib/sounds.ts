@@ -2,11 +2,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 let audioModule: typeof import('expo-audio') | null = null;
 
-type SoundName = 'cheers' | 'scanning';
+type SoundName = 'cheers' | 'scanning' | 'accountCreated';
 
 const SOUND_FILES: Record<SoundName, any> = {
   cheers: require('@/assets/sounds/glass_clinking_2s-3s.mp3'),
   scanning: require('@/assets/sounds/martini_shake_pour_1s-10s.mp3'),
+  accountCreated: require('@/assets/sounds/m_fantastic.m4a'),
 };
 
 const SOUNDS_ENABLED_KEY = 'sipmetry:sounds_enabled';
@@ -26,7 +27,7 @@ class SoundServiceClass {
 
     try {
       await audioModule.setAudioModeAsync({
-        playsInSilentMode: true,
+        playsInSilentMode: false,
         shouldPlayInBackground: false,
       });
     } catch (e) {
