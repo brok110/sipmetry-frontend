@@ -4,52 +4,70 @@ First-ever App Store submission. iPhone-only launch (iPad deferred, reversible).
 ascAppId 6760887396, bundle com.sipmetry.app.
 
 ## Stage 1: app.json corrections
-**Goal**: app.json is submission-clean — correct display name, no iPad
-audit surface, no duplicate plugins, brand-correct notification color,
-dead Android audio permissions removed.
-**Success Criteria**:
-- supportsTablet = false
-- Display name = "Sipmetry"
-- Single Sentry plugin entry (expo plugin form only)
-- Notification color = #E0A030 (OaklandDusk sundown)
-- expo-audio retained (playback only); RECORD_AUDIO removed; no mic usage string added
-- prebuild-generated Info.plist contains NO empty/unwanted NSMicrophoneUsageDescription
-- `npx tsc --noEmit` clean
-**Tests**:
-- `npx expo prebuild --platform ios --no-install` succeeds
-- grep Info.plist for NSMicrophoneUsageDescription -> absent
-- grep Info.plist for ipad orientation key -> absent
-**Status**: In Progress
+**Status**: Complete (frontend 1a00e09)
+- supportsTablet=false (iPhone-only); display name "Sipmetry"; removed
+  duplicate sentry plugin; notification color #E0A030; removed dead Android
+  audio permissions; expo-audio -> { microphonePermission: false }.
+- Verified: tsc clean; prebuild Info.plist has NO mic usage string.
 
 ## Stage 2: Asset validation
-**Goal**: icon + splash pass Apple/EAS ingestion.
-**Success Criteria**: icon.png = 1024x1024, NO alpha channel; splash renders.
-**Tests**: `sips -g pixelWidth -g pixelHeight -g hasAlpha assets/images/icon.png`
-**Status**: Not Started
+**Status**: Complete (no change needed)
+- icon.png = 1024x1024, hasAlpha: no. Passes.
 
-## Stage 3: Launch readiness (non-file)
-**Goal**: nothing review-blocking at runtime.
-**Success Criteria**:
-- Render backend warm during review window (paid tier or keep-alive)
-- All Supabase tables RLS-enabled (cross-check SECURITY_HARDENING_PLAN.md)
-- In-app account deletion entry point exists (backend DELETE /account confirmed)
-**Status**: Not Started
+## Stage 3: Launch readiness (runtime)
+**Status**: Complete
+- RLS: 24/24 tables enabled. Dropped 2 overdue 4b backup tables
+  (user_inventory_backup, ingredient_ontology_backup).
+- Render: Starter instance, does not spin down. No cold-start risk.
+- Account deletion: UI present (double-confirm, DELETE /account). Backend
+  handler transactional + allowlisted. FIXED residue gap: added
+  affiliate_clicks, token_ledger, usage_log to DELETE_ACCOUNT_TABLES
+  (backend dc46e77, pushed). feedback_events left out (anonymized by design).
 
-## Stage 4: App Store Connect metadata (dashboard)
-**Goal**: listing complete + passes App Review guidelines.
-**Success Criteria**:
-- Age rating 17+ (Alcohol References)
+## Stage 4: App Store Connect listing + launch compliance
+**Status**: In Progress
+
+### 4a. Sentry data minimization (code)
+**Status**: Done locally, PENDING COMMIT (app/_layout.tsx)
+- sendDefaultPii=false, removed session replay + feedback widget,
+  enabled=!__DEV__. Crash/error only. Verified: tsc clean, app boots.
+
+### 4b. Privacy Policy revision (docs/privacy.md)
+**Status**: Done locally, PENDING COMMIT
+- Disclosed Sentry across 5 touchpoints (3rd-party table, links, §1, §4,
+  appendix Crash Data row).
+- Corrected §4 deletion description to match implementation: immediate bulk
+  delete; auth-retry queue (pending_auth_deletions); share-link TTL (7 days,
+  verified server.js:5111). Bumped last-updated to June 2, 2026.
+- Verified against backend: auth retry + share TTL both confirmed in code.
+
+### 4c. Terms of Service
+**Status**: No change (legally fine as-is; "cocktail recommendation app"
+description is fine for a legal doc). Privacy Policy URL confirmed live at
+brok110.github.io/sipmetry-frontend/privacy.
+
+### 4d. App Store listing copy
+**Status**: Drafted, NOT YET ENTERED
+- Subtitle: "Your home bar, decoded"
+- Promo text + Description drafted (decision-engine framing, no buy/unlock language)
+- Keywords drafted (100 bytes)
+- TODO: current ASC page still has old "buy next / unlock recipes" copy ->
+  must replace (App Review red flag for alcohol + contradicts positioning).
+
+### 4e. Remaining ASC dashboard items (not started)
+- Age rating: 17+ (Alcohol References)
 - Category: Food & Drink
-- Description / subtitle / keywords written
-- iPhone screenshots at Apple's current required sizes
-- Privacy Policy URL + Support URL live
-- App Privacy questionnaire completed
-**Status**: Not Started
+- App Privacy questionnaire: declare Crash Data under Diagnostics (not linked
+  to identity, no tracking) to match privacy policy
+- iPhone screenshots (6.5" display; verify Apple's current required sizes at submission)
+- Support URL
 
----
+## Pending commits
+- Frontend: app/_layout.tsx (Sentry) + docs/privacy.md (policy) -> 2 commits,
+  then push (triggers GitHub Pages re-publish of live privacy policy).
+- This plan file to be committed alongside.
 
-## Sound subsystem note (mic permission cleared)
-lib/sounds.ts is playback-only (createAudioPlayer / play / loop / pause /
-release). No recording APIs. Confirmed verbally + by code read. iOS needs
-NO NSMicrophoneUsageDescription. Stage 1 prebuild step verifies expo-audio
-plugin does not inject one.
+## Post-launch backlog (non-blocking)
+- ingredient_ontology.value='rose_wine' -> rose_wine (key convention)
+- SECURITY_HARDENING_PLAN.md backend app-layer items (all Not Started; deferred)
+- shared_recipes: consider null-ing user_id on deletion (currently TTL-expires)
