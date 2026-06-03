@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Sipmetry**
-Last updated: April 3, 2026
+Last updated: June 2, 2026
 
 Sipmetry ("we", "our", or "the app") is a cocktail recommendation and bar management app. This Privacy Policy explains what data we collect, how we use it, and your rights regarding that data.
 
@@ -31,6 +31,8 @@ When you submit feedback on recipes, we store it to improve our recommendation e
 ### Technical and Log Data
 When you use Sipmetry, our servers automatically receive and record certain technical information, including your IP address, request timestamps, and general device information (such as operating system and app version). This data is collected through standard server logs hosted on our infrastructure provider (Render) and is used solely for debugging, security monitoring, and service reliability. We do not use log data for advertising or behavioral profiling, and it is not linked to any third-party data for tracking purposes. Server logs are retained for approximately 30 days before being automatically purged by our hosting provider.
 
+We also collect crash and error diagnostics through Sentry to identify and fix bugs. These diagnostics include the app version, operating system, and technical error details (such as a crash stack trace). They are not attached to your IP address or other personal identifiers, and we do not record your screen or in-app activity. This data is used solely to improve app stability.
+
 ## 2. How We Use Your Data
 
 We use your data exclusively to:
@@ -55,6 +57,7 @@ Sipmetry relies on the following third-party services to operate:
 | **OpenAI** | AI-powered bottle image identification | Photos you submit for scanning (processed via API; strictly for identification; encrypted in transit; not stored after processing; not used for model training) |
 | **Expo** | Push notification delivery | Device push tokens |
 | **Render** | Backend server hosting | All data transiting through our API, including server logs |
+| **Sentry** | Crash and error diagnostics | Anonymized crash reports and error events (app version, OS, error stack). IP address is not attached (PII collection disabled). No session recording. |
 
 We access OpenAI solely through their API, which does not use submitted data for training AI models. For details, refer to OpenAI's API data usage policy.
 
@@ -63,17 +66,20 @@ Each service operates under its own privacy policy. We encourage you to review t
 - OpenAI: https://openai.com/policies/privacy-policy
 - Expo: https://expo.dev/privacy
 - Render: https://render.com/privacy
+- Sentry: https://sentry.io/privacy/
 
 We do not use any advertising SDKs, analytics platforms, or cross-app tracking tools.
 
 ## 4. Data Retention
 
-We retain your data for as long as your account is active. You may delete your account at any time from the Profile tab in the app. Upon account deletion, an automated deletion process is immediately triggered:
+We retain your data for as long as your account is active. You may delete your account at any time from the Profile tab in the app. Upon account deletion, an automated deletion process begins immediately:
 
-- All personally identifiable data is **permanently deleted**, including your inventory, favorites, preferences, interactions, and push notification tokens.
+- The large majority of your personally identifiable data is **deleted immediately**, including your inventory, favorites, preferences, interactions, usage history, and push notification tokens.
 - Feedback you previously submitted is **anonymized** (your user identity is removed) and may be retained in de-identified, aggregate form for product improvement. Anonymized feedback cannot be traced back to you.
-- Your authentication record is deleted from our identity provider (Supabase Auth).
+- Your authentication record is deleted from our identity provider (Supabase Auth). In the rare event this step does not complete on the first attempt, it is queued and retried automatically until your authentication record is fully removed.
+- If you have created shareable recipe links, those links are not tied to your profile after deletion and expire automatically after their fixed lifetime.
 - Server logs that may contain your IP address are retained for approximately 30 days before automatic purging. These logs are not linked to your deleted account and cannot be used to re-identify you.
+- Crash and error diagnostics collected via Sentry are not attached to your identity (PII collection is disabled) and are automatically purged on Sentry's default retention schedule (approximately 90 days).
 
 Account deletion is irreversible and cannot be undone.
 
@@ -152,3 +158,4 @@ The following table summarizes the data categories collected by Sipmetry as they
 | Usage Data | Product Interaction (likes, dislikes, feedback) | App Functionality, Product Personalization | Yes | No |
 | Identifiers | Device Push Token | App Functionality | Yes | No |
 | Diagnostics | Performance Data (server logs) | App Functionality | No | No |
+| Diagnostics | Crash Data (via Sentry) | App Functionality | No | No |
