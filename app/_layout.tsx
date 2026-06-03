@@ -27,20 +27,15 @@ import * as Sentry from '@sentry/react-native';
 Sentry.init({
   dsn: 'https://5746e03e9e4fd90e2a91437ead4be5a9@o4511090479792128.ingest.us.sentry.io/4511090491981824',
 
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
-  sendDefaultPii: true,
+  // Only send events from release builds, not local dev
+  enabled: !__DEV__,
 
-  // Enable Logs
-  enableLogs: true,
+  // Do not attach IP address or other default PII to events
+  sendDefaultPii: false,
 
-  // Configure Session Replay
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
-
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
+  // Crash + error monitoring only. Session replay and the feedback
+  // widget were removed to keep data collection minimal (privacy policy
+  // commits to minimal collection; replay/PII were Sentry wizard defaults).
 });
 
 export {
