@@ -28,7 +28,7 @@ Sipmetry accesses your device camera or photo library only when you choose to sc
 If you enable push notifications, we store your device's push token to send you relevant notifications such as low-stock alerts. You can disable notifications at any time through your device settings.
 
 ### Feedback
-When you submit feedback on recipes, we store it to improve our recommendation engine. If you delete your account, your feedback is anonymized (your identity is removed) but the anonymized data may be retained for product improvement.
+Sipmetry includes two kinds of feedback. First, when you rate recipes (such as likes and dislikes), we store these ratings to improve our recommendation engine. Second, you can send us free-text feedback or bug reports through the in-app feedback form; when you do, the message content, the category you select, and your app version are sent to us, linked to your account, and used to understand issues and improve the app. Please avoid including sensitive personal information in free-text feedback. If you delete your account, your recipe ratings and any feedback you submitted are deleted.
 
 ### Technical and Log Data
 When you use Sipmetry, our servers automatically receive and record certain technical information, including your IP address, request timestamps, and general device information (such as operating system and app version). This data is collected through standard server logs hosted on our infrastructure provider (Render) and is used solely for debugging, security monitoring, and service reliability. We do not use log data for advertising or behavioral profiling, and it is not linked to any third-party data for tracking purposes. Server logs are retained for approximately 30 days before being automatically purged by our hosting provider.
@@ -78,8 +78,7 @@ We do not use any advertising SDKs, analytics platforms, or cross-app tracking t
 
 We retain your data for as long as your account is active. You may delete your account at any time from the Profile tab in the app. Upon account deletion, an automated deletion process begins immediately:
 
-- The large majority of your personally identifiable data is **deleted immediately**, including your inventory, favorites, preferences, interactions, usage history, and push notification tokens.
-- Feedback you previously submitted is **anonymized** (your user identity is removed) and may be retained in de-identified, aggregate form for product improvement. Anonymized feedback cannot be traced back to you.
+- The large majority of your personally identifiable data is **deleted immediately**, including your inventory, favorites, preferences, interactions, usage history, the feedback you submitted, and push notification tokens.
 - Your authentication record is deleted from our identity provider (Supabase Auth). In the rare event this step does not complete on the first attempt, it is queued and retried automatically until your authentication record is fully removed.
 - If you have created shareable recipe links, those links are not tied to your profile after deletion and expire automatically after their fixed lifetime.
 - Server logs that may contain your IP address are retained for approximately 30 days before automatic purging. These logs are not linked to your deleted account and cannot be used to re-identify you.
