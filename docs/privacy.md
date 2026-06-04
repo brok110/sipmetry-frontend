@@ -1,7 +1,7 @@
 # Privacy Policy
 
 **Sipmetry**
-Last updated: June 2, 2026
+Last updated: June 3, 2026
 
 Sipmetry ("we", "our", or "the app") is a cocktail recommendation and bar management app. This Privacy Policy explains what data we collect, how we use it, and your rights regarding that data.
 
@@ -9,6 +9,8 @@ Sipmetry ("we", "our", or "the app") is a cocktail recommendation and bar manage
 
 ### Account Information
 When you create an account, we collect your email address and authentication credentials. If you sign in with Apple, we receive only the information Apple provides, which may include a private relay email address. We fully respect your choice to use Apple's "Hide My Email" feature and will never attempt to discover or request your real email address beyond what Apple provides.
+
+When you sign in with Google, we receive basic profile information from your Google account — your email address, and potentially your name and profile picture — through Google's secure sign-in. This information is used solely to create and authenticate your account via our authentication provider (Supabase). We do not request access to any other Google data, such as your contacts, calendar, or Drive.
 
 ### Age Verification
 During your first sign-in, we collect your birth year and device region (country code) to verify that you meet the legal drinking age in your jurisdiction. Your birth year is stored in our database for age verification and aggregate analytics (such as understanding the age distribution of our users). Your birth month is used only for the one-time age calculation and is not stored. We do not collect your full date of birth.
@@ -53,6 +55,7 @@ Sipmetry relies on the following third-party services to operate:
 
 | Service | Purpose | Data Shared |
 |---|---|---|
+| **Google** | Sign in with Google (identity provider) | We receive your email and basic profile from Google when you choose to sign in with Google; we do not send your data to Google |
 | **Supabase** | Authentication and database hosting | Email, account data, all user-generated content |
 | **OpenAI** | AI-powered bottle image identification | Photos you submit for scanning (processed via API; strictly for identification; encrypted in transit; not stored after processing; not used for model training) |
 | **Expo** | Push notification delivery | Device push tokens |
@@ -62,6 +65,7 @@ Sipmetry relies on the following third-party services to operate:
 We access OpenAI solely through their API, which does not use submitted data for training AI models. For details, refer to OpenAI's API data usage policy.
 
 Each service operates under its own privacy policy. We encourage you to review them:
+- Google: https://policies.google.com/privacy
 - Supabase: https://supabase.com/privacy
 - OpenAI: https://openai.com/policies/privacy-policy
 - Expo: https://expo.dev/privacy
