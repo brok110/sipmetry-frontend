@@ -1,4 +1,5 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
+import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import {
@@ -52,7 +53,7 @@ export default function FeedbackScreen() {
         body: {
           category,
           content: content.trim(),
-          app_version: "1.0.0",
+          app_version: Constants.expoConfig?.version ?? "unknown",
         },
       });
       if (!resp.ok) {
