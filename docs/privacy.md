@@ -55,6 +55,7 @@ Sipmetry relies on the following third-party services to operate:
 
 | Service | Purpose | Data Shared |
 |---|---|---|
+| **Apple** | Sign in with Apple (identity provider) | We receive your email (or a private relay address if you use Hide My Email) and the name you choose to share, when you sign in with Apple; we do not send your data to Apple |
 | **Google** | Sign in with Google (identity provider) | We receive your email and basic profile from Google when you choose to sign in with Google; we do not send your data to Google |
 | **Supabase** | Authentication and database hosting | Email, account data, all user-generated content |
 | **OpenAI** | AI-powered bottle image identification | Photos you submit for scanning (processed via API; strictly for identification; encrypted in transit; not stored after processing; not used for model training) |
@@ -65,6 +66,7 @@ Sipmetry relies on the following third-party services to operate:
 We access OpenAI solely through their API, which does not use submitted data for training AI models. For details, refer to OpenAI's API data usage policy.
 
 Each service operates under its own privacy policy. We encourage you to review them:
+- Apple: https://www.apple.com/legal/privacy/
 - Google: https://policies.google.com/privacy
 - Supabase: https://supabase.com/privacy
 - OpenAI: https://openai.com/policies/privacy-policy
