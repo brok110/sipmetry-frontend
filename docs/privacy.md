@@ -160,7 +160,8 @@ The following table summarizes the data categories collected by Sipmetry as they
 | Demographics | Age (birth year) and Region (country code) | App Functionality, Analytics | Yes | No |
 | User Content | Photos (camera/library) | App Functionality | No (not stored) | No |
 | User Content | Other User Content (inventory, favorites, preferences) | App Functionality, Product Personalization | Yes | No |
-| Usage Data | Product Interaction (likes, dislikes, feedback) | App Functionality, Product Personalization | Yes | No |
+| User Content | Feedback messages (free-text app feedback) | App Functionality | Yes | No |
+| Usage Data | Product Interaction (likes, dislikes, ratings) | App Functionality, Product Personalization | Yes | No |
 | Identifiers | Device Push Token | App Functionality | Yes | No |
 | Diagnostics | Performance Data (server logs) | App Functionality | No | No |
 | Diagnostics | Crash Data (via Sentry) | App Functionality | No | No |
