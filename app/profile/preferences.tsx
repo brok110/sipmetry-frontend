@@ -525,13 +525,7 @@ export default function TabZeroPreferencesScreen() {
               disabled={disabled}
             />
             <SafetyToggleRow
-              label="Avoid Allergens"
-              value={draftAvoidAllergens}
-              onPress={() => setDraftAvoidAllergens((v) => !v)}
-              disabled={disabled}
-            />
-            <SafetyToggleRow
-              label="Avoid Caffeine + Alcohol"
+              label="Avoid Caffeine"
               value={draftAvoidCaffeineAlcohol}
               onPress={() => setDraftAvoidCaffeineAlcohol((v) => !v)}
               disabled={disabled}
