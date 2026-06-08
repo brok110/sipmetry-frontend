@@ -620,7 +620,7 @@ export default function BartenderScreen() {
             <View style={styles.indexHead}>
               <Text style={styles.indexKicker}>THE LIST</Text>
               <Text style={styles.indexTitle}>
-                {`${indexEntries.length} MORE ON TONIGHT`}
+                {`${indexEntries.length} MORE ON THE MENU`}
               </Text>
             </View>
 
