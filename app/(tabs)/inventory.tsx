@@ -299,7 +299,6 @@ function EditBottleModal({
   const [saving, setSaving] = useState(false)
   const [isCustomSize, setIsCustomSize] = useState(false)
   const [customMlText, setCustomMlText] = useState('')
-  const [guideEditBottleVisible, setGuideEditBottleVisible] = useState(false)
 
   // Sync fields when modal opens for a different item
   useEffect(() => {
@@ -316,7 +315,6 @@ function EditBottleModal({
         setCustomMlText(String(ml))
       }
       setPct(Math.round(Number(item.remaining_pct)))
-      isGuideDismissed(GUIDE_KEYS.EDIT_BOTTLE).then((d) => setGuideEditBottleVisible(!d))
     }
   }, [item])
 
@@ -431,22 +429,10 @@ function EditBottleModal({
           <Text style={modalStyles.fieldLabel}>
             Remaining — {previewMl}ml ({pct}%)
           </Text>
-          <HintBubble
-            storageKey={GUIDE_KEYS.EDIT_BOTTLE}
-            visible={guideEditBottleVisible}
-            onDismiss={() => setGuideEditBottleVisible(false)}
-            hintType="swipe"
-            hintColor="skyblue"
-          >
-            <HorizontalPctSlider
-              value={pct}
-              onChange={setPct}
-              onTouchStart={() => {
-                dismissGuide(GUIDE_KEYS.EDIT_BOTTLE)
-                setGuideEditBottleVisible(false)
-              }}
-            />
-          </HintBubble>
+          <HorizontalPctSlider
+            value={pct}
+            onChange={setPct}
+          />
 
           {/* Actions */}
           <View style={modalStyles.actions}>
