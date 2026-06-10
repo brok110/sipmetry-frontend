@@ -1,8 +1,10 @@
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
+import { useBartenderRefresh } from "@/context/bartenderRefresh";
 
 type MastheadProps = {
   counter?: { current: number; total: number };
@@ -16,14 +18,28 @@ const MASTHEAD_TOP_GAP = 20;
 
 export default function Masthead({ counter, actions }: MastheadProps) {
   const insets = useSafeAreaInsets();
+  const { requestBartenderRefresh } = useBartenderRefresh();
+
+  const onLogoPress = () => {
+    requestBartenderRefresh();            // bump nonce → BartenderScreen refetches + resets
+    router.navigate("/(tabs)/bartender"); // switch to Bartender (no-op if already there)
+  };
+
   return (
     <View style={[styles.masthead, { paddingTop: insets.top + MASTHEAD_TOP_GAP }]}>
-      <Image
-        source={require("@/assets/images/sipmetry-icon.png")}
-        style={styles.logo}
-        resizeMode="contain"
-        accessibilityLabel="Sipmetry"
-      />
+      <Pressable
+        onPress={onLogoPress}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Bartender"
+        style={({ pressed }) => [styles.logoBtn, pressed && styles.logoBtnPressed]}
+      >
+        <Image
+          source={require("@/assets/images/sipmetry-icon.png")}
+          style={styles.logo}
+          resizeMode="contain"
+        />
+      </Pressable>
       {counter && (
         <View style={styles.mastheadCounterRow}>
           <Text style={[styles.mastheadCounter, styles.mastheadCounterCur]}>
@@ -47,6 +63,8 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
+  logoBtn: { padding: 6, margin: -6, borderRadius: 8 },
+  logoBtnPressed: { opacity: 0.55, transform: [{ scale: 0.9 }] },
   masthead: {
     paddingHorizontal: 26,
     flexDirection: "row",
