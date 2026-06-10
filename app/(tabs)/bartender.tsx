@@ -9,6 +9,7 @@ import { useInventory } from "@/context/inventory";
 import { usePreferences } from "@/context/preferences";
 import { useFavorites } from "@/context/favorites";
 import { useInteractions } from "@/context/interactions";
+import { useBartenderRefresh } from "@/context/bartenderRefresh";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -176,6 +177,9 @@ export default function BartenderScreen() {
   const [error, setError] = useState<string | null>(null);
   const [explorationMode, setExplorationMode] = useState(false);
 
+  const { refreshNonce } = useBartenderRefresh();
+  const [isLogoRefreshing, setIsLogoRefreshing] = useState(false);
+
   // Stage 2c: Keep resultsRef synced for stable useCallback refs (swipe gesture)
   useEffect(() => {
     resultsRef.current = results;
@@ -243,6 +247,18 @@ export default function BartenderScreen() {
     selectedStyles,
     preferences,
   ]);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Masthead logo refresh: reset to the first card and refetch. Direct
+  // fetchRecommendations() call bypasses signature dedup (same as the retry
+  // buttons) so it always pulls fresh, even when nothing changed. Guard skips
+  // the initial mount (nonce starts at 0) so we don't double-fetch alongside
+  // the signature effect's first fetch.
+  useEffect(() => {
+    if (refreshNonce === 0) return;
+    setCurrentPourIndex(0);
+    setIsLogoRefreshing(true);
+    fetchRecommendations().finally(() => setIsLogoRefreshing(false));
+  }, [refreshNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
     setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
@@ -803,6 +819,12 @@ export default function BartenderScreen() {
         )}
       </ScrollView>
 
+      {isLogoRefreshing && (
+        <View style={styles.refreshOverlay} pointerEvents="none">
+          <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+        </View>
+      )}
+
     </View>
   );
 }
@@ -1213,5 +1235,14 @@ const styles = StyleSheet.create({
     color: `${OaklandDusk.text.primary}52`,  // textFaint
     textTransform: "uppercase",
     textAlign: "center",
+  },
+
+  refreshOverlay: {
+    position: "absolute",
+    top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: `${OaklandDusk.bg.void}B3`, // ~70% void scrim; tune alpha on device
+    zIndex: 10,
   },
 });
