@@ -629,16 +629,19 @@ export default function BartenderScreen() {
 
         </View>
 
-        {/* Stage 3a: Index List */}
-        {indexEntries.length > 0 && (
+        {/* Stage 3a: Index List — always rendered so the "Narrow the list"
+            filter entry is never trapped behind an empty list (the escape
+            hatch when results collapse to a single pick). */}
           <View style={styles.indexPage}>
-            {/* Index head */}
-            <View style={styles.indexHead}>
-              <Text style={styles.indexKicker}>THE LIST</Text>
-              <Text style={styles.indexTitle}>
-                {`${indexEntries.length} MORE ON THE MENU`}
-              </Text>
-            </View>
+            {/* Index head — only when there are other picks to title */}
+            {indexEntries.length > 0 && (
+              <View style={styles.indexHead}>
+                <Text style={styles.indexKicker}>THE LIST</Text>
+                <Text style={styles.indexTitle}>
+                  {`${indexEntries.length} MORE ON THE MENU`}
+                </Text>
+              </View>
+            )}
 
             {/* Stage 3b: Filter disclosure */}
             <View style={styles.filterDisclosure}>
@@ -816,7 +819,6 @@ export default function BartenderScreen() {
               <Text style={styles.personalizeSub}>tune your recommendations</Text>
             </Pressable>
           </View>
-        )}
       </ScrollView>
 
       {isLogoRefreshing && (
