@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import { posthog } from '@/lib/analytics/posthog'
 import { registerPushToken } from '@/lib/pushNotifications'
 import { SoundService } from '@/lib/sounds'
 import type { Session, User } from '@supabase/supabase-js'
@@ -74,6 +75,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setSession(session)
       setUser(session?.user ?? null)
+
+      // Identify the user in PostHog only for real (non-anonymous) users.
+      // Anonymous and null sessions are intentionally not identified.
+      if (session?.user?.id && !session.user.is_anonymous) {
+        posthog.identify(session.user.id)
+      }
 
       if (wasAnonymous && session?.user && !session.user.is_anonymous
           && session.user.id === prevId) {
@@ -220,6 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut()
+    posthog.reset()
   }
 
   return (
