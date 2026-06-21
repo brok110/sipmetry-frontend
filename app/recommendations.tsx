@@ -1,6 +1,6 @@
 import * as Sentry from "@sentry/react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady } from "@/components/GuideBubble";
 import { FlatList, Platform, Pressable, Text, View } from "react-native";
 
@@ -9,6 +9,8 @@ import Type from "@/constants/typography";
 import { normalizeIngredientKey } from "@/context/ontology";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { apiFetch } from "@/lib/api";
+import { track as analytics } from "@/lib/analytics/analytics";
+import { EVENTS } from "@/lib/analytics/events";
 import { getTasteTags } from "@/lib/tasteTags";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
@@ -113,6 +115,17 @@ export default function RecommendationsScreen() {
     } catch { return []; }
   }, [params.recipes]);
 
+  // Fire RECOMMENDATION_VIEWED once per mount when there are recipes to show.
+  // Ref guard prevents re-sending if `recipes` recomputes on later renders.
+  const viewedTrackedRef = useRef(false);
+  useEffect(() => {
+    if (viewedTrackedRef.current) return;
+    if (recipes.length > 0) {
+      viewedTrackedRef.current = true;
+      analytics(EVENTS.RECOMMENDATION_VIEWED, { source: "recommendations", count: recipes.length });
+    }
+  }, [recipes]);
+
   const scanItems: { canonical: string; display: string }[] = useMemo(() => {
     try { return JSON.parse(params.scanItems ?? "[]"); } catch { return []; }
   }, [params.scanItems]);
@@ -166,6 +179,8 @@ export default function RecommendationsScreen() {
     const overlap_hits_json = encodeURIComponent(
       JSON.stringify(overlapHitsRaw.map((x: any) => String(x ?? "").trim()).filter(Boolean))
     );
+
+    analytics(EVENTS.RECOMMENDATION_ENGAGED, { source: "recommendations", recipe_key });
 
     router.push({
       pathname: "/recipe",
