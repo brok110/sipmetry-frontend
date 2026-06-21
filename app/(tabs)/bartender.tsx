@@ -1,4 +1,6 @@
 import { apiFetch } from "@/lib/api";
+import { track as analytics } from "@/lib/analytics/analytics";
+import { EVENTS } from "@/lib/analytics/events";
 import { getTasteTags } from "@/lib/tasteTags";
 import CocktailThumbnail from "@/components/CocktailThumbnail";
 import Masthead from "@/components/Masthead";
@@ -282,6 +284,7 @@ export default function BartenderScreen() {
           profile_style_preset: preferences.stylePreset,
         },
       });
+      analytics(EVENTS.RECOMMENDATION_GENERATED, { source: "bartender" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Request failed");
       // Stage 4 #5: backend signals the empty-inventory starter-bar fallback
@@ -307,6 +310,10 @@ export default function BartenderScreen() {
         away = away.filter((r: Pick) => !isHighProof(r));
       }
 
+      if (recs.length > 0) {
+        analytics(EVENTS.RECOMMENDATION_VIEWED, { source: "bartender", count: recs.length });
+      }
+
       setResults(recs);
       setOneAway(away);
     } catch (e: any) {
@@ -317,6 +324,7 @@ export default function BartenderScreen() {
   };
 
   const openRecipe = (pick: Pick) => {
+    analytics(EVENTS.RECOMMENDATION_ENGAGED, { source: "bartender", recipe_key: pick.iba_code });
     router.push({
       pathname: "/recipe",
       params: {
