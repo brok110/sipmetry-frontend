@@ -19,6 +19,8 @@ import { useFavorites } from "@/context/favorites";
 import { useInventory } from "@/context/inventory";
 import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
+import { track as analytics } from "@/lib/analytics/analytics";
+import { EVENTS } from "@/lib/analytics/events";
 import { openUrl } from "@/lib/openUrl";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
@@ -166,6 +168,8 @@ export default function CartScreen() {
       setMeta(data.meta ?? null);
       setHasFetched(true);
 
+      analytics(EVENTS.SMART_RESTOCK_VIEWED, { count: data.suggestions?.length ?? 0 });
+
       try {
         Sentry.addBreadcrumb({
           category: "restock",
@@ -205,6 +209,8 @@ export default function CartScreen() {
   // Notify Me: record waitlist + show toast + open Google Shopping
   const handleNotifyMe = useCallback(
     async (suggestion: Suggestion) => {
+      analytics(EVENTS.RESTOCK_ITEM_CLICKED, { ingredient_key: suggestion.ingredient_key, source: "restock" });
+
       // 1. Record waitlist (fire-and-forget)
       apiFetch("/purchase-waitlist", {
         session,
