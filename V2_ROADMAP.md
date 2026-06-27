@@ -9,11 +9,14 @@
 
 從 **decision engine → option engine**。
 
+**V2 的主軸 = 打造最好的 Browse Experience。** V2 只做好「逛」這件事:讓 user 一打開就想滑、滑得到值得看的酒、看得出自己能不能做。retention loop(讓首頁每天因 user 而變)的洞察是對的,但屬於 V3,不在 V2 範圍(見文末「產品分層」)。
+
 不替 user 決定,而是把「依心情/情境瀏覽的所有 recipes」攤開,用 My Bar 在每張卡標示可做性,決定權留給 user。
 
 - 核心 user:**有經驗、要靈感的人**(不是要材料反推的新手)
 - 驗收標準:Brok 在非測試情況下自發開 app = PMF 前哨(dogfooding)
 - 與舊定位的張力已解:首頁主入口定為 **Category Carousel**,心情只是其中可能的一列(非垂直無限滑的單一心情牆)
+
 
 ---
 
@@ -37,7 +40,16 @@
 - **庫存導向列**:Ready to Make(missing = 0)、One Bottle Away(missing = 1)、Two Away(missing = 2)。受手上酒限制。
 - **慾望導向列**:Discover Something New、Because You Loved… 等。**庫存碰不到也要顯示**(先被圖勾起慾望,再讓庫存告訴你能不能做)。**V2 首發要做。**
 
-> 候選 Category(未定版,排序/觸發條件待階段 3 設計):Perfect for You、Ready to Make、One Bottle Away、Discover Something New、Because You Loved…、Haven't Made in a While、New With Your Latest Bottle、Finish These Bottles First、Impress Your Guests、Quick & Easy。Trending(社群)留待未來。
+### V2 列數硬上限:5–6 列
+
+每多一列都要 排序策略 + trigger + UI + analytics + 維護,數量會乘上去。**V2 最多 5–6 列。** 下面候選清單是腦力激盪池,不是 V2 全做清單;進 Stage 3 時從中選定 5–6 條。
+
+額外取捨(來自 review):
+- **「What's new in my bar」列(V2 要做)**:Living Homepage 的 rule-based 最小切片。inventory 最近有變動時,把「因此新解鎖/受影響的酒」聚成一列,讓 user 打開就看到首頁因他而變。不請 LLM —— missing 重算本來就會變,只是 UI 上讓它被看見。
+- **Mood 降優先**:user 不會每天選 happy/sad,實際更常用的是 flavor / occasion / inventory。Mood 後端骨架(`recipe_moods`)已現成,留著當其中一列即可,**降優先 ≠ 移除**,別早投成本。
+- **Discover 做激進**:不要只是 random recipe,要有故事感(如「98% Gin 玩家沒做過」「Forgotten Classics」「Hidden Gems」)。屬列的命名/規則設計,Stage 3 細部處理。
+
+> 候選 Category 池(腦力激盪,非全做):Perfect for You、Ready to Make、One Bottle Away、Discover Something New、Because You Loved…、What's new in my bar、Haven't Made in a While、New With Your Latest Bottle、Finish These Bottles First、Impress Your Guests、Quick & Easy、Mood。Trending(社群)留待未來。
 
 ---
 
@@ -142,10 +154,12 @@ Carousel 已取代 `bartender` tab、成為首頁主瀏覽頁,搜尋不另開 ta
 - 可做性分級數(2 級 vs 3 級)已拍板並落到卡片
 - Category Engine 在前端對 `/browse-recipes` 的 flat 排序切出至少一個庫存導向列 + 一個慾望導向列
 - 心情作為其中一列,接上 `/browse-recipes` 的 mood filter
+- 列數控制在 **5–6 列上限**內
+- 含一條 **What's new in my bar** 列(inventory 近期變動 → 聚成一列,rule-based 不請 LLM)
 - 頁面頂部放一條**佔位 search bar**(卡好版面位置,點下去進 placeholder;真正查找邏輯在 Stage 4)
 **Tests**: 多列不重複過量(同杯跨列可接受,但維持探索感);可做性標示與實際 inventory 一致。
 **Status**: Not Started
-**待決(進 Stage 3 前拍板)**:① 可做性分級 2/3 級 ② 心情清單怎麼定義與維護 ③ 各 Category 排序規則與觸發條件 ④ 卡片 mockup ⑤ 不同使用者(新手/進階/重度)是否需要個人化 Category ⑥ 酒種列是否納入、以何種層級納入。
+**待決(進 Stage 3 前拍板)**:① 可做性分級 2/3 級 ② 心情清單怎麼定義與維護 ③ 各 Category 排序規則與觸發條件 ④ 卡片 mockup ⑤ 不同使用者(新手/進階/重度)是否需要個人化 Category ⑥ 酒種列是否納入、以何種層級納入 ⑦ 從候選池選定哪 5–6 列。
 
 ### Stage 4: 搜尋(後置)
 **Goal**: 提供瀏覽之外的主動查找路徑。Mode A 走 `scan`,Mode B 接 Stage 3 的佔位 search bar。
@@ -157,9 +171,24 @@ Carousel 已取代 `bartender` tab、成為首頁主瀏覽頁,搜尋不另開 ta
 
 ---
 
+## 產品分層(V2 / V3 / V4)
+
+定位:Sipmetry 不是酒譜 App,而是 **Home Bar Operating System**。首頁是這個系統的儀表板。
+
+- **V2 — 打造最好的 Browse Experience(現在做)**:rule-based Carousel,首頁「內容」會隨資料變(inventory 變 → missing 重算 → 列內容變)。
+- **V3 — 會成長的 Homepage(北極星,不在 V2 範圍)**:首頁「結構」會變 —— AI 決定每天該有哪些列(Tonight's Picks、Weekend Party、Use Your Rye…)。這把 LLM 請回首頁,成本模型要重算。**前置條件**:V2 的 rule-based 首頁先證明 user 真的會逛(達成 Conv 2 驗收:Brok 自發開 app),再啟動。
+- **V4 — Community(更遠)**:UGC、分享、Trending。
+
+**為什麼 V3 不併進 V2**:這正是本文件開頭警告的 scope creep,只是換成更高級的形式。retention loop 的洞察對(「為什麼一週後還會再打開」),但 V2 先用最便宜的 rule-based 切片(What's new in my bar 列)驗證方向;LLM 決定列結構是 V3 的核心,不是 V2 的待辦。
+
+> 分界一句話:**V2 = 首頁內容會變(rule-based);V3 = 首頁結構會變(AI 決定有哪些列)。** 前者便宜、現在能做;後者貴、要驗證後才值得。
+
+---
+
 ## Backlog(V2 不做)
 
-- UGC 平台方向(高風險新產品,與 option engine 定位衝突;最難的 user 自由文字 → ingredient_key 列最底層)
+- AI-driven Living Homepage(LLM 決定每天有哪些列)→ 已升格為 **V3 北極星**(見上)
+- UGC 平台方向(高風險新產品,與 option engine 定位衝突;最難的 user 自由文字 → ingredient_key 列最底層)→ 歸 **V4**
 - Smart Restock Case 2(what-if 買酒前試算,為 Smart Restock 反向入口)
 - more like this(單品相似搜尋)
 - Mode A Case 3 / Case 4(inventory 寫入/覆蓋,blast radius 大)
