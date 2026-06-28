@@ -24,6 +24,8 @@ import { LowStockAlertProvider } from '@/context/lowStockAlert';
 import { PreferencesProvider } from '@/context/preferences';
 import { SoundService } from '@/lib/sounds';
 import * as Sentry from '@sentry/react-native';
+import { PostHogProvider } from 'posthog-react-native';
+import { posthog } from '@/lib/analytics/posthog';
 
 Sentry.init({
   dsn: 'https://5746e03e9e4fd90e2a91437ead4be5a9@o4511090479792128.ingest.us.sentry.io/4511090491981824',
@@ -75,30 +77,32 @@ export default Sentry.wrap(function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-    <AuthProvider>
-      <InteractionProvider>
-      <PreferencesProvider>
-      <LearnedPreferencesProvider>
-      <FavoritesProvider>
-      <FeedbackProvider>
-      <LowStockAlertProvider>
-      <IngredientKeysProvider>
-      <InventoryProvider>
-        <SpotlightProvider>
-          <BartenderRefreshProvider>
-            <RootLayoutNav />
-            <SpotlightOverlay />
-          </BartenderRefreshProvider>
-        </SpotlightProvider>
-      </InventoryProvider>
-      </IngredientKeysProvider>
-      </LowStockAlertProvider>
-      </FeedbackProvider>
-      </FavoritesProvider>
-      </LearnedPreferencesProvider>
-      </PreferencesProvider>
-      </InteractionProvider>
-    </AuthProvider>
+      <PostHogProvider client={posthog}>
+        <AuthProvider>
+          <InteractionProvider>
+            <PreferencesProvider>
+              <LearnedPreferencesProvider>
+                <FavoritesProvider>
+                  <FeedbackProvider>
+                    <LowStockAlertProvider>
+                      <IngredientKeysProvider>
+                        <InventoryProvider>
+                          <SpotlightProvider>
+                            <BartenderRefreshProvider>
+                              <RootLayoutNav />
+                              <SpotlightOverlay />
+                            </BartenderRefreshProvider>
+                          </SpotlightProvider>
+                        </InventoryProvider>
+                      </IngredientKeysProvider>
+                    </LowStockAlertProvider>
+                  </FeedbackProvider>
+                </FavoritesProvider>
+              </LearnedPreferencesProvider>
+            </PreferencesProvider>
+          </InteractionProvider>
+        </AuthProvider>
+      </PostHogProvider>
     </GestureHandlerRootView>
   );
 });
@@ -111,6 +115,10 @@ function RootLayoutNav() {
   useEffect(() => {
     SoundService.preload();
     return () => { SoundService.unloadAll(); };
+  }, []);
+
+  useEffect(() => {
+    posthog.capture('app_opened');
   }, []);
 
   useEffect(() => {

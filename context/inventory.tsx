@@ -2,6 +2,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 
 import { useAuth } from "@/context/auth";
 import { useLowStockAlert } from "@/context/lowStockAlert";
+import { track } from "@/lib/analytics/analytics";
+import { EVENTS } from "@/lib/analytics/events";
 import { apiFetch } from "@/lib/api";
 import { checkAndNotify, scanAndNotifyAll } from "@/lib/lowStockNotifier";
 
@@ -221,6 +223,10 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
 
       setInventory((prev) => [item, ...prev.filter((x) => x.id !== item.id)]);
       setError(null);
+      track(EVENTS.INVENTORY_CREATED, {
+        ingredient_key: item.ingredient_key,
+        family_key: item.family_key,
+      });
 
       await checkAndNotify(item, { showAlert, session });
       return item;
