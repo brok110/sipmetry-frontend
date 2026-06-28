@@ -863,6 +863,30 @@ export default function TabTwoScreen() {
       return
     }
 
+    const celebrateMade = () => {
+      try {
+        Sentry.addBreadcrumb({
+          category: "recipe",
+          message: "made_drink",
+          data: { recipe_name: recipeTitle, servings },
+          level: "info",
+        });
+      } catch {}
+      track({
+        recipe_key: recipeKey,
+        interaction_type: "made",
+        context: { source: "detail" },
+      });
+      hadPositiveActionRef.current = true;
+      setMadeDrinkState('done');
+      SoundService.play('cheers');
+      if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);
+      madeDrinkTimerRef.current = setTimeout(() => {
+        setMadeDrinkState('hidden');
+        madeDrinkTimerRef.current = null;
+      }, 1500);
+    }
+
     try {
       // 1. Build recipe ingredient keys with amounts
       const recipeIngredientKeys = dbRecipe.ingredients
@@ -875,7 +899,12 @@ export default function TabTwoScreen() {
         .filter(Boolean) as Array<{ key: string; amount_ml: number }>
 
       if (recipeIngredientKeys.length === 0) {
-        Alert.alert('Nothing to update', 'This recipe has no measurable ingredients.')
+        setMadeDrinkLoading(true)
+        try {
+          celebrateMade()
+        } finally {
+          setMadeDrinkLoading(false)
+        }
         return
       }
 
@@ -907,14 +936,16 @@ export default function TabTwoScreen() {
       }
 
       if (!deductions || deductions.length === 0) {
-        Alert.alert(
-          'Nothing to update',
-          "None of this recipe's ingredients (with amounts) match your My Bar."
-        )
+        setMadeDrinkLoading(true)
+        try {
+          celebrateMade()
+        } finally {
+          setMadeDrinkLoading(false)
+        }
         return
       }
 
-      // 3. Confirm dialog
+      // 3. Confirm dialog — only when there's something to deduct
       const lines = deductions.map((x) => `• ${x.display_name}: −${x.amount_ml}ml`)
       Alert.alert(
         servings > 1 ? `I made this! ×${servings}` : 'I made this!',
@@ -934,27 +965,7 @@ export default function TabTwoScreen() {
                     amount_ml: x.amount_ml,
                   })),
                 })
-                try {
-                  Sentry.addBreadcrumb({
-                    category: "recipe",
-                    message: "made_drink",
-                    data: { recipe_name: recipeTitle, servings },
-                    level: "info",
-                  });
-                } catch {}
-                track({
-                  recipe_key: recipeKey,
-                  interaction_type: "made",
-                  context: { source: "detail" },
-                });
-                hadPositiveActionRef.current = true;
-                setMadeDrinkState('done');
-                SoundService.play('cheers');
-                if (madeDrinkTimerRef.current) clearTimeout(madeDrinkTimerRef.current);
-                madeDrinkTimerRef.current = setTimeout(() => {
-                  setMadeDrinkState('hidden');
-                  madeDrinkTimerRef.current = null;
-                }, 1500);
+                celebrateMade()
               } catch (e: any) {
                 Alert.alert('Error', e?.message ?? 'Failed to update inventory')
               } finally {
