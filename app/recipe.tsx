@@ -1348,10 +1348,18 @@ export default function TabTwoScreen() {
             const info = ingredientAvailability[k];
             return info?.status === "in_bar" || info?.status === "substitute";
           });
-          const missingCount = ingKeys.filter(k => {
-            const info = ingredientAvailability[k];
-            return !info || info.status === "missing";
-          }).length;
+          // Optional ingredients don't block making the drink (backend can_make
+          // excludes is_optional), so they don't count toward "Missing N"
+          const missingCount = dbRecipe.ingredients
+            .filter(it => !it.is_optional)
+            .map(it => String(it.item ?? "").trim())
+            .filter(Boolean)
+            .filter(k => {
+              const info = ingredientAvailability[k];
+              return !info || info.status === "missing";
+            }).length;
+          // Optional-only gaps still count as ready (backend can_make parity)
+          const isReady = missingCount === 0;
           return (
             <View style={{
               flexDirection: "row",
@@ -1359,19 +1367,23 @@ export default function TabTwoScreen() {
               gap: 6,
               paddingVertical: 8,
               paddingHorizontal: 12,
-              backgroundColor: allAvailable ? "rgba(122,184,154,0.06)" : "rgba(200,120,40,0.06)",
+              backgroundColor: isReady ? "rgba(122,184,154,0.06)" : "rgba(200,120,40,0.06)",
               borderWidth: 1,
-              borderColor: allAvailable ? "rgba(122,184,154,0.15)" : "rgba(200,120,40,0.15)",
+              borderColor: isReady ? "rgba(122,184,154,0.15)" : "rgba(200,120,40,0.15)",
               borderRadius: 8,
               marginBottom: 12,
             }}>
-              <Text style={{ color: allAvailable ? "#7AB89A" : OaklandDusk.brand.gold, fontSize: 14, fontWeight: "700" }}>
-                {allAvailable ? "✓" : "!"}
-              </Text>
-              <Text style={{ color: allAvailable ? "#7AB89A" : OaklandDusk.brand.gold, fontSize: 12 }}>
-                {allAvailable
-                  ? "You have everything"
-                  : `Missing ${missingCount} ingredient${missingCount > 1 ? "s" : ""}`}
+              {isReady ? (
+                <Text style={{ color: "#7AB89A", fontSize: 14, fontWeight: "700" }}>✓</Text>
+              ) : (
+                <FontAwesome name="cart-plus" size={14} color={OaklandDusk.brand.gold} />
+              )}
+              <Text style={{ color: isReady ? "#7AB89A" : OaklandDusk.brand.gold, fontSize: 12 }}>
+                {isReady
+                  ? allAvailable ? "You have everything" : "Ready to make"
+                  : missingCount === 1
+                    ? "Just 1 ingredient away"
+                    : `${missingCount} ingredients away`}
               </Text>
             </View>
           );
