@@ -730,7 +730,11 @@ export default function TabOneScreen() {
     (async () => {
       if (session) {
         for (const ing of multiScanResults) {
-          if (isAlcoholicIngredient(ing.canonical) !== true) continue;
+          // === false (not !== true): unknown classification (gap keys like soju,
+          // or category map not yet loaded) must NOT be silently dropped —
+          // 2026-07-07 incident: scanned bottle never POSTed, alert claimed saved.
+          // Matches the other two add sites (per-photo loop + manual Add to My Bar).
+          if (isAlcoholicIngredient(ing.canonical) === false) continue;
           if (isInInventory(ing.canonical)) continue;
           try {
             await addInventoryItem({
@@ -1989,7 +1993,9 @@ export default function TabOneScreen() {
                         {session ? (
                           (() => {
                             const alcoholic = isAlcoholicIngredient(ing.canonical);
-                            if (alcoholic !== true) return null;
+                            // === false (not !== true): unknown-classification bottles
+                            // are now auto-added; hide badge only for known non-alcoholic.
+                            if (alcoholic === false) return null;
                             if (!isInInventory(ing.canonical)) return null;
 
                             // BYPASSED: auto-add replaces manual add-to-bar flow
