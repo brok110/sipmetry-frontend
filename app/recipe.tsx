@@ -1100,7 +1100,7 @@ export default function TabTwoScreen() {
                 borderLeftWidth: 3,
                 borderLeftColor: !bandHasData
                   ? OaklandDusk.bg.border
-                  : bandIsInBar ? "#7AB89A"
+                  : bandIsInBar ? OaklandDusk.semantic.ready
                   : bandIsSubstitute ? "#D4A030"
                   : "#C87070",
               }}>
@@ -1116,13 +1116,13 @@ export default function TabTwoScreen() {
                     paddingVertical: 1,
                     borderRadius: 3,
                     backgroundColor: bandIsInBar
-                      ? "rgba(122,184,154,0.1)"
+                      ? "rgba(29,158,117,0.1)"
                       : bandIsSubstitute ? "rgba(212,160,48,0.1)"
                       : "rgba(200,112,112,0.1)",
                   }}>
                     <Text style={{
                       fontSize: 9,
-                      color: bandIsInBar ? "#7AB89A" : bandIsSubstitute ? "#D4A030" : "#C87070",
+                      color: bandIsInBar ? OaklandDusk.semantic.ready : bandIsSubstitute ? "#D4A030" : "#C87070",
                     }}>
                       {bandIsInBar ? "✓" : bandIsSubstitute ? "alt" : "need"}
                     </Text>
@@ -1367,18 +1367,18 @@ export default function TabTwoScreen() {
               gap: 6,
               paddingVertical: 8,
               paddingHorizontal: 12,
-              backgroundColor: isReady ? "rgba(122,184,154,0.06)" : "rgba(200,120,40,0.06)",
+              backgroundColor: isReady ? "rgba(29,158,117,0.06)" : "rgba(200,120,40,0.06)",
               borderWidth: 1,
-              borderColor: isReady ? "rgba(122,184,154,0.15)" : "rgba(200,120,40,0.15)",
+              borderColor: isReady ? "rgba(29,158,117,0.15)" : "rgba(200,120,40,0.15)",
               borderRadius: 8,
               marginBottom: 12,
             }}>
               {isReady ? (
-                <Text style={{ color: "#7AB89A", fontSize: 14, fontWeight: "700" }}>✓</Text>
+                <Text style={{ color: OaklandDusk.semantic.ready, fontSize: 14, fontWeight: "700" }}>✓</Text>
               ) : (
                 <FontAwesome name="cart-plus" size={14} color={OaklandDusk.brand.gold} />
               )}
-              <Text style={{ color: isReady ? "#7AB89A" : OaklandDusk.brand.gold, fontSize: 12 }}>
+              <Text style={{ color: isReady ? OaklandDusk.semantic.ready : OaklandDusk.brand.gold, fontSize: 12 }}>
                 {isReady
                   ? allAvailable ? "You have everything" : "Ready to make"
                   : missingCount === 1

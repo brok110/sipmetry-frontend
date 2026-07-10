@@ -2007,9 +2007,9 @@ export default function TabOneScreen() {
                                 backgroundColor: OaklandDusk.bg.surface,
                                 borderRadius: 8,
                                 borderWidth: 0.5,
-                                borderColor: "#7AB89A",
+                                borderColor: OaklandDusk.semantic.ready,
                               }}>
-                                <Text style={{ fontWeight: "600", color: "#7AB89A", fontSize: 11 }}>
+                                <Text style={{ fontWeight: "600", color: OaklandDusk.semantic.ready, fontSize: 11 }}>
                                   In bar ✓
                                 </Text>
                               </View>

@@ -20,7 +20,7 @@ const variantStyles: Record<PillVariant, { bg: string; color: string }> = {
   },
   ready: {
     bg: 'rgba(29,158,117,0.12)',
-    color: '#1D9E75',
+    color: OaklandDusk.semantic.ready,
   },
 }
 

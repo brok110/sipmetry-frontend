@@ -35,6 +35,7 @@ const OaklandDusk = {
 
   // ── 語意色 ──
   semantic: {
+    ready:   '#1D9E75',  // 就緒綠 — ready to make(DESIGN.md ready;勿與 success 品牌金混用)
     success: '#C87828',  // 品牌金
     warning: '#E0A030',  // 落日橙
     error:   '#C04858',  // 深玫瑰紅

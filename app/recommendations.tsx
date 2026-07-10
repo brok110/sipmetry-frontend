@@ -37,9 +37,9 @@ type RecipeItem = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function bucketColor(bucket: Bucket): string {
-  if (bucket === "ready") return "#7AB89A";
+  if (bucket === "ready") return OaklandDusk.semantic.ready;
   if (bucket === "one_missing") return OaklandDusk.brand.gold;
-  return "#C04858";
+  return OaklandDusk.accent.crimson;
 }
 
 function bucketLabel(bucket: Bucket): string {
