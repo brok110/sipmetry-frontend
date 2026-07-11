@@ -1541,6 +1541,34 @@ export default function TabOneScreen() {
     }
   };
 
+  // Inventory mode: manually typed ingredients must reach My Bar too —
+  // without this they only join the session list and the user silently
+  // loses the bottle (same bug class as the 2026-07-07 incident). Matches
+  // the per-photo auto-add semantics exactly:
+  // - skip only when isAlcoholicIngredient === false (unknown
+  //   classification must be added — see the auto-add sites above)
+  // - skip when already in inventory (no dup POSTs)
+  // No-op in "undecided" (bulk button flow) and "quick_look" (guest —
+  // manual adds must NOT touch inventory).
+  // The "In bar ✓" badge lights up without an explicit refresh:
+  // addInventoryItem optimistically prepends to the context's inventory
+  // state, which inventoryByIngredientKey (and thus isInInventory) memo
+  // over.
+  const maybeAddManualToInventory = async (canonical: string, display: string) => {
+    if (scanMode !== "inventory" || !session) return;
+    if (!canonical) return;
+    if (isAlcoholicIngredient(canonical) === false) return;
+    if (isInInventory(canonical)) return;
+    try {
+      await addInventoryItem({
+        ingredient_key: canonical,
+        display_name: display,
+        total_ml: DEFAULT_BOTTLE_ML,
+        remaining_pct: 100,
+      });
+    } catch {}
+  };
+
   const addIngredient = async (preResolved?: { display: string; canonical: string }) => {
     const v = preResolved?.display ?? newIngredient.trim();
     if (!v) return;
@@ -1571,7 +1599,10 @@ export default function TabOneScreen() {
     setHasRecommendedLocal(false);
 
     // If canonical is pre-resolved, skip the async resolution step.
-    if (preResolved?.canonical) return;
+    if (preResolved?.canonical) {
+      await maybeAddManualToInventory(preResolved.canonical, v);
+      return;
+    }
 
     try {
       const canon = await resolveCanonicalForDisplay(v);
@@ -1581,6 +1612,9 @@ export default function TabOneScreen() {
         if (!stillExists) return prev;
         return prev.map((x) => (x.id === newId ? { ...x, canonical: canon } : x));
       });
+      // Typing + submitting in inventory mode is intent to stock the bar;
+      // add as soon as the canonical resolves.
+      await maybeAddManualToInventory(canon, v);
     } catch {
       return;
     }
