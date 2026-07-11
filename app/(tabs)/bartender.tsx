@@ -307,7 +307,7 @@ export default function BartenderScreen() {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder="search · name, spirit, style"
+          placeholder="search · name, spirit, ingredient"
           placeholderTextColor={`${OaklandDusk.text.primary}52`}
           selectionColor={OaklandDusk.brand.gold}
           autoCorrect={false}
