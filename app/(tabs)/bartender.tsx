@@ -1,55 +1,37 @@
+// app/(tabs)/bartender.tsx
+// V2 Category Carousel homepage per sipmetry-v3-carousel.html:
+// search pill → SPOTLIGHT row (existing hero pipeline) → up to 5 looping
+// rails driven by GET /browse-recipes through the pure row engine
+// (lib/browse/rowEngine). Components stay dumb.
+
 import { apiFetch } from "@/lib/api";
 import { track as analytics } from "@/lib/analytics/analytics";
 import { EVENTS } from "@/lib/analytics/events";
-import { getTasteTags } from "@/lib/tasteTags";
-import CocktailThumbnail from "@/components/CocktailThumbnail";
 import Masthead from "@/components/Masthead";
+import RailRow from "@/components/browse/RailRow";
+import SpotlightCard from "@/components/browse/SpotlightCard";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
 import { usePreferences } from "@/context/preferences";
-import { useFavorites } from "@/context/favorites";
-import { useInteractions } from "@/context/interactions";
 import { useBartenderRefresh } from "@/context/bartenderRefresh";
+import { fetchBrowseRecipes } from "@/lib/browse/browseApi";
+import { buildRails, type BrowseItem } from "@/lib/browse/rowEngine";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { router } from "expo-router";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Dimensions,
-  LayoutAnimation,
-  NativeModules,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  UIManager,
   View,
 } from "react-native";
 
-// Stage 2c: Gesture + Reanimated
-import { GestureDetector, Gesture } from "react-native-gesture-handler";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  runOnJS,
-} from "react-native-reanimated";
-
-// Stage 3b: Enable LayoutAnimation on Android (iOS has it on by default).
-// Safe to call multiple times; the API is idempotent.
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-// Hero thumbnail size unified at 180 across all devices.
-// Rationale: editorial layout with 260 overflowed tab bar on all tested
-// devices (including iPhone 15 Pro). 180 keeps the card as a visual
-// anchor without forcing scroll on standard-size phones.
-const DRINK_SIZE = 180;
-
+// Hero pipeline pick (/bartender-recommend). Kept because it carries the
+// interaction/rerank/exclude logic the browse endpoint doesn't.
 type Pick = {
   iba_code: string;
   name: string;
@@ -72,354 +54,161 @@ type Pick = {
   explain?: string;
 };
 
-
-
-// Splits backend explain string into uppercase segments on " · ".
-// Returns [] for empty/undefined input. Handles 1, 2, or more segments.
-// Examples:
-//   "Matches your bar · Bitter & Rich" → ["MATCHES YOUR BAR", "BITTER & RICH"]
-//   "Matches your bar"                 → ["MATCHES YOUR BAR"]
-//   "Rich & full-bodied"               → ["RICH & FULL-BODIED"]
-//   undefined                          → []
-function formatExplainSegments(raw: string | undefined): string[] {
-  if (!raw) return [];
-  return raw.toUpperCase().split(" · ").filter(Boolean);
-}
-
-/**
- * Format ingredient keys for compact entry display.
- * Shows first 3 lowercase, space-separated by " · ", appends "+N more" if truncated.
- * Example: ["gin", "campari", "sweet_vermouth"] → "gin · campari · sweet vermouth"
- * Example: ["gin", "vodka", "lillet_blanc", "lemon_twist"] → "gin · vodka · lillet blanc +1 MORE"
- */
-function formatEntryIngredients(keys: string[] | null | undefined): string {
-  if (!Array.isArray(keys) || keys.length === 0) return "";
-  const cleaned = keys.map(k => k.replace(/_/g, " "));
-  if (cleaned.length <= 3) return cleaned.join(" · ");
-  return `${cleaned.slice(0, 3).join(" · ")} +${cleaned.length - 3} MORE`;
-}
-
-/**
- * Format entry status for missing ingredients display.
- * 0 missing: "on your shelf" (ready)
- * 1 missing: "missing: {name}"
- * 2+ missing: "missing: {first name} +{N-1} more"
- */
-function formatEntryStatus(pick: Pick): { text: string; ready: boolean } {
-  const missingCount = pick.missing_count ?? 0;
-  if (missingCount === 0) {
-    return { text: "on your shelf", ready: true };
-  }
-  const firstMissing = (pick.missing_items?.[0] || "").replace(/_/g, " ");
-  if (missingCount === 1) {
-    return { text: `missing: ${firstMissing}`, ready: false };
-  }
-  return { text: `missing: ${firstMissing} +${missingCount - 1} more`, ready: false };
-}
-
-// Stage 3b: Filter chip definitions.
-// `val` is the exact value sent to /bartender-recommend; `label` is UI display.
-// Style `val` MUST be case-sensitive (matches PREF_STYLE_PRESETS_JSON keys on server).
-const OCCASION_CHIPS: { val: string; label: string }[] = [
-  { val: "home",     label: "AT HOME" },
-  { val: "meal",     label: "WITH A MEAL" },
-  { val: "party",    label: "FOR A PARTY" },
-  { val: "nightcap", label: "NIGHTCAP" },
-];
-
-const STYLE_CHIPS: { val: string; label: string }[] = [
-  { val: "Bitter",    label: "BITTER" },
-  { val: "Smoky",     label: "SMOKY" },
-  { val: "Herbal",    label: "HERBAL" },
-  { val: "Fruity",    label: "FRUITY" },
-  { val: "Sparkling", label: "SPARKLING" },
-];
-
-const SPIRIT_CHIPS: { val: string; label: string }[] = [
-  { val: "gin",     label: "GIN" },
-  { val: "whiskey", label: "WHISKEY" },
-  { val: "rum",     label: "RUM" },
-  { val: "tequila", label: "TEQUILA" },
-  { val: "brandy",  label: "BRANDY" },
-  { val: "vodka",   label: "VODKA" },
-];
-
 export default function BartenderScreen() {
   const { session } = useAuth();
   const { inventory, availableIngredientKeys, initialized: inventoryInitialized } = useInventory();
   const { preferences } = usePreferences();
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const { track } = useInteractions();
+  const { refreshNonce } = useBartenderRefresh();
 
-  // Stage 2b: Hero card state
-  const [currentPourIndex, setCurrentPourIndex] = useState(0);
-
-  // Refactor: Tracks last fetched signature to dedupe refetch calls.
-  // Signature changes when any recommendation-affecting state changes
-  // (filter chips, stylePreset, dims, safetyMode). Initial mount compares
-  // first signature against null → triggers one fetch to replace the old
-  // three-effect architecture (Stage 2b auto-fetch + 3b-4 chip debounce +
-  // Stage 4 preferences debounce). Deduplication means "Save preferences
-  // without changes" no longer wastes an API call.
+  // ── Spotlight (hero pipeline) state ──
+  const [heroPick, setHeroPick] = useState<Pick | null>(null);
+  const [heroLoading, setHeroLoading] = useState(false);
+  const [explorationMode, setExplorationMode] = useState(false);
+  // Tracks last fetched signature to dedupe hero refetches (preferences
+  // changes + the empty↔non-empty inventory transition trigger one fetch).
   const lastFetchSignatureRef = useRef<string | null>(null);
 
-  // Stage 2c: Swipe gesture
-  const translateX = useSharedValue(0);
-  const rotation = useSharedValue(0);
-  const resultsRef = useRef<Pick[]>([]);
+  // ── Browse (rails) state ──
+  const [browseItems, setBrowseItems] = useState<BrowseItem[]>([]);
+  const [browseTotal, setBrowseTotal] = useState<number | null>(null);
+  const [browseLoading, setBrowseLoading] = useState(false);
+  const [browseError, setBrowseError] = useState<string | null>(null);
+  const browseSeqRef = useRef(0);
 
-  const [selectedOccasion, setSelectedOccasion] = useState<string | null>(null);
-  const [selectedSpirits, setSelectedSpirits] = useState<string[]>([]);
-  const [selectedExcludes, setSelectedExcludes] = useState<string[]>([]);
-  const [selectedStyles, setSelectedStyles] = useState<string[]>([]);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [results, setResults] = useState<Pick[]>([]);
-  const [oneAway, setOneAway] = useState<Pick[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [explorationMode, setExplorationMode] = useState(false);
-
-  const { refreshNonce } = useBartenderRefresh();
   const [isLogoRefreshing, setIsLogoRefreshing] = useState(false);
 
-  // Stage 2c: Keep resultsRef synced for stable useCallback refs (swipe gesture)
-  useEffect(() => {
-    resultsRef.current = results;
-    // Reset currentPourIndex if it exceeds new results length (e.g. after retry)
-    if (currentPourIndex >= results.length && results.length > 0) {
-      setCurrentPourIndex(0);
-    }
-  }, [results, currentPourIndex]);
-
-  // Unified refetch effect:
-  // Drives initial auto-fetch, filter chip refetch, and preferences refetch
-  // from a single signature string. Refetches only when the signature actually
-  // changes — so "Save preferences without changes" doesn't waste an API call.
-  //
-  // Preconditions: inventory hydrated + non-empty (same as old Stage 2b guard).
-  // Debounce: 300ms with setTimeout cleanup so rapid chip taps coalesce.
-  //
-  // Signature mostly ignores inventory mutations (adding/removing within a
-  // non-empty bar doesn't refetch — user can tap "Another" manually). The one
-  // exception is the empty↔non-empty transition via inventoryEmpty below,
-  // which DOES refetch so exploration_mode banner appears when the bar
-  // empties and disappears when the first bottle is added. Also excludes
-  // preferences.intensities (redundant with dims for the three shared axes).
-  useEffect(() => {
-    if (!inventoryInitialized) return;
-    // Empty inventory no longer short-circuits — backend injects a starter bar
-    // when detected_ingredients is empty, and meta.exploration_mode in the
-    // response tells us we're in starter-bar mode (drives the banner + mark).
-
-    // Sort array filters so chip tap order doesn't change the signature.
-    // Without this, tapping [gin, vodka] vs [vodka, gin] triggers two fetches
-    // for the same logical filter set.
-    // selectedExcludes intentionally not sorted — state is never mutated
-    // (no UI input layer wired). Backend /bartender-recommend already
-    // accepts excludes tokens; only the frontend trigger is missing.
-    // TODO(post-launch): see docs/BARTENDER_EXCLUDES_AUDIT.md
-    const signature = JSON.stringify({
-      occasion: selectedOccasion,
-      spirits: [...selectedSpirits].sort(),
-      styles: [...selectedStyles].sort(),
-      excludes: selectedExcludes,
-      stylePreset: preferences.stylePreset,
-      dims: preferences.dims,
-      safetyMode: preferences.safetyMode,
-      // Boolean (not length) so adding 2nd/3rd/Nth bottle still doesn't
-      // refetch — only the empty↔non-empty transition flips it. Deleting
-      // the last bottle re-triggers fetch so backend can inject the
-      // starter bar and exploration_mode banner appears.
-      inventoryEmpty: inventory.length === 0,
-    });
-
-    if (signature === lastFetchSignatureRef.current) return;
-
-    const t = setTimeout(() => {
-      lastFetchSignatureRef.current = signature;
-      setCurrentPourIndex(0);
-      fetchRecommendations();
-    }, 300);
-    return () => clearTimeout(t);
-  }, [
-    inventoryInitialized,
-    inventory.length,
-    selectedOccasion,
-    selectedSpirits,
-    selectedStyles,
-    preferences,
-  ]);  // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Masthead logo refresh: reset to the first card and refetch. Direct
-  // fetchRecommendations() call bypasses signature dedup (same as the retry
-  // buttons) so it always pulls fresh, even when nothing changed. Guard skips
-  // the initial mount (nonce starts at 0) so we don't double-fetch alongside
-  // the signature effect's first fetch.
-  useEffect(() => {
-    if (refreshNonce === 0) return;
-    setCurrentPourIndex(0);
-    setIsLogoRefreshing(true);
-    fetchRecommendations().finally(() => setIsLogoRefreshing(false));
-  }, [refreshNonce]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const toggle = (arr: string[], val: string, setter: (v: string[]) => void) => {
-    setter(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
-  };
-
-  const fetchRecommendations = async (extraKeys: string[] = []) => {
-    setLoading(true);
-    setError(null);
+  const fetchHero = useCallback(async () => {
+    setHeroLoading(true);
     try {
-      const allKeys = [...new Set([...availableIngredientKeys, ...extraKeys])];
       const res = await apiFetch("/bartender-recommend", {
         session,
         method: "POST",
         body: {
-          detected_ingredients: allKeys,
-          occasion: selectedOccasion,
-          base_spirit: selectedSpirits.length === 1 ? selectedSpirits[0] : undefined,
-          base_spirits: selectedSpirits,
-          style_presets: selectedStyles,
-          excludes: selectedExcludes,
+          detected_ingredients: [...availableIngredientKeys],
+          occasion: null,
+          base_spirits: [],
+          style_presets: [],
+          excludes: [],
           profile_style_preset: preferences.stylePreset,
         },
       });
       analytics(EVENTS.RECOMMENDATION_GENERATED, { source: "bartender" });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Request failed");
-      // Stage 4 #5: backend signals the empty-inventory starter-bar fallback
-      // couldn't be loaded (Stage 2 backend change). Surface a precise error
-      // instead of falling through to the generic "no matches" branch, which
-      // would offer CLEAR FILTERS — useless when there are no filters set.
-      if (data?.meta?.reason === "starter_bar_unavailable") {
-        setError("STARTER_BAR_UNAVAILABLE");
-        return;
-      }
       setExplorationMode(data?.meta?.exploration_mode === true);
-      let recs = data.recommendations || [];
-      let away = data.one_away || [];
 
+      let recs: Pick[] = data.recommendations || [];
       if (preferences.safetyMode?.avoidHighProof) {
-        const isHighProof = (pick: Pick) => {
-          // recipe_vec values are 0..3 scale (matches backend clamp01to3).
-          // Threshold ≥ 2.5 = top sixth = "high proof" recipe.
-          const strength = Number(pick.recipe_vec?.alcoholStrength ?? 0);
-          return strength >= 2.5;
-        };
-        recs = recs.filter((r: Pick) => !isHighProof(r));
-        away = away.filter((r: Pick) => !isHighProof(r));
+        // recipe_vec values are 0..3 scale; ≥2.5 = top sixth = "high proof".
+        recs = recs.filter(
+          (r) => Number(r.recipe_vec?.alcoholStrength ?? 0) < 2.5
+        );
       }
-
-      if (recs.length > 0) {
-        analytics(EVENTS.RECOMMENDATION_VIEWED, { source: "bartender", count: recs.length });
+      const top = recs[0] || null;
+      setHeroPick(top);
+      if (top) {
+        analytics(EVENTS.RECOMMENDATION_VIEWED, { source: "bartender", count: 1 });
       }
-
-      setResults(recs);
-      setOneAway(away);
-    } catch (e: any) {
-      setError(e?.message || "Something went wrong");
+    } catch {
+      // Spotlight is best-effort: on failure the row simply hides and the
+      // rails (independent fetch) carry the screen.
+      setHeroPick(null);
     } finally {
-      setLoading(false);
+      setHeroLoading(false);
     }
-  };
+  }, [session, availableIngredientKeys, preferences]);
 
-  const openRecipe = (pick: Pick) => {
-    analytics(EVENTS.RECOMMENDATION_ENGAGED, { source: "bartender", recipe_key: pick.iba_code });
+  const fetchBrowse = useCallback(async () => {
+    const seq = ++browseSeqRef.current;
+    setBrowseLoading(true);
+    setBrowseError(null);
+    try {
+      const data = await fetchBrowseRecipes(session, { limit: 100, sort: "score" });
+      if (seq !== browseSeqRef.current) return;
+      setBrowseItems(data.items);
+      setBrowseTotal(data.total);
+    } catch (e: any) {
+      if (seq !== browseSeqRef.current) return;
+      setBrowseError(e?.message || "Something went wrong");
+    } finally {
+      if (seq === browseSeqRef.current) setBrowseLoading(false);
+    }
+  }, [session]);
+
+  // Rails: one fetch on mount/focus (keeps previous data while refreshing).
+  useFocusEffect(
+    useCallback(() => {
+      if (!inventoryInitialized) return;
+      fetchBrowse();
+    }, [inventoryInitialized, fetchBrowse])
+  );
+
+  // Spotlight: signature-deduped fetch. Refetches on preferences changes
+  // and on the empty↔non-empty inventory transition (backend injects a
+  // starter bar for empty inventory → exploration_mode drives the banner).
+  useEffect(() => {
+    if (!inventoryInitialized) return;
+    const signature = JSON.stringify({
+      stylePreset: preferences.stylePreset,
+      dims: preferences.dims,
+      safetyMode: preferences.safetyMode,
+      inventoryEmpty: inventory.length === 0,
+    });
+    if (signature === lastFetchSignatureRef.current) return;
+    const t = setTimeout(() => {
+      lastFetchSignatureRef.current = signature;
+      fetchHero();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [inventoryInitialized, inventory.length, preferences]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Masthead logo refresh: bypasses signature dedup, pulls both pipelines
+  // fresh. Guard skips initial mount (nonce starts at 0).
+  useEffect(() => {
+    if (refreshNonce === 0) return;
+    setIsLogoRefreshing(true);
+    Promise.allSettled([fetchHero(), fetchBrowse()]).finally(() =>
+      setIsLogoRefreshing(false)
+    );
+  }, [refreshNonce]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const rails = useMemo(() => buildRails(browseItems), [browseItems]);
+
+  const openHeroRecipe = useCallback(() => {
+    if (!heroPick) return;
+    analytics(EVENTS.RECOMMENDATION_ENGAGED, { source: "bartender", recipe_key: heroPick.iba_code });
     router.push({
       pathname: "/recipe",
       params: {
-        recipe_key: pick.iba_code,
-        iba_code: pick.iba_code,
+        recipe_key: heroPick.iba_code,
+        iba_code: heroPick.iba_code,
         source: "bartender",
-        ingredients_json: encodeURIComponent(JSON.stringify(pick.ingredient_keys)),
+        ingredients_json: encodeURIComponent(JSON.stringify(heroPick.ingredient_keys)),
         scan_items_json: encodeURIComponent(JSON.stringify(
           inventory.map(item => ({ canonical: item.ingredient_key, display: item.display_name }))
         )),
-        missing_items_json: encodeURIComponent(JSON.stringify(pick.missing_items || [])),
-        overlap_hits_json: encodeURIComponent(JSON.stringify(pick.overlap_hits || [])),
+        missing_items_json: encodeURIComponent(JSON.stringify(heroPick.missing_items || [])),
+        overlap_hits_json: encodeURIComponent(JSON.stringify(heroPick.overlap_hits || [])),
       },
     });
-  };
+  }, [heroPick, inventory]);
 
-  // Derive current pick from results + index (used by handlers and Branch 5 render)
-  const currentPick = results[currentPourIndex] || null;
-
-  // Stage 2d: Action icon handlers
-  const handleSave = useCallback(() => {
-    if (!currentPick) return;
-    const wasSaved = isFavorite(currentPick.iba_code);
-
-    toggleFavorite({
-      recipe_key: currentPick.iba_code,
-      iba_code: currentPick.iba_code,
-      title: currentPick.name,
-      tags: getTasteTags(currentPick.recipe_vec),
-      recipe: currentPick,
-      ingredients: currentPick.ingredient_keys,
-      image_url: currentPick.image_url,
-      saved_at: Date.now(),
+  const openBrowseRecipe = useCallback((item: BrowseItem) => {
+    analytics(EVENTS.RECOMMENDATION_ENGAGED, { source: "browse", recipe_key: item.iba_code });
+    // Recipe screen self-fetches by iba_code; availability comes from the
+    // server-side SSoT endpoint, so no ingredient params are needed here.
+    router.push({
+      pathname: "/recipe",
+      params: {
+        recipe_key: item.iba_code,
+        iba_code: item.iba_code,
+        source: "browse",
+      },
     });
-
-    track({
-      recipe_key: currentPick.iba_code,
-      interaction_type: wasSaved ? "unfavorite" : "favorite",
-      context: { source: "recommend" },
-    });
-  }, [currentPick, isFavorite, toggleFavorite, track]);
-
-  // Stage 2c: Pour navigation (cyclic via modulo, stable refs for runOnJS)
-  const nextPour = useCallback(() => {
-    const len = resultsRef.current.length;
-    if (len === 0) return;
-    setCurrentPourIndex((i) => (i + 1) % len);
   }, []);
 
-  const prevPour = useCallback(() => {
-    const len = resultsRef.current.length;
-    if (len === 0) return;
-    setCurrentPourIndex((i) => (i - 1 + len) % len);
-  }, []);
-
-  // Stage 2c: Pan gesture
-  // - activeOffsetX: only activate after 10px horizontal motion
-  // - failOffsetY: fail if >5px vertical motion (lets ScrollView handle scroll)
-  const SWIPE_THRESHOLD = 60;
-
-  const swipeGesture = Gesture.Pan()
-    .activeOffsetX([-10, 10])
-    .failOffsetY([-5, 5])
-    .onUpdate((e) => {
-      "worklet";
-      const clamped = Math.max(-100, Math.min(100, e.translationX));
-      translateX.value = clamped * 0.6;  // damped horizontal drag
-      rotation.value = clamped * 0.04;    // tilt up to ~4deg at edge
-    })
-    .onEnd((e) => {
-      "worklet";
-      if (Math.abs(e.translationX) > SWIPE_THRESHOLD) {
-        if (e.translationX < 0) {
-          runOnJS(nextPour)();
-        } else {
-          runOnJS(prevPour)();
-        }
-      }
-      translateX.value = withSpring(0);
-      rotation.value = withSpring(0);
-    });
-
-  const animatedIllustrationStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      { rotate: `${rotation.value}deg` },
-    ],
-  }));
-
-  // ─────── Stage 2b: Branch render ───────
-  const total = results.length;
-  const hasResults = total > 0;
-
-  // Branch 0: Inventory context not yet initialized (v2 new)
-  // Brief flicker on app open — avoids falsely showing "add bottles to start".
+  // Branch 0: Inventory context not yet initialized — brief flicker on
+  // app open; avoids firing the hero fetch with an empty key set.
   if (!inventoryInitialized) {
     return (
       <View style={styles.root}>
@@ -431,125 +220,19 @@ export default function BartenderScreen() {
     );
   }
 
-  // Branch 1: Loading (fetch in flight, no results yet)
-  if (loading && !hasResults) {
-    return (
-      <View style={styles.root}>
-        <Masthead />
-        <View style={styles.centerFill}>
-          <View style={styles.skeletonThumb} />
-          <View style={styles.skeletonLineLong} />
-          <View style={styles.skeletonLineShort} />
-          <ActivityIndicator
-            color={OaklandDusk.brand.gold}
-            size="small"
-            style={{ marginTop: 28 }}
-          />
-        </View>
-      </View>
-    );
-  }
-
-  // Branch 2: Error with retry
-  if (error && !loading) {
-    const isStarterBarUnavailable = error === "STARTER_BAR_UNAVAILABLE";
-    return (
-      <View style={styles.root}>
-        <Masthead />
-        <View style={styles.centerFill}>
-          {isStarterBarUnavailable ? (
-            <>
-              <Text style={styles.stateMsg}>We couldn&apos;t load the sample bar</Text>
-              <Text style={styles.stateSubMsg}>TRY AGAIN OR SCAN YOUR BOTTLES</Text>
-              <Pressable
-                style={styles.retryBtn}
-                onPress={() => fetchRecommendations()}
-              >
-                <Text style={styles.retryBtnText}>TRY AGAIN</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.retryBtn, { marginTop: 12 }]}
-                onPress={() => router.push({ pathname: "/scan", params: { intent: "addToBar" } })}
-              >
-                <Text style={styles.retryBtnText}>SCAN BOTTLES</Text>
-              </Pressable>
-            </>
-          ) : (
-            <>
-              <Text style={styles.stateMsg}>Something went wrong.</Text>
-              <Text style={styles.stateSubMsg}>{error}</Text>
-              <Pressable
-                style={styles.retryBtn}
-                onPress={() => fetchRecommendations()}
-              >
-                <Text style={styles.retryBtnText}>TRY AGAIN</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      </View>
-    );
-  }
-
-  // Branch 3 removed in Stage 3: backend injects a starter bar when inventory
-  // is empty, so the user always lands on recommendations — exploration mode
-  // banner (below) handles the "no bottles yet" signal instead.
-
-  // Branch 4: Empty recommendations (no matches)
-  if (!hasResults) {
-    const hasActiveFilters =
-      selectedOccasion !== null ||
-      selectedSpirits.length > 0 ||
-      selectedStyles.length > 0;
-
-    const handleClearFilters = () => {
-      setSelectedOccasion(null);
-      setSelectedSpirits([]);
-      setSelectedStyles([]);
-    };
-
-    return (
-      <View style={styles.root}>
-        <Masthead />
-        <View style={styles.centerFill}>
-          <Text style={styles.stateMsg}>no matches right now</Text>
-          {hasActiveFilters && (
-            <>
-              <Text style={styles.stateSubMsg}>try clearing your filters</Text>
-              <Pressable
-                style={styles.retryBtn}
-                onPress={handleClearFilters}
-              >
-                <Text style={styles.retryBtnText}>CLEAR FILTERS</Text>
-              </Pressable>
-            </>
-          )}
-        </View>
-      </View>
-    );
-  }
-
-  // Branch 5: Hero card (main happy path)
-  // Stage 2d: read favorite state from context for save button appearance
-  const isSaved = currentPick ? isFavorite(currentPick.iba_code) : false;
-  const explainSegments = formatExplainSegments(currentPick?.explain);
-  const ingredientsText = (currentPick?.ingredient_keys || [])
-    .map(k => k.replace(/_/g, " "))
-    .join(" · ");
-  // Stage 3a: Index list entries (exclude current hero, append oneAway picks)
-  const indexEntries = [
-    ...results.filter((_, i) => i !== currentPourIndex),
-    ...oneAway,
-  ];
+  const initialBrowseLoad = browseLoading && browseItems.length === 0;
+  const browseFailed = !!browseError && browseItems.length === 0 && !browseLoading;
+  const searchLabel =
+    browseTotal && browseTotal > 0
+      ? `search ${browseTotal} cocktails · name, spirit, style`
+      : "search cocktails · name, spirit, style";
 
   return (
     <View style={styles.root}>
-      {/* Masthead */}
-      <Masthead counter={{ current: currentPourIndex + 1, total }} />
+      <Masthead />
 
-      {/* Stage 3: Exploration-mode banner — only shows when backend used a
-          starter bar (empty inventory). Tap routes to scan flow.
-          TODO(zh): Brok to review zh copy — currently English-only. */}
+      {/* Exploration-mode banner — backend used a starter bar (empty
+          inventory). Tap routes to the scan flow. */}
       {explorationMode && (
         <Pressable
           style={styles.explorationBanner}
@@ -566,267 +249,70 @@ export default function BartenderScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.spread}>
-          {/* Drink illustration with gold corner frame + Stage 2c swipe gesture */}
-          <GestureDetector gesture={swipeGesture}>
-            <Animated.View style={[styles.drinkIllustration, animatedIllustrationStyle]}>
-              <View style={styles.drinkFrameTopLeft} />
-              <View style={styles.drinkFrameBottomRight} />
-              <CocktailThumbnail imageUrl={currentPick?.image_url} size={DRINK_SIZE} />
-            </Animated.View>
-          </GestureDetector>
-
-          {/* Stage 3: faint exploring kicker — sits above the name as a
-              subliminal cue. Brand-aligned but kept way below hero weight. */}
-          {explorationMode && (
-            <Text style={styles.exploringMark}>EXPLORING</Text>
-          )}
-
-          {/* Drink name */}
-          <Text style={styles.drinkName}>
-            {currentPick?.name?.toUpperCase() || ""}
+        {/* Mode B entry */}
+        <Pressable
+          style={styles.searchPill}
+          onPress={() => router.push("/search")}
+          accessibilityRole="button"
+          accessibilityLabel="Search cocktails"
+        >
+          <FontAwesome
+            name="search"
+            size={13}
+            color={`${OaklandDusk.text.primary}80`}
+          />
+          <Text style={styles.searchPillText} numberOfLines={1}>
+            {searchLabel}
           </Text>
+        </Pressable>
 
-          {/* Gold rule line */}
-          <View style={styles.drinkRule} />
-
-          {/* Ingredients */}
-          <Text style={styles.drinkIngredients}>{ingredientsText}</Text>
-
-          {/* Explain field (v2: segments map, handles 1+ segments gracefully) */}
-          {explainSegments.length > 0 && (
-            <View style={styles.drinkExplainRow}>
-              {explainSegments.map((seg, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <Text style={styles.explainDot}>◆</Text>}
-                  <Text style={styles.drinkExplainText}>{seg}</Text>
-                </React.Fragment>
-              ))}
+        {/* Row 0: SPOTLIGHT — hero pipeline top result */}
+        {heroPick && (
+          <View style={styles.spotlightRow}>
+            <View style={styles.rowHead}>
+              <Text style={styles.rowTitle}>TONIGHT'S POUR</Text>
             </View>
-          )}
-
-          {/* See the recipe CTA */}
-          <Pressable
-            style={styles.seeRecipeBtn}
-            onPress={() => currentPick && openRecipe(currentPick)}
-          >
-            <Text style={styles.seeRecipeText}>SEE THE RECIPE</Text>
-          </Pressable>
-
-          {/* Action icons (Stage 2d: wired to real handlers) */}
-          <View style={styles.spreadActions}>
-            <Pressable
-              style={[styles.spreadAction, isSaved && styles.spreadActionActive]}
-              onPress={handleSave}
-            >
-              <FontAwesome
-                name={isSaved ? "heart" : "heart-o"}
-                size={18}
-                color={isSaved ? OaklandDusk.brand.gold : `${OaklandDusk.text.primary}94`}
-              />
-              <Text style={styles.actionLabel}>SAVE</Text>
-            </Pressable>
-            <Pressable
-              style={styles.spreadAction}
-              onPress={nextPour}
-            >
-              <FontAwesome name="refresh" size={18} color={`${OaklandDusk.text.primary}94`} />
-              <Text style={styles.actionLabel}>ANOTHER</Text>
-            </Pressable>
-          </View>
-
-        </View>
-
-        {/* Stage 3a: Index List — always rendered so the "Narrow the list"
-            filter entry is never trapped behind an empty list (the escape
-            hatch when results collapse to a single pick). */}
-          <View style={styles.indexPage}>
-            {/* Index head — only when there are other picks to title */}
-            {indexEntries.length > 0 && (
-              <View style={styles.indexHead}>
-                <Text style={styles.indexKicker}>THE LIST</Text>
-                <Text style={styles.indexTitle}>
-                  {`${indexEntries.length} MORE ON THE MENU`}
-                </Text>
-              </View>
-            )}
-
-            {/* Stage 3b: Filter disclosure */}
-            <View style={styles.filterDisclosure}>
-              <Pressable
-                onPress={() => {
-                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                  setFilterOpen((o) => !o);
+            <View style={styles.spotlightBody}>
+              <SpotlightCard
+                data={{
+                  name: heroPick.name,
+                  subline: heroPick.explain,
+                  imageUrl: heroPick.image_url,
+                  missingCount: heroPick.missing_count ?? 0,
+                  firstMissing: heroPick.missing_items?.[0],
                 }}
-              >
-                <Text style={[styles.filterToggle, filterOpen && styles.filterToggleOpen]}>
-                  Narrow the list{"  "}
-                  <Text style={styles.filterToggleIcon}>
-                    {filterOpen ? "−" : "+"}
-                  </Text>
-                </Text>
-              </Pressable>
+                onPress={openHeroRecipe}
+              />
             </View>
+          </View>
+        )}
 
-            {/* Stage 3b: Chips panel */}
-            {filterOpen && (
-              <View style={styles.chipsPanel}>
-                <View style={styles.chipsGroup}>
-                  <Text style={styles.chipsLabel}>OCCASION</Text>
-                  {/* Stage 3: forced 2+2 symmetric layout (home/meal + party/nightcap) */}
-                  <View style={styles.chipRow}>
-                    {OCCASION_CHIPS.slice(0, 2).map((c) => {
-                      const active = selectedOccasion === c.val;
-                      return (
-                        <Pressable
-                          key={c.val}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => setSelectedOccasion(active ? null : c.val)}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {c.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <View style={[styles.chipRow, { marginTop: V3.spacing.chipRowGap }]}>
-                    {OCCASION_CHIPS.slice(2, 4).map((c) => {
-                      const active = selectedOccasion === c.val;
-                      return (
-                        <Pressable
-                          key={c.val}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => setSelectedOccasion(active ? null : c.val)}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {c.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-                <View style={styles.chipsGroup}>
-                  <Text style={styles.chipsLabel}>STYLE</Text>
-                  {/* Stage 3: forced 3+2 layout (bitter/smoky/herbal + fruity/sparkling) */}
-                  <View style={styles.chipRow}>
-                    {STYLE_CHIPS.slice(0, 3).map((c) => {
-                      const active = selectedStyles.includes(c.val);
-                      return (
-                        <Pressable
-                          key={c.val}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => toggle(selectedStyles, c.val, setSelectedStyles)}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {c.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <View style={[styles.chipRow, { marginTop: V3.spacing.chipRowGap }]}>
-                    {STYLE_CHIPS.slice(3, 5).map((c) => {
-                      const active = selectedStyles.includes(c.val);
-                      return (
-                        <Pressable
-                          key={c.val}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => toggle(selectedStyles, c.val, setSelectedStyles)}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {c.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-                <View style={styles.chipsGroup}>
-                  <Text style={styles.chipsLabel}>BASE SPIRIT</Text>
-                  {/* Stage 2: forced 3+3 symmetric layout (gin/whiskey/rum + tequila/brandy/vodka) */}
-                  <View style={styles.chipRow}>
-                    {SPIRIT_CHIPS.slice(0, 3).map((c) => {
-                      const active = selectedSpirits.includes(c.val);
-                      return (
-                        <Pressable
-                          key={c.val}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => toggle(selectedSpirits, c.val, setSelectedSpirits)}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {c.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <View style={[styles.chipRow, { marginTop: V3.spacing.chipRowGap }]}>
-                    {SPIRIT_CHIPS.slice(3, 6).map((c) => {
-                      const active = selectedSpirits.includes(c.val);
-                      return (
-                        <Pressable
-                          key={c.val}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => toggle(selectedSpirits, c.val, setSelectedSpirits)}
-                        >
-                          <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                            {c.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* Entries */}
-            {indexEntries.map((pick, i) => {
-              const status = formatEntryStatus(pick);
-              return (
-                <Pressable
-                  key={pick.iba_code}
-                  style={styles.entry}
-                  onPress={() => openRecipe(pick)}
-                >
-                  <Text style={styles.entryNum}>{String(i + 1).padStart(2, "0")}</Text>
-                  <View style={styles.entryViz}>
-                    <CocktailThumbnail imageUrl={pick.image_url} size={60} />
-                  </View>
-                  <View style={styles.entryContent}>
-                    <Text style={styles.entryName}>{pick.name.toUpperCase()}</Text>
-                    <Text style={styles.entryIngr}>
-                      {formatEntryIngredients(pick.ingredient_keys).toUpperCase()}
-                    </Text>
-                    {pick.explain && (
-                      <Text style={styles.entryExplain}>
-                        {pick.explain.toUpperCase()}
-                      </Text>
-                    )}
-                    <Text
-                      style={[
-                        styles.entryStatus,
-                        status.ready && styles.entryStatusReady,
-                      ]}
-                    >
-                      {status.text}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-
-            {/* Personalize block */}
-            <Pressable
-              style={styles.personalize}
-              onPress={() => router.push("/profile/preferences")}
-            >
-              <Text style={styles.personalizeTitle}>TASTE PREFERENCES</Text>
-              <Text style={styles.personalizeSub}>tune your recommendations</Text>
+        {/* Rails */}
+        {initialBrowseLoad ? (
+          <View style={styles.railsPending}>
+            <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+          </View>
+        ) : browseFailed ? (
+          <View style={styles.railsPending}>
+            <Text style={styles.stateMsg}>couldn't load the menu</Text>
+            <Text style={styles.stateSubMsg}>{browseError}</Text>
+            <Pressable style={styles.retryBtn} onPress={fetchBrowse}>
+              <Text style={styles.retryBtnText}>TRY AGAIN</Text>
             </Pressable>
           </View>
+        ) : (
+          rails.map((rail) => (
+            <RailRow key={rail.key} rail={rail} onPressItem={openBrowseRecipe} />
+          ))
+        )}
+
+        {/* Spotlight slot spinner when hero is still warming up and rails
+            already rendered (keeps layout calm — no full-screen takeover) */}
+        {!heroPick && heroLoading && !initialBrowseLoad && (
+          <View style={styles.railsPending}>
+            <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+          </View>
+        )}
       </ScrollView>
 
       {isLogoRefreshing && (
@@ -834,27 +320,24 @@ export default function BartenderScreen() {
           <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
         </View>
       )}
-
     </View>
   );
 }
 
-// ─────── Stage 2b: Styles ───────
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: OaklandDusk.bg.void,
   },
 
-  // Stage 3: Exploration-mode banner (starter-bar mode signal)
   explorationBanner: {
     marginHorizontal: 26,
     marginTop: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: `${OaklandDusk.brand.gold}47`,        // brand gold @28%
-    backgroundColor: `${OaklandDusk.brand.gold}1F`,    // brand gold @12%
+    borderColor: `${OaklandDusk.brand.gold}47`, // brand gold @28%
+    backgroundColor: `${OaklandDusk.brand.gold}1F`, // brand gold @12%
     alignItems: "center",
     justifyContent: "center",
   },
@@ -866,18 +349,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     textAlign: "center",
   },
-  // Stage 3: Faint "EXPLORING" mark above drink name in hero card
-  exploringMark: {
-    fontFamily: V3.fonts.mono,
-    fontSize: 9,
-    letterSpacing: 2.7,
-    color: `${OaklandDusk.brand.gold}52`,   // ~32% gold — soft watermark
-    textTransform: "uppercase",
-    marginBottom: 6,
-    textAlign: "center",
-  },
 
-  // Center fill for loading/error/empty states
   centerFill: {
     flex: 1,
     alignItems: "center",
@@ -885,29 +357,54 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
 
-  // Loading skeleton
-  skeletonThumb: {
-    width: DRINK_SIZE,
-    height: DRINK_SIZE * 1.15,
-    borderRadius: 12,
+  // Mode B entry pill
+  searchPill: {
+    marginHorizontal: 26,
+    marginTop: 16,
+    marginBottom: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: `${OaklandDusk.text.primary}12`, // ~7% ivory hairline
+    borderRadius: 22,
     backgroundColor: OaklandDusk.bg.card,
-    marginBottom: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
-  skeletonLineLong: {
-    width: 200,
-    height: 14,
-    borderRadius: 4,
-    backgroundColor: OaklandDusk.bg.card,
-    marginBottom: 10,
-  },
-  skeletonLineShort: {
-    width: 140,
-    height: 10,
-    borderRadius: 4,
-    backgroundColor: OaklandDusk.bg.card,
+  searchPillText: {
+    flex: 1,
+    fontFamily: V3.fonts.mono,
+    fontSize: 11,
+    letterSpacing: 1.54,
+    color: `${OaklandDusk.text.primary}52`, // textFaint
   },
 
-  // Error / empty state messages
+  // Spotlight row
+  spotlightRow: {
+    marginTop: 18,
+  },
+  spotlightBody: {
+    paddingHorizontal: 26,
+  },
+  rowHead: {
+    paddingHorizontal: 26,
+    paddingBottom: 10,
+  },
+  rowTitle: {
+    fontFamily: V3.fonts.bebas,
+    fontSize: 20,
+    letterSpacing: 1.6,
+    color: OaklandDusk.text.primary,
+  },
+
+  // Rails pending / error block
+  railsPending: {
+    paddingVertical: 48,
+    paddingHorizontal: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   stateMsg: {
     fontFamily: V3.fonts.cormorant,
     fontStyle: "italic",
@@ -939,320 +436,12 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
 
-  // Spread (main hero card container)
-  spread: {
-    paddingHorizontal: V3.spacing.spreadPaddingH,
-    paddingTop: 28,  // post hero-trim: restores masthead → glass breathing room (was 16 paired with pourCounterRow)
-    paddingBottom: V3.spacing.spreadPaddingBottom,
-    alignItems: "center",
-  },
-
-  // Drink illustration with gold corner frame
-  drinkIllustration: {
-    width: DRINK_SIZE,
-    aspectRatio: 1 / 1.15,
-    marginBottom: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  drinkFrameTopLeft: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: 18,
-    height: 18,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderColor: `${OaklandDusk.brand.gold}47`,
-    zIndex: 1,
-  },
-  drinkFrameBottomRight: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 18,
-    height: 18,
-    borderBottomWidth: 1,
-    borderRightWidth: 1,
-    borderColor: `${OaklandDusk.brand.gold}47`,
-    zIndex: 1,
-  },
-
-  // Drink name
-  drinkName: {
-    ...V3.type.drinkName,
-    lineHeight: 52,  // override V3 token: RN clips text when lineHeight < fontSize (was 45.6, fontSize 48)
-    color: OaklandDusk.text.primary,
-    textAlign: "center",
-    marginBottom: 0,
-  },
-
-  // Gold rule line
-  drinkRule: {
-    width: 42,
-    height: 1,
-    backgroundColor: OaklandDusk.brand.gold,
-    marginVertical: 8,
-  },
-
-  // Ingredients
-  drinkIngredients: {
-    ...V3.type.drinkIngredients,
-    color: `${OaklandDusk.text.primary}94`,
-    textAlign: "center",
-    textTransform: "lowercase",
-    lineHeight: 17,
-    marginBottom: 14,
-    maxWidth: 260,
-  },
-
-  // Explain field row
-  drinkExplainRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    flexWrap: "wrap",
-    marginBottom: 16,
-  },
-  drinkExplainText: {
-    ...V3.type.drinkExplain,
-    color: OaklandDusk.brand.gold,
-    textTransform: "uppercase",
-  },
-  explainDot: {
-    color: `${OaklandDusk.brand.gold}47`,
-    fontSize: 8,
-    marginHorizontal: 10,
-  },
-
-  // See the recipe CTA (ghost button)
-  seeRecipeBtn: {
-    borderWidth: 1,
-    borderColor: OaklandDusk.brand.gold,
-    paddingHorizontal: 42,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  seeRecipeText: {
-    ...V3.type.seeRecipe,
-    color: OaklandDusk.brand.gold,
-    textTransform: "uppercase",
-  },
-
-  // Action buttons row (Save / Another)
-  spreadActions: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 20,
-    marginBottom: 20,
-  },
-  spreadAction: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1,
-    borderColor: `${OaklandDusk.text.primary}2E`,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  // Stage 2d: Active state for Save button when favorited
-  spreadActionActive: {
-    borderColor: OaklandDusk.brand.gold,
-    backgroundColor: `${OaklandDusk.brand.gold}1F`,
-  },
-  actionLabel: {
-    position: "absolute",
-    bottom: -18,
-    left: -20,   // extend label beyond button width; prevents ANOTHER wrapping
-    right: -20,
-    textAlign: "center",
-    ...V3.type.actionLabel,
-    color: `${OaklandDusk.text.primary}52`,
-    textTransform: "uppercase",
-  },
-
-  // ─────── Stage 3a: Index List ───────
-
-  indexPage: {
-    paddingHorizontal: V3.spacing.indexPaddingH,   // 26
-    paddingTop: 24,  // override V3 token (44); tightened for mobile
-    paddingBottom: V3.spacing.indexPaddingBottom,   // 32
-    borderTopWidth: 1,
-    borderTopColor: `${OaklandDusk.brand.gold}14`,  // 8% alpha faint gold separator
-  },
-
-  // Index head
-  indexHead: {
-    alignItems: "center",
-    marginBottom: 32,
-  },
-  indexKicker: {
-    ...V3.type.indexKicker,
-    color: OaklandDusk.brand.gold,
-    textTransform: "uppercase",
-    marginBottom: 12,
-  },
-  indexTitle: {
-    ...V3.type.indexTitle,
-    fontSize: 22,      // override V3 token (26); lighter on mobile
-    color: OaklandDusk.text.primary,
-    textTransform: "uppercase",
-    textAlign: "center",
-  },
-  // ─────── Stage 3b: Filter disclosure + chips panel ───────
-  filterDisclosure: {
-    alignItems: "center" as const,
-    marginBottom: V3.spacing.filterDisclosureMarginB,  // 24
-  },
-  filterToggle: {
-    ...V3.type.filterToggle,
-    textTransform: "uppercase" as const,
-    color: `${OaklandDusk.text.primary}94`,   // textDim
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: `${OaklandDusk.text.primary}2E`,   // text primary @18%
-  },
-  filterToggleOpen: {
-    color: OaklandDusk.brand.gold,
-    borderBottomColor: `${OaklandDusk.brand.gold}47`,    // brand gold @28%
-  },
-  // Stage 3: + / − icon visual emphasis (always gold, +6px size bump)
-  filterToggleIcon: {
-    fontSize: 16,
-    color: OaklandDusk.brand.gold,
-  },
-  chipsPanel: {
-    marginTop: V3.spacing.chipsPanelMarginTop,      // 16
-    marginBottom: V3.spacing.chipsPanelMarginBottom, // 20
-    overflow: "hidden" as const,
-  },
-  chipsGroup: {
-    marginBottom: V3.spacing.chipsGroupGapBottom,   // 14
-  },
-  chipsLabel: {
-    ...V3.type.chipLabel,
-    textTransform: "uppercase" as const,
-    color: `${OaklandDusk.text.primary}52`,
-    marginBottom: V3.spacing.chipsLabelGapBottom,   // 8
-    textAlign: "center" as const,
-  },
-  chipRow: {
-    flexDirection: "row" as const,
-    flexWrap: "wrap" as const,
-    gap: V3.spacing.chipRowGap,                     // 6
-    justifyContent: "center" as const,
-  },
-  chip: {
-    paddingHorizontal: V3.spacing.chipPaddingH,     // 13
-    paddingVertical: V3.spacing.chipPaddingV,       // 7
-    borderWidth: 1,
-    borderColor: `${OaklandDusk.text.primary}2E`,
-    backgroundColor: "transparent",
-  },
-  chipActive: {
-    borderColor: OaklandDusk.brand.gold,
-    backgroundColor: `${OaklandDusk.brand.gold}1F`,
-  },
-  chipText: {
-    ...V3.type.chip,
-    textTransform: "uppercase" as const,
-    color: `${OaklandDusk.text.primary}94`,         // textDim
-  },
-  chipTextActive: {
-    color: OaklandDusk.brand.gold,
-  },
-
-  // Entry
-  entry: {
-    flexDirection: "row",
-    gap: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 10,
-    marginHorizontal: -10,
-    borderBottomWidth: 1,
-    borderBottomColor: `${OaklandDusk.brand.gold}14`,  // 8% alpha
-    alignItems: "flex-start",
-  },
-  entryNum: {
-    ...V3.type.entryNum,
-    fontSize: 10,      // override V3 token (9); slight bump for mobile
-    color: OaklandDusk.brand.gold,
-    textTransform: "uppercase",
-    width: 22,
-    paddingTop: 4,
-  },
-  entryViz: {
-    width: V3.spacing.entryVizW,  // 60
-    // Let CocktailThumbnail control its own aspect ratio (size=60 renders 60×60 square)
-  },
-  entryContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-  entryName: {
-    ...V3.type.entryName,
-    color: OaklandDusk.text.primary,
-    marginBottom: 5,
-  },
-  entryIngr: {
-    ...V3.type.entryIngr,
-    fontSize: 11,      // override V3 token (9); iOS HIG min body size
-    color: `${OaklandDusk.text.primary}52`,  // textFaint equivalent
-    marginBottom: 6,
-    lineHeight: 15,    // was 13; track fontSize bump
-  },
-  entryExplain: {
-    ...V3.type.entryExplain,
-    fontSize: 11,      // override V3 token (9); iOS HIG min body size
-    color: OaklandDusk.brand.gold,
-    textTransform: "uppercase",
-    marginBottom: 4,
-  },
-  entryStatus: {
-    ...V3.type.entryStatus,
-    fontSize: 13,      // override V3 token (12); +1 for readability
-    color: `${OaklandDusk.text.primary}52`,  // textFaint
-  },
-  entryStatusReady: {
-    color: `${OaklandDusk.text.primary}94`,  // textDim (slightly more visible)
-  },
-
-  // Personalize block
-  personalize: {
-    alignSelf: "center",
-    maxWidth: 260,
-    marginTop: 32,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: `${OaklandDusk.brand.gold}14`,  // 8% alpha
-    alignItems: "center",
-  },
-  personalizeTitle: {
-    ...V3.type.personalizeTitle,
-    color: OaklandDusk.brand.gold,
-    textTransform: "uppercase",
-    marginBottom: 3,
-    textAlign: "center",
-  },
-  personalizeSub: {
-    ...V3.type.personalizeSub,
-    fontSize: 11,      // override V3 token (9); iOS HIG min body size
-    color: `${OaklandDusk.text.primary}52`,  // textFaint
-    textTransform: "uppercase",
-    textAlign: "center",
-  },
-
   refreshOverlay: {
     position: "absolute",
     top: 0, left: 0, right: 0, bottom: 0,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: `${OaklandDusk.bg.void}B3`, // ~70% void scrim; tune alpha on device
+    backgroundColor: `${OaklandDusk.bg.void}B3`, // ~70% void scrim
     zIndex: 10,
   },
 });
