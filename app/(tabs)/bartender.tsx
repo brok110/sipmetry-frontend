@@ -19,7 +19,12 @@ import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
 import { usePreferences } from "@/context/preferences";
 import { useBartenderRefresh } from "@/context/bartenderRefresh";
-import { fetchBrowseRecipes } from "@/lib/browse/browseApi";
+import {
+  fetchBrowseRecipes,
+  fetchSearchSuggestions,
+  type SearchSuggestion,
+} from "@/lib/browse/browseApi";
+import SuggestionList from "@/components/browse/SuggestionList";
 import { buildRails, type BrowseItem } from "@/lib/browse/rowEngine";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { router, useFocusEffect } from "expo-router";
@@ -39,6 +44,8 @@ import {
 const SCREEN_PAD = 26;
 const GRID_GAP = 12;
 const SEARCH_DEBOUNCE_MS = 300;
+const SUGGEST_DEBOUNCE_MS = 200;
+const SUGGEST_LIMIT = 8;
 
 // Hero pipeline pick (/bartender-recommend). Kept because it carries the
 // interaction/rerank/exclude logic the browse endpoint doesn't.
@@ -92,6 +99,14 @@ export default function BartenderScreen() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const searchSeqRef = useRef(0);
+
+  // ── Typeahead suggestions state ──
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const suggestSeqRef = useRef(0);
+  // Set before programmatic setQuery (suggestion tap) so filling the input
+  // doesn't immediately reopen the dropdown.
+  const suppressSuggestRef = useRef(false);
 
   const [isLogoRefreshing, setIsLogoRefreshing] = useState(false);
 
@@ -221,6 +236,63 @@ export default function BartenderScreen() {
     return () => clearTimeout(t);
   }, [query, session]);
 
+  // Typeahead: debounced suggestion fetch, sequence-guarded like the grid
+  // search. Empty query or programmatic fills close the dropdown; empty
+  // suggestion responses render nothing.
+  useEffect(() => {
+    const q = query.trim();
+    if (suppressSuggestRef.current) {
+      suppressSuggestRef.current = false;
+      suggestSeqRef.current++;
+      setSuggestions([]);
+      setSuggestionsOpen(false);
+      return;
+    }
+    if (!q) {
+      suggestSeqRef.current++;
+      setSuggestions([]);
+      setSuggestionsOpen(false);
+      return;
+    }
+    const seq = ++suggestSeqRef.current;
+    const t = setTimeout(async () => {
+      try {
+        const list = await fetchSearchSuggestions(session, q, SUGGEST_LIMIT);
+        if (seq !== suggestSeqRef.current) return;
+        setSuggestions(list);
+        setSuggestionsOpen(list.length > 0);
+      } catch {
+        // Suggestions are best-effort sugar — on failure just stay closed.
+        if (seq !== suggestSeqRef.current) return;
+        setSuggestions([]);
+        setSuggestionsOpen(false);
+      }
+    }, SUGGEST_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query, session]);
+
+  const dismissSuggestions = useCallback(() => {
+    suggestSeqRef.current++; // drop any in-flight response
+    setSuggestionsOpen(false);
+  }, []);
+
+  const handleSuggestionPick = useCallback((s: SearchSuggestion) => {
+    dismissSuggestions();
+    if (s.type === "recipe" && s.iba_code) {
+      // Straight to detail — no grid search first.
+      analytics(EVENTS.RECOMMENDATION_ENGAGED, { source: "search", recipe_key: s.iba_code });
+      router.push({
+        pathname: "/recipe",
+        params: { recipe_key: s.iba_code, iba_code: s.iba_code, source: "search" },
+      });
+      return;
+    }
+    // spirit / ingredient (and recipe missing its code): fill the input and
+    // let the existing debounced grid search take it from here.
+    suppressSuggestRef.current = true;
+    setQuery(s.label);
+  }, [dismissSuggestions]);
+
   // Spotlight joins the used-set so its recipe never repeats in a rail.
   const rails = useMemo(
     () => buildRails(browseItems, { excludeCodes: heroPick ? [heroPick.iba_code] : [] }),
@@ -296,41 +368,54 @@ export default function BartenderScreen() {
       )}
 
       {/* Sticky Mode B entry: fixed above the scroll container so it never
-          scrolls off, and stays reachable with the keyboard open. */}
-      <View style={styles.searchBar}>
-        <FontAwesome
-          name="search"
-          size={13}
-          color={`${OaklandDusk.text.primary}80`}
-        />
-        <TextInput
-          style={styles.searchInput}
-          value={query}
-          onChangeText={setQuery}
-          placeholder="search · name, spirit, ingredient"
-          placeholderTextColor={`${OaklandDusk.text.primary}52`}
-          selectionColor={OaklandDusk.brand.gold}
-          autoCorrect={false}
-          autoCapitalize="none"
-          returnKeyType="search"
-          accessibilityLabel="Search cocktails"
-        />
-        {searchActive && searchLoading && (
-          <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
-        )}
-        {searchActive && !searchLoading && (
-          <Pressable
-            onPress={() => setQuery("")}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Clear search"
-          >
-            <FontAwesome
-              name="times-circle"
-              size={15}
-              color={`${OaklandDusk.text.primary}52`}
-            />
-          </Pressable>
+          scrolls off, and stays reachable with the keyboard open. The
+          typeahead dropdown hangs off this container (absolute, elevated)
+          so page content behind stays put. */}
+      <View style={styles.searchArea}>
+        <View style={styles.searchBar}>
+          <FontAwesome
+            name="search"
+            size={13}
+            color={`${OaklandDusk.text.primary}80`}
+          />
+          <TextInput
+            style={styles.searchInput}
+            value={query}
+            onChangeText={setQuery}
+            placeholder="search · name, spirit, ingredient"
+            placeholderTextColor={`${OaklandDusk.text.primary}52`}
+            selectionColor={OaklandDusk.brand.gold}
+            autoCorrect={false}
+            autoCapitalize="none"
+            returnKeyType="search"
+            onSubmitEditing={dismissSuggestions}
+            accessibilityLabel="Search cocktails"
+          />
+          {searchActive && searchLoading && (
+            <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+          )}
+          {searchActive && !searchLoading && (
+            <Pressable
+              onPress={() => {
+                dismissSuggestions();
+                setQuery("");
+              }}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="Clear search"
+            >
+              <FontAwesome
+                name="times-circle"
+                size={15}
+                color={`${OaklandDusk.text.primary}52`}
+              />
+            </Pressable>
+          )}
+        </View>
+        {suggestionsOpen && (
+          <View style={styles.suggestDropdown}>
+            <SuggestionList suggestions={suggestions} onPick={handleSuggestionPick} />
+          </View>
         )}
       </View>
 
@@ -367,7 +452,7 @@ export default function BartenderScreen() {
           <View style={styles.centerFill}>
             <FontAwesome name="glass" size={48} color={OaklandDusk.text.tertiary} />
             <Text style={[styles.stateMsg, { marginTop: 16 }]}>no cocktails found</Text>
-            <Text style={styles.stateSubMsg}>TRY A DIFFERENT NAME OR SPIRIT</Text>
+            <Text style={styles.stateSubMsg}>TRY A DIFFERENT NAME, SPIRIT, OR INGREDIENT</Text>
           </View>
         )
       ) : (
@@ -432,6 +517,17 @@ export default function BartenderScreen() {
         </ScrollView>
       )}
 
+      {/* Outside-tap catcher while suggestions are open: covers everything
+          except the search area (which z-stacks above it). First tap
+          dismisses the dropdown; keyboard is left as-is. */}
+      {suggestionsOpen && (
+        <Pressable
+          style={styles.suggestScrim}
+          onPress={dismissSuggestions}
+          accessibilityLabel="Dismiss suggestions"
+        />
+      )}
+
       {isLogoRefreshing && (
         <View style={styles.refreshOverlay} pointerEvents="none">
           <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
@@ -475,11 +571,25 @@ const styles = StyleSheet.create({
     paddingBottom: 80, // optical center above the keyboard
   },
 
-  // Sticky Mode B search bar
-  searchBar: {
+  // Sticky Mode B search bar (+ typeahead dropdown anchor)
+  searchArea: {
     marginHorizontal: SCREEN_PAD,
     marginTop: 16,
     marginBottom: 6,
+    zIndex: 20, // above the suggestion scrim
+  },
+  suggestDropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    marginTop: 6,
+  },
+  suggestScrim: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10, // over page content, under searchArea
+  },
+  searchBar: {
     paddingVertical: 4,
     paddingHorizontal: 16,
     borderWidth: 1,

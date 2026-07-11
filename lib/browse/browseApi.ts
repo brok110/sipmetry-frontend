@@ -29,6 +29,24 @@ export function buildBrowseQuery(params: BrowseQueryParams): string {
   return parts.length ? `?${parts.join("&")}` : "";
 }
 
+export type SearchSuggestion = {
+  label: string;
+  type: "recipe" | "spirit" | "ingredient";
+  iba_code?: string;
+};
+
+export async function fetchSearchSuggestions(
+  session: Session | null,
+  q: string,
+  limit = 8
+): Promise<SearchSuggestion[]> {
+  const data = await apiFetchJson<{ suggestions?: SearchSuggestion[] }>(
+    `/search-suggestions?q=${encodeURIComponent(q)}&limit=${encodeURIComponent(String(limit))}`,
+    { session }
+  );
+  return Array.isArray(data?.suggestions) ? data.suggestions : [];
+}
+
 export async function fetchBrowseRecipes(
   session: Session | null,
   params: BrowseQueryParams
