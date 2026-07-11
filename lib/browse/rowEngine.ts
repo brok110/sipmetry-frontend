@@ -87,71 +87,92 @@ function pickTopGroup(
   return bestCount >= MIN_GROUP_WITHIN_REACH ? best : null;
 }
 
-export function buildRails(items: BrowseItem[]): Rail[] {
+export type BuildRailsOptions = {
+  // Recipes already on screen elsewhere (e.g. the spotlight pick) — they
+  // join the used-set up front so they never reappear in a rail.
+  excludeCodes?: string[];
+};
+
+// Global greedy dedup by row priority: each row claims its cards from the
+// not-yet-used pool (same per-row filters + score sort + cap 12). An item
+// appears at most once per page. Row visibility thresholds are evaluated
+// AFTER dedup — a row that fails its threshold claims nothing.
+export function buildRails(items: BrowseItem[], options: BuildRailsOptions = {}): Rail[] {
   const rails: Rail[] = [];
   if (!Array.isArray(items) || items.length === 0) return rails;
 
-  const withinReach = items.filter(
-    (i) => i.bucket === "can_make" || i.bucket === "one_away"
-  );
+  const used = new Set<string>(options.excludeCodes || []);
+  const unused = () => items.filter((i) => !used.has(i.iba_code));
+
+  const claim = (candidates: BrowseItem[]): BrowseItem[] => {
+    const take = cap([...candidates].sort(byScoreDesc));
+    for (const item of take) used.add(item.iba_code);
+    return take;
+  };
 
   // 1. READY TO MAKE
-  const ready = items.filter((i) => i.bucket === "can_make").sort(byScoreDesc);
+  const ready = unused().filter((i) => i.bucket === "can_make");
   if (ready.length >= MIN_BUCKET_ROW) {
-    rails.push({ key: "ready", kind: "ready", title: "READY TO MAKE", items: cap(ready), dimmed: false });
+    rails.push({ key: "ready", kind: "ready", title: "READY TO MAKE", items: claim(ready), dimmed: false });
   }
 
   // 2. ONE BOTTLE AWAY
-  const oneAway = items.filter((i) => i.bucket === "one_away").sort(byScoreDesc);
+  const oneAway = unused().filter((i) => i.bucket === "one_away");
   if (oneAway.length >= MIN_BUCKET_ROW) {
-    rails.push({ key: "one_away", kind: "one_away", title: "ONE BOTTLE AWAY", items: cap(oneAway), dimmed: false });
+    rails.push({ key: "one_away", kind: "one_away", title: "ONE BOTTLE AWAY", items: claim(oneAway), dimmed: false });
   }
 
-  // 3. FOR YOUR TASTE — always shows (rows may share items; no dedup)
-  const taste = [...items].sort(byScoreDesc);
-  rails.push({ key: "taste", kind: "taste", title: "FOR YOUR TASTE", items: cap(taste), dimmed: false });
+  // 3. FOR YOUR TASTE — always shows (whatever the pool still holds)
+  const taste = unused();
+  if (taste.length > 0) {
+    rails.push({ key: "taste", kind: "taste", title: "FOR YOUR TASTE", items: claim(taste), dimmed: false });
+  }
 
   // 4. YOUR {SPIRIT} SHELF — base_spirit="none" excluded from this row type
-  const topSpirit = pickTopGroup(withinReach, (i) => i.base_spirit, ["none"]);
+  const shelfPool = unused();
+  const shelfReach = shelfPool.filter(
+    (i) => i.bucket === "can_make" || i.bucket === "one_away"
+  );
+  const topSpirit = pickTopGroup(shelfReach, (i) => i.base_spirit, ["none"]);
   if (topSpirit) {
-    const shelf = items
-      .filter((i) => (i.base_spirit || "").trim() === topSpirit)
-      .sort(byScoreDesc);
+    const shelf = shelfPool.filter((i) => (i.base_spirit || "").trim() === topSpirit);
     rails.push({
       key: `spirit:${topSpirit}`,
       kind: "spirit_shelf",
       title: `YOUR ${humanizeKey(topSpirit).toUpperCase()} SHELF`,
-      items: cap(shelf),
+      items: claim(shelf),
       dimmed: false,
     });
   }
 
   // 5. {STYLE ROW}
   // Normally picked from within-reach items (≥4 rule), but on a fully cold
-  // bar (zero within reach) it falls back to all items: per spec, cold start
-  // keeps rows 3/5/6 — the style row is taste-based, unlike the possessive
-  // "YOUR X SHELF" which must vanish when nothing is in reach.
-  const styleBasis = withinReach.length > 0 ? withinReach : items;
+  // bar (zero within reach) it falls back to the whole pool: per spec, cold
+  // start keeps rows 3/5/6 — the style row is taste-based, unlike the
+  // possessive "YOUR X SHELF" which must vanish when nothing is in reach.
+  const stylePool = unused();
+  const styleReach = stylePool.filter(
+    (i) => i.bucket === "can_make" || i.bucket === "one_away"
+  );
+  const styleBasis = styleReach.length > 0 ? styleReach : stylePool;
   const topStyle = pickTopGroup(styleBasis, (i) => i.style);
   if (topStyle) {
-    const styled = items
-      .filter((i) => (i.style || "").trim() === topStyle)
-      .sort(byScoreDesc);
+    const styled = stylePool.filter((i) => (i.style || "").trim() === topStyle);
     rails.push({
       key: `style:${topStyle}`,
       kind: "style",
       title: STYLE_DISPLAY_NAMES[topStyle] || humanizeKey(topStyle).toUpperCase(),
-      items: cap(styled),
+      items: claim(styled),
       dimmed: false,
     });
   }
 
   // 6. WORTH THE HUNT
-  const hunt = items
-    .filter((i) => i.bucket === "two_away" || i.bucket === "not_found")
-    .sort(byScoreDesc);
+  const hunt = unused().filter(
+    (i) => i.bucket === "two_away" || i.bucket === "not_found"
+  );
   if (hunt.length >= MIN_BUCKET_ROW) {
-    rails.push({ key: "hunt", kind: "hunt", title: "WORTH THE HUNT", items: cap(hunt), dimmed: true });
+    rails.push({ key: "hunt", kind: "hunt", title: "WORTH THE HUNT", items: claim(hunt), dimmed: true });
   }
 
   return rails;

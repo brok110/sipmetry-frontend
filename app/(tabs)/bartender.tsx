@@ -1,14 +1,17 @@
 // app/(tabs)/bartender.tsx
 // V2 Category Carousel homepage per sipmetry-v3-carousel.html:
-// search pill → SPOTLIGHT row (existing hero pipeline) → up to 5 looping
-// rails driven by GET /browse-recipes through the pure row engine
-// (lib/browse/rowEngine). Components stay dumb.
+// sticky search input → SPOTLIGHT row (existing hero pipeline) → up to 5
+// looping rails driven by GET /browse-recipes through the pure row engine
+// (lib/browse/rowEngine). Typing in the search bar swaps the body for an
+// inline 2-col results grid (Mode B lite, q-only); clearing restores the
+// carousel. Components stay dumb.
 
 import { apiFetch } from "@/lib/api";
 import { track as analytics } from "@/lib/analytics/analytics";
 import { EVENTS } from "@/lib/analytics/events";
 import Masthead from "@/components/Masthead";
 import RailRow from "@/components/browse/RailRow";
+import RecipeCard from "@/components/browse/RecipeCard";
 import SpotlightCard from "@/components/browse/SpotlightCard";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
@@ -23,12 +26,19 @@ import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
+  useWindowDimensions,
 } from "react-native";
+
+const SCREEN_PAD = 26;
+const GRID_GAP = 12;
+const SEARCH_DEBOUNCE_MS = 300;
 
 // Hero pipeline pick (/bartender-recommend). Kept because it carries the
 // interaction/rerank/exclude logic the browse endpoint doesn't.
@@ -59,6 +69,7 @@ export default function BartenderScreen() {
   const { inventory, availableIngredientKeys, initialized: inventoryInitialized } = useInventory();
   const { preferences } = usePreferences();
   const { refreshNonce } = useBartenderRefresh();
+  const { width: windowWidth } = useWindowDimensions();
 
   // ── Spotlight (hero pipeline) state ──
   const [heroPick, setHeroPick] = useState<Pick | null>(null);
@@ -74,6 +85,14 @@ export default function BartenderScreen() {
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseError, setBrowseError] = useState<string | null>(null);
   const browseSeqRef = useRef(0);
+
+  // ── Inline search (Mode B lite) state ──
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<BrowseItem[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searched, setSearched] = useState(false);
+  const searchSeqRef = useRef(0);
 
   const [isLogoRefreshing, setIsLogoRefreshing] = useState(false);
 
@@ -172,7 +191,43 @@ export default function BartenderScreen() {
     );
   }, [refreshNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const rails = useMemo(() => buildRails(browseItems), [browseItems]);
+  // Inline search: debounced q-only fetch; sequence counter drops
+  // out-of-order responses. Empty query resets to the carousel.
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) {
+      searchSeqRef.current++; // invalidate any in-flight response
+      setSearchResults([]);
+      setSearchError(null);
+      setSearched(false);
+      setSearchLoading(false);
+      return;
+    }
+    const seq = ++searchSeqRef.current;
+    setSearchLoading(true);
+    const t = setTimeout(async () => {
+      try {
+        const data = await fetchBrowseRecipes(session, { q, limit: 30 });
+        if (seq !== searchSeqRef.current) return;
+        setSearchResults(data.items);
+        setSearchError(null);
+        setSearched(true);
+      } catch (e: any) {
+        if (seq !== searchSeqRef.current) return;
+        setSearchError(e?.message || "Something went wrong");
+        setSearched(true);
+      } finally {
+        if (seq === searchSeqRef.current) setSearchLoading(false);
+      }
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [query, session]);
+
+  // Spotlight joins the used-set so its recipe never repeats in a rail.
+  const rails = useMemo(
+    () => buildRails(browseItems, { excludeCodes: heroPick ? [heroPick.iba_code] : [] }),
+    [browseItems, heroPick]
+  );
 
   const openHeroRecipe = useCallback(() => {
     if (!heroPick) return;
@@ -193,8 +248,8 @@ export default function BartenderScreen() {
     });
   }, [heroPick, inventory]);
 
-  const openBrowseRecipe = useCallback((item: BrowseItem) => {
-    analytics(EVENTS.RECOMMENDATION_ENGAGED, { source: "browse", recipe_key: item.iba_code });
+  const openBrowseRecipe = useCallback((item: BrowseItem, source: "browse" | "search") => {
+    analytics(EVENTS.RECOMMENDATION_ENGAGED, { source, recipe_key: item.iba_code });
     // Recipe screen self-fetches by iba_code; availability comes from the
     // server-side SSoT endpoint, so no ingredient params are needed here.
     router.push({
@@ -202,7 +257,7 @@ export default function BartenderScreen() {
       params: {
         recipe_key: item.iba_code,
         iba_code: item.iba_code,
-        source: "browse",
+        source,
       },
     });
   }, []);
@@ -220,12 +275,14 @@ export default function BartenderScreen() {
     );
   }
 
+  const searchActive = query.trim().length > 0;
   const initialBrowseLoad = browseLoading && browseItems.length === 0;
   const browseFailed = !!browseError && browseItems.length === 0 && !browseLoading;
-  const searchLabel =
+  const searchPlaceholder =
     browseTotal && browseTotal > 0
       ? `search ${browseTotal} cocktails · name, spirit, style`
       : "search cocktails · name, spirit, style";
+  const gridCardWidth = (windowWidth - SCREEN_PAD * 2 - GRID_GAP) / 2;
 
   return (
     <View style={styles.root}>
@@ -244,76 +301,142 @@ export default function BartenderScreen() {
         </Pressable>
       )}
 
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Mode B entry */}
-        <Pressable
-          style={styles.searchPill}
-          onPress={() => router.push("/search")}
-          accessibilityRole="button"
+      {/* Sticky Mode B entry: fixed above the scroll container so it never
+          scrolls off, and stays reachable with the keyboard open. */}
+      <View style={styles.searchBar}>
+        <FontAwesome
+          name="search"
+          size={13}
+          color={`${OaklandDusk.text.primary}80`}
+        />
+        <TextInput
+          style={styles.searchInput}
+          value={query}
+          onChangeText={setQuery}
+          placeholder={searchPlaceholder}
+          placeholderTextColor={`${OaklandDusk.text.primary}52`}
+          selectionColor={OaklandDusk.brand.gold}
+          autoCorrect={false}
+          autoCapitalize="none"
+          returnKeyType="search"
           accessibilityLabel="Search cocktails"
-        >
-          <FontAwesome
-            name="search"
-            size={13}
-            color={`${OaklandDusk.text.primary}80`}
-          />
-          <Text style={styles.searchPillText} numberOfLines={1}>
-            {searchLabel}
-          </Text>
-        </Pressable>
-
-        {/* Row 0: SPOTLIGHT — hero pipeline top result */}
-        {heroPick && (
-          <View style={styles.spotlightRow}>
-            <View style={styles.rowHead}>
-              <Text style={styles.rowTitle}>TONIGHT'S POUR</Text>
-            </View>
-            <View style={styles.spotlightBody}>
-              <SpotlightCard
-                data={{
-                  name: heroPick.name,
-                  subline: heroPick.explain,
-                  imageUrl: heroPick.image_url,
-                  missingCount: heroPick.missing_count ?? 0,
-                  firstMissing: heroPick.missing_items?.[0],
-                }}
-                onPress={openHeroRecipe}
-              />
-            </View>
-          </View>
+        />
+        {searchActive && searchLoading && (
+          <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
         )}
+        {searchActive && !searchLoading && (
+          <Pressable
+            onPress={() => setQuery("")}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Clear search"
+          >
+            <FontAwesome
+              name="times-circle"
+              size={15}
+              color={`${OaklandDusk.text.primary}52`}
+            />
+          </Pressable>
+        )}
+      </View>
 
-        {/* Rails */}
-        {initialBrowseLoad ? (
-          <View style={styles.railsPending}>
+      {searchActive ? (
+        /* ── Inline search results (Mode B lite) ── */
+        searchResults.length > 0 ? (
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item) => item.iba_code}
+            numColumns={2}
+            columnWrapperStyle={styles.gridRow}
+            contentContainerStyle={styles.grid}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <RecipeCard
+                item={item}
+                width={gridCardWidth}
+                onPress={() => openBrowseRecipe(item, "search")}
+              />
+            )}
+          />
+        ) : searchLoading || !searched ? (
+          <View style={styles.centerFill}>
             <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
           </View>
-        ) : browseFailed ? (
-          <View style={styles.railsPending}>
-            <Text style={styles.stateMsg}>couldn't load the menu</Text>
-            <Text style={styles.stateSubMsg}>{browseError}</Text>
-            <Pressable style={styles.retryBtn} onPress={fetchBrowse}>
-              <Text style={styles.retryBtnText}>TRY AGAIN</Text>
-            </Pressable>
+        ) : searchError ? (
+          <View style={styles.centerFill}>
+            <Text style={styles.stateMsg}>something went wrong</Text>
+            <Text style={styles.stateSubMsg}>{searchError}</Text>
           </View>
         ) : (
-          rails.map((rail) => (
-            <RailRow key={rail.key} rail={rail} onPressItem={openBrowseRecipe} />
-          ))
-        )}
-
-        {/* Spotlight slot spinner when hero is still warming up and rails
-            already rendered (keeps layout calm — no full-screen takeover) */}
-        {!heroPick && heroLoading && !initialBrowseLoad && (
-          <View style={styles.railsPending}>
-            <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+          <View style={styles.centerFill}>
+            <FontAwesome name="glass" size={48} color={OaklandDusk.text.tertiary} />
+            <Text style={[styles.stateMsg, { marginTop: 16 }]}>no cocktails found</Text>
+            <Text style={styles.stateSubMsg}>TRY A DIFFERENT NAME OR SPIRIT</Text>
           </View>
-        )}
-      </ScrollView>
+        )
+      ) : (
+        /* ── Carousel homepage ── */
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Row 0: SPOTLIGHT — hero pipeline top result */}
+          {heroPick && (
+            <View style={styles.spotlightRow}>
+              <View style={styles.rowHead}>
+                <Text style={styles.rowTitle}>TONIGHT'S POUR</Text>
+              </View>
+              <View style={styles.spotlightBody}>
+                <SpotlightCard
+                  data={{
+                    name: heroPick.name,
+                    subline: heroPick.explain,
+                    imageUrl: heroPick.image_url,
+                    missingCount: heroPick.missing_count ?? 0,
+                    firstMissing: heroPick.missing_items?.[0],
+                  }}
+                  onPress={openHeroRecipe}
+                />
+              </View>
+            </View>
+          )}
+
+          {/* Rails */}
+          {initialBrowseLoad ? (
+            <View style={styles.railsPending}>
+              <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+            </View>
+          ) : browseFailed ? (
+            <View style={styles.railsPending}>
+              <Text style={styles.stateMsg}>couldn't load the menu</Text>
+              <Text style={styles.stateSubMsg}>{browseError}</Text>
+              <Pressable style={styles.retryBtn} onPress={fetchBrowse}>
+                <Text style={styles.retryBtnText}>TRY AGAIN</Text>
+              </Pressable>
+            </View>
+          ) : (
+            rails.map((rail) => (
+              <RailRow
+                key={rail.key}
+                rail={rail}
+                onPressItem={(item) => openBrowseRecipe(item, "browse")}
+              />
+            ))
+          )}
+
+          {/* Spotlight slot spinner when hero is still warming up and rails
+              already rendered (keeps layout calm — no full-screen takeover) */}
+          {!heroPick && heroLoading && !initialBrowseLoad && (
+            <View style={styles.railsPending}>
+              <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+            </View>
+          )}
+        </ScrollView>
+      )}
 
       {isLogoRefreshing && (
         <View style={styles.refreshOverlay} pointerEvents="none">
@@ -355,14 +478,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 30,
+    paddingBottom: 80, // optical center above the keyboard
   },
 
-  // Mode B entry pill
-  searchPill: {
-    marginHorizontal: 26,
+  // Sticky Mode B search bar
+  searchBar: {
+    marginHorizontal: SCREEN_PAD,
     marginTop: 16,
     marginBottom: 6,
-    paddingVertical: 11,
+    paddingVertical: 4,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: `${OaklandDusk.text.primary}12`, // ~7% ivory hairline
@@ -372,17 +496,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
-  searchPillText: {
+  searchInput: {
     flex: 1,
+    paddingVertical: 8,
     fontFamily: V3.fonts.mono,
-    fontSize: 11,
-    letterSpacing: 1.54,
-    color: `${OaklandDusk.text.primary}52`, // textFaint
+    fontSize: 12,
+    letterSpacing: 1.2,
+    color: OaklandDusk.text.primary,
+  },
+
+  // Search results grid
+  grid: {
+    paddingHorizontal: SCREEN_PAD,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  gridRow: {
+    gap: GRID_GAP,
+    marginBottom: 20,
   },
 
   // Spotlight row
   spotlightRow: {
-    marginTop: 18,
+    marginTop: 12,
   },
   spotlightBody: {
     paddingHorizontal: 26,
