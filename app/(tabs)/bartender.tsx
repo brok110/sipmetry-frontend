@@ -81,7 +81,6 @@ export default function BartenderScreen() {
 
   // ── Browse (rails) state ──
   const [browseItems, setBrowseItems] = useState<BrowseItem[]>([]);
-  const [browseTotal, setBrowseTotal] = useState<number | null>(null);
   const [browseLoading, setBrowseLoading] = useState(false);
   const [browseError, setBrowseError] = useState<string | null>(null);
   const browseSeqRef = useRef(0);
@@ -145,7 +144,6 @@ export default function BartenderScreen() {
       const data = await fetchBrowseRecipes(session, { limit: 100, sort: "score" });
       if (seq !== browseSeqRef.current) return;
       setBrowseItems(data.items);
-      setBrowseTotal(data.total);
     } catch (e: any) {
       if (seq !== browseSeqRef.current) return;
       setBrowseError(e?.message || "Something went wrong");
@@ -278,10 +276,6 @@ export default function BartenderScreen() {
   const searchActive = query.trim().length > 0;
   const initialBrowseLoad = browseLoading && browseItems.length === 0;
   const browseFailed = !!browseError && browseItems.length === 0 && !browseLoading;
-  const searchPlaceholder =
-    browseTotal && browseTotal > 0
-      ? `search ${browseTotal} cocktails · name, spirit, style`
-      : "search cocktails · name, spirit, style";
   const gridCardWidth = (windowWidth - SCREEN_PAD * 2 - GRID_GAP) / 2;
 
   return (
@@ -313,7 +307,7 @@ export default function BartenderScreen() {
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
-          placeholder={searchPlaceholder}
+          placeholder="search · name, spirit, style"
           placeholderTextColor={`${OaklandDusk.text.primary}52`}
           selectionColor={OaklandDusk.brand.gold}
           autoCorrect={false}
