@@ -125,7 +125,7 @@ function RootLayoutNav() {
     if (!hydrated) return;
 
     const firstSegment = segments[0];
-    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile';
+    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile' || firstSegment === 'search';
 
     if (!user && inAuthArea) {
       router.replace('/age-gate');
@@ -196,6 +196,17 @@ function RootLayoutNav() {
                 <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>Recipe</Text>
               </Pressable>
             ),
+          }}
+        />
+        <Stack.Screen
+          name="search"
+          options={{
+            title: 'Search',
+            headerShown: true,
+            headerStyle: { backgroundColor: OaklandDusk.bg.void },
+            headerTintColor: OaklandDusk.brand.gold,
+            headerTitleStyle: { color: OaklandDusk.text.primary },
+            headerShadowVisible: false,
           }}
         />
         <Stack.Screen
