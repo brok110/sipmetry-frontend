@@ -1094,31 +1094,35 @@ export default function TabOneScreen() {
         throw new Error("No canonical ingredients resolved. Please try again.");
       }
 
-      // Stage 6: 已登入時，合併 My Bar 的 ingredient_key 到推薦計算中
-      let inventoryKeys = availableIngredientKeys;
-      if (session?.access_token && !inventoryInitialized) {
-        inventoryKeys = await refreshInventory({ silent: true }).then((items) =>
-          items
-            .filter((it) => Number(it.remaining_pct) > 0)
-            .map((it) => {
-              const rawKey = String(it.ingredient_key ?? "").trim();
-              const normalizedKey = canonicalizeForRecommendation(rawKey);
-              if (!normalizedKey) {
-                warn("[recommend] failed to canonicalize inventory ingredient", {
-                  ingredient_key: rawKey,
-                });
-              }
-              return normalizedKey;
-            })
-            .filter(Boolean)
-        );
-      }
+      // Stage 6: inventory 模式才併 My Bar；quick_look (guest) 不併 —
+      // 朋友家場景，家中的酒不在現場
+      let inventoryKeys: string[] = [];
+      if (mode === "inventory") {
+        inventoryKeys = availableIngredientKeys;
+        if (session?.access_token && !inventoryInitialized) {
+          inventoryKeys = await refreshInventory({ silent: true }).then((items) =>
+            items
+              .filter((it) => Number(it.remaining_pct) > 0)
+              .map((it) => {
+                const rawKey = String(it.ingredient_key ?? "").trim();
+                const normalizedKey = canonicalizeForRecommendation(rawKey);
+                if (!normalizedKey) {
+                  warn("[recommend] failed to canonicalize inventory ingredient", {
+                    ingredient_key: rawKey,
+                  });
+                }
+                return normalizedKey;
+              })
+              .filter(Boolean)
+          );
+        }
 
-      for (const key of availableIngredientKeys) {
-        if (!canonicalizeForRecommendation(key)) {
-          warn("[recommend] failed to canonicalize inventory ingredient", {
-            ingredient_key: String(key ?? "").trim(),
-          });
+        for (const key of availableIngredientKeys) {
+          if (!canonicalizeForRecommendation(key)) {
+            warn("[recommend] failed to canonicalize inventory ingredient", {
+              ingredient_key: String(key ?? "").trim(),
+            });
+          }
         }
       }
 
