@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sipmetry v3 · Category Carousel</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Mono:wght@300;400;500&display=swap');
+
+  :root {
+    --gold: #C9A458;
+    --gold-soft: rgba(201, 164, 88, 0.12);
+    --gold-line: rgba(201, 164, 88, 0.28);
+    --void: #07060E;
+    --card: #0E0B1A;
+    --card-raised: #141023;
+    --text: #EDE6D6;
+    --text-dim: rgba(237, 230, 214, 0.58);
+    --text-faint: rgba(237, 230, 214, 0.32);
+    --text-ghost: rgba(237, 230, 214, 0.18);
+    --ready: #1D9E75;
+    --ready-soft: rgba(29, 158, 117, 0.14);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body { background: #000; font-family: 'DM Mono', monospace; color: var(--text); overflow-x: hidden; }
+  body { display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+
+  .stage { width: 100%; max-width: 460px; position: relative; }
+  .phone {
+    width: 100%; background: var(--void); position: relative; overflow: hidden;
+    display: flex; flex-direction: column; min-height: 100vh;
+  }
+  @media (min-width: 461px) {
+    body { background: #080808; padding: 32px 0 60px; }
+    .phone {
+      min-height: 920px; max-height: 920px; border-radius: 40px;
+      border: 1px solid rgba(255,255,255,0.06);
+      box-shadow: 0 40px 100px rgba(0,0,0,0.7);
+    }
+  }
+
+  .status-bar {
+    display: flex; justify-content: space-between;
+    padding: 16px 26px 4px; font-size: 12px; color: var(--text-faint);
+  }
+  .masthead {
+    padding: 18px 26px 0; display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .masthead-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 13px;
+    letter-spacing: 0.35em; color: var(--gold);
+  }
+  .masthead-meta {
+    font-family: 'Cormorant Garamond', serif; font-style: italic;
+    font-weight: 300; font-size: 13px; color: var(--text-dim);
+  }
+
+  .content { flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+  .content::-webkit-scrollbar { display: none; }
+
+  .search-pill {
+    margin: 16px 26px 6px; padding: 11px 16px;
+    border: 1px solid rgba(255,255,255,0.07); border-radius: 22px;
+    background: var(--card);
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text-faint); font-size: 11px; letter-spacing: 0.14em;
+    cursor: pointer;
+  }
+  .search-pill svg { flex: none; opacity: 0.5; }
+
+  /* ── Spotlight row (hero as a row) ─────────────────────── */
+  .spotlight {
+    display: flex; border: 1px solid var(--gold-line); border-radius: 14px;
+    overflow: hidden; background: var(--card); cursor: pointer;
+  }
+  .spot-art {
+    flex: none; width: 42%; aspect-ratio: 3 / 4; position: relative;
+    background: radial-gradient(130% 100% at 50% 15%, #3A2410 0%, #100C1C 75%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .spot-imgnote {
+    position: absolute; bottom: 7px; left: 0; right: 0; text-align: center;
+    font-size: 7.5px; letter-spacing: 0.2em; color: var(--text-ghost); text-transform: uppercase;
+  }
+  .spot-body {
+    flex: 1; padding: 18px 18px 14px; display: flex; flex-direction: column; justify-content: center;
+  }
+  .spot-name {
+    font-family: 'Bebas Neue', sans-serif; font-size: 32px;
+    letter-spacing: 0.04em; line-height: 0.95;
+  }
+  .spot-rule { width: 34px; height: 1px; background: var(--gold); margin: 10px 0; }
+  .spot-sub {
+    font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 300;
+    font-size: 13.5px; color: var(--text-dim); margin-bottom: 16px;
+  }
+  .spot-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .spot-cta {
+    font-size: 9px; letter-spacing: 0.26em; color: var(--gold); text-transform: uppercase;
+  }
+
+  /* ── Carousel rows ─────────────────────────────────────── */
+  .row { margin-top: 26px; }
+  .row-head { padding: 0 26px 10px; }
+  .row-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 20px;
+    letter-spacing: 0.08em; color: var(--text);
+  }
+  .row-title .tick { color: var(--ready); }
+  .row-title .plus { color: var(--gold); }
+
+  .rail {
+    display: flex; gap: 12px; overflow-x: auto; padding: 2px 26px 6px;
+    scrollbar-width: none;
+  }
+  .rail::-webkit-scrollbar { display: none; }
+
+  .cardx { flex: none; width: 128px; cursor: pointer; }
+  .art {
+    width: 100%; aspect-ratio: 3 / 4; border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+    position: relative; overflow: hidden; margin-bottom: 8px;
+    background: var(--card-raised);
+  }
+  .art::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 55%, rgba(7,6,14,0.75) 100%);
+  }
+  .glass {
+    position: absolute; left: 50%; top: 52%; transform: translate(-50%, -50%);
+    opacity: 0.9;
+  }
+  .card-name {
+    font-size: 10.5px; letter-spacing: 0.1em; color: var(--text);
+    text-transform: lowercase; line-height: 1.35; margin-bottom: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 8.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 8px;
+  }
+  .chip .dot { width: 5px; height: 5px; border-radius: 50%; }
+  .chip.ready { color: var(--ready); background: var(--ready-soft); }
+  .chip.ready .dot { background: var(--ready); }
+  .chip.away { color: var(--gold); background: var(--gold-soft); }
+  .chip.far { color: var(--text-faint); background: rgba(255,255,255,0.05); }
+
+  .tabbar {
+    display: flex; justify-content: space-around; padding: 14px 10px 26px;
+    border-top: 1px solid rgba(255,255,255,0.06); background: var(--void);
+  }
+  .tab { font-size: 9px; letter-spacing: 0.24em; color: var(--text-ghost); text-transform: uppercase; }
+  .tab.active { color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="phone">
+
+  <div class="status-bar"><span>21:42</span><span>⌁ ᯤ ▮</span></div>
+
+  <div class="masthead">
+    <div class="masthead-title">SIPMETRY</div>
+    <div class="masthead-meta">thursday, late pour</div>
+  </div>
+
+  <div class="content">
+
+    <!-- Mode B entry -->
+    <div class="search-pill">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#EDE6D6" stroke-width="2">
+        <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+      </svg>
+      search 209 cocktails · name, spirit, style
+    </div>
+
+    <!-- Row 0: SPOTLIGHT -->
+    <div class="row" style="margin-top: 18px;">
+      <div class="row-head"><div class="row-title">TONIGHT'S POUR</div></div>
+      <div style="padding: 0 26px;">
+        <div class="spotlight">
+          <div class="spot-art">
+            <svg class="glass" width="96" height="128" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+              <path d="M11 12h32" stroke="#E0A030" stroke-width="6" stroke-opacity="0.35"/>
+            </svg>
+            <div class="spot-imgnote">image_url · 750×1000</div>
+          </div>
+          <div class="spot-body">
+            <div class="spot-name">PAPER PLANE</div>
+            <div class="spot-rule"></div>
+            <div class="spot-sub">equal parts, bright &amp; bitter</div>
+            <div class="spot-foot">
+              <span class="chip ready"><span class="dot"></span>ready</span>
+              <span class="spot-cta">Pour this →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 1: READY TO MAKE -->
+    <div class="row">
+      <div class="row-head"><div class="row-title"><span class="tick">✓</span> READY TO MAKE</div></div>
+      <div class="rail">
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #3A2410 0%, #14101E 70%);">
+            <svg class="glass" width="52" height="70" viewBox="0 0 52 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M14 8h24v26a12 12 0 0 1-24 0V8z"/><path d="M26 46v14M16 62h20" stroke-opacity="0.6"/>
+              <path d="M15 16h22" stroke="#E0A030" stroke-width="5" stroke-opacity="0.35"/>
+            </svg>
+          </div>
+          <div class="card-name">old fashioned</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #33101E 0%, #14101E 70%);">
+            <svg class="glass" width="54" height="70" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+              <path d="M12 13h30" stroke="#C04858" stroke-width="5" stroke-opacity="0.4"/>
+            </svg>
+          </div>
+          <div class="card-name">manhattan</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #2A2A0E 0%, #14101E 70%);">
+            <svg class="glass" width="54" height="70" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+              <path d="M12 13h30" stroke="#E8D44A" stroke-width="5" stroke-opacity="0.32"/>
+            </svg>
+          </div>
+          <div class="card-name">whiskey sour</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #6A2A18 0%, #14101E 70%);">
+            <svg class="glass" width="46" height="70" viewBox="0 0 46 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <rect x="10" y="8" width="26" height="52" rx="3"/>
+              <path d="M12 20h22" stroke="#C87828" stroke-width="6" stroke-opacity="0.4"/>
+            </svg>
+          </div>
+          <div class="card-name">negroni</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: ONE BOTTLE AWAY -->
+    <div class="row">
+      <div class="row-head"><div class="row-title"><span class="plus">+1</span> ONE BOTTLE AWAY</div></div>
+      <div class="rail">
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #103324 0%, #14101E 70%);">
+            <svg class="glass" width="54" height="70" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+              <path d="M12 13h30" stroke="#9FD8B4" stroke-width="5" stroke-opacity="0.35"/>
+            </svg>
+          </div>
+          <div class="card-name">daiquiri</div>
+          <span class="chip away">+ white rum</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #4A1212 0%, #14101E 70%);">
+            <svg class="glass" width="46" height="70" viewBox="0 0 46 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M16 8h14l4 44a11 11 0 0 1-22 0l4-44z"/>
+              <path d="M17 18h12" stroke="#C04858" stroke-width="6" stroke-opacity="0.4"/>
+            </svg>
+          </div>
+          <div class="card-name">americano</div>
+          <span class="chip away">+ soda water</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #14343C 0%, #14101E 70%);">
+            <svg class="glass" width="52" height="70" viewBox="0 0 52 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M14 8h24v26a12 12 0 0 1-24 0V8z"/><path d="M26 46v14M16 62h20" stroke-opacity="0.6"/>
+              <path d="M15 16h22" stroke="#7ACBE0" stroke-width="5" stroke-opacity="0.3"/>
+            </svg>
+          </div>
+          <div class="card-name">penicillin</div>
+          <span class="chip away">+ islay scotch</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #3C2C10 0%, #14101E 70%);">
+            <svg class="glass" width="54" height="70" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+              <path d="M12 13h30" stroke="#E0A030" stroke-width="5" stroke-opacity="0.35"/>
+            </svg>
+          </div>
+          <div class="card-name">sidecar</div>
+          <span class="chip away">+ cognac</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: FOR YOUR TASTE -->
+    <div class="row">
+      <div class="row-head"><div class="row-title">FOR YOUR TASTE</div></div>
+      <div class="rail">
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #38180C 0%, #14101E 70%);">
+            <svg class="glass" width="52" height="70" viewBox="0 0 52 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M14 8h24v26a12 12 0 0 1-24 0V8z"/><path d="M26 46v14M16 62h20" stroke-opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="card-name">vieux carré</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #2E1030 0%, #14101E 70%);">
+            <svg class="glass" width="54" height="70" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="card-name">aviation</div>
+          <span class="chip away">+ violette</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #103018 0%, #14101E 70%);">
+            <svg class="glass" width="46" height="70" viewBox="0 0 46 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <rect x="10" y="8" width="26" height="52" rx="3"/>
+            </svg>
+          </div>
+          <div class="card-name">last word</div>
+          <span class="chip away">+ chartreuse</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #401E08 0%, #14101E 70%);">
+            <svg class="glass" width="52" height="70" viewBox="0 0 52 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M14 8h24v26a12 12 0 0 1-24 0V8z"/><path d="M26 46v14M16 62h20" stroke-opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="card-name">boulevardier</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: YOUR GIN SHELF -->
+    <div class="row">
+      <div class="row-head"><div class="row-title">YOUR GIN SHELF</div></div>
+      <div class="rail">
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #0E2A2E 0%, #14101E 70%);">
+            <svg class="glass" width="54" height="70" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="card-name">martini</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #2E2610 0%, #14101E 70%);">
+            <svg class="glass" width="46" height="70" viewBox="0 0 46 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M16 8h14l4 44a11 11 0 0 1-22 0l4-44z"/>
+            </svg>
+          </div>
+          <div class="card-name">tom collins</div>
+          <span class="chip away">+ soda water</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #33101E 0%, #14101E 70%);">
+            <svg class="glass" width="54" height="70" viewBox="0 0 54 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M6 8l21 24L48 8H6z"/><path d="M27 32v22M17 60h20" stroke-opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="card-name">clover club</div>
+          <span class="chip away">+ raspberry</span>
+        </div>
+        <div class="cardx">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #14262E 0%, #14101E 70%);">
+            <svg class="glass" width="46" height="70" viewBox="0 0 46 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M16 8h14l4 44a11 11 0 0 1-22 0l4-44z"/>
+            </svg>
+          </div>
+          <div class="card-name">gin fizz</div>
+          <span class="chip ready"><span class="dot"></span>ready</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 5: WORTH THE HUNT -->
+    <div class="row">
+      <div class="row-head"><div class="row-title">WORTH THE HUNT</div></div>
+      <div class="rail">
+        <div class="cardx" style="opacity: 0.82;">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #262A38 0%, #14101E 70%);">
+            <svg class="glass" width="46" height="70" viewBox="0 0 46 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <rect x="10" y="8" width="26" height="52" rx="3"/>
+            </svg>
+          </div>
+          <div class="card-name">mai tai</div>
+          <span class="chip far">+2 bottles</span>
+        </div>
+        <div class="cardx" style="opacity: 0.82;">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #33240E 0%, #14101E 70%);">
+            <svg class="glass" width="52" height="70" viewBox="0 0 52 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M14 8h24v26a12 12 0 0 1-24 0V8z"/><path d="M26 46v14M16 62h20" stroke-opacity="0.6"/>
+            </svg>
+          </div>
+          <div class="card-name">sazerac</div>
+          <span class="chip far">+2 bottles</span>
+        </div>
+        <div class="cardx" style="opacity: 0.82;">
+          <div class="art" style="background: radial-gradient(120% 90% at 50% 20%, #12303A 0%, #14101E 70%);">
+            <svg class="glass" width="46" height="70" viewBox="0 0 46 70" fill="none" stroke="#C9A458" stroke-width="1.2">
+              <path d="M16 8h14l4 44a11 11 0 0 1-22 0l4-44z"/>
+            </svg>
+          </div>
+          <div class="card-name">zombie</div>
+          <span class="chip far">+3 bottles</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="height: 26px;"></div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab active">bartender</div>
+    <div class="tab">restock</div>
+    <div class="tab">my bar</div>
+    <div class="tab">profile</div>
+  </div>
+
+</div>
+</div>
+
+<script>
+document.querySelectorAll('.rail').forEach(rail => {
+  // Infinite loop: duplicate the card set, wrap scroll by one period.
+  // User slides one direction forever; seeing the first card again = full circle.
+  const kids = Array.from(rail.children);
+  kids.forEach(k => rail.appendChild(k.cloneNode(true)));
+  const P = rail.children[kids.length].offsetLeft - rail.children[0].offsetLeft;
+  rail.addEventListener('scroll', () => {
+    if (rail.scrollLeft >= P) rail.scrollLeft -= P;
+  });
+
+  // Mouse drag-to-scroll (trackpad & touch are native)
+  let down = false, startX = 0, startScroll = 0;
+  rail.style.cursor = 'grab';
+  rail.addEventListener('mousedown', e => {
+    down = true; startX = e.pageX; startScroll = rail.scrollLeft;
+    rail.style.cursor = 'grabbing'; e.preventDefault();
+  });
+  window.addEventListener('mouseup', () => { down = false; rail.style.cursor = 'grab'; });
+  window.addEventListener('mousemove', e => {
+    if (!down) return;
+    rail.scrollLeft = startScroll - (e.pageX - startX);
+  });
+});
+</script>
+</body>
+</html>
