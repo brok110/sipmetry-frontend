@@ -194,6 +194,7 @@ export default function RecommendationsScreen() {
         scan_items_json,
         missing_items_json,
         overlap_hits_json,
+        mode: params.mode,
         from: "recommendations",
       },
     });

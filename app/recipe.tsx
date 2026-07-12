@@ -77,6 +77,7 @@ export default function TabTwoScreen() {
     missing_items_json?: string;
     scan_items_json?: string;
     overlap_hits_json?: string;
+    mode?: string;
   }>();
 
   const paramToString = (v: any): string => {
@@ -84,6 +85,8 @@ export default function TabTwoScreen() {
     if (Array.isArray(v) && typeof v[0] === "string") return v[0];
     return "";
   };
+
+  const isGuestSession = paramToString((params as any).mode) === "quick_look";
 
   const idxNum = Number(paramToString((params as any).idx) || "0");
 
@@ -456,6 +459,10 @@ export default function TabTwoScreen() {
           body: {
             iba_code: ibaCode,
             confirmed_staples: confirmedStaples,
+            guest: isGuestSession,
+            ...(isGuestSession
+              ? { detected_ingredients: scanItems.map((it) => String(it.canonical ?? "").trim()).filter(Boolean) }
+              : {}),
           },
         });
         if (!r.ok) throw new Error(`availability ${r.status}`);
@@ -476,7 +483,7 @@ export default function TabTwoScreen() {
     fetchAvailability();
 
     return () => { alive = false; };
-  }, [ibaCode, session]);
+  }, [ibaCode, session, isGuestSession]);
 
   const recipe = dbRecipe ?? legacyRecipe;
 
@@ -1557,7 +1564,7 @@ export default function TabTwoScreen() {
       </ScrollView>
 
       {/* Sticky footer — primary CTA, non-overlapping (flex sibling of ScrollView) */}
-      {session && dbRecipe && madeDrinkState !== 'hidden' ? (
+      {session && dbRecipe && madeDrinkState !== 'hidden' && !isGuestSession ? (
         <View style={{
           paddingHorizontal: 16,
           paddingTop: 10,
