@@ -1,20 +1,14 @@
-import { Stack, useLocalSearchParams } from "expo-router";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { apiFetch } from "@/lib/api";
-import { getTasteTags } from "@/lib/tasteTags";
-import { SoundService } from "@/lib/sounds";
-import { log, warn } from "@/lib/logger";
+import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady, isGuideDismissed } from "@/components/GuideBubble";
 import StaplesModal, { DEFAULT_STAPLES } from "@/components/StaplesModal";
-import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed, isGoldenPathStepReady } from "@/components/GuideBubble";
 import SwipeRow from "@/components/ui/SwipeRow";
+import { DEFAULT_BOTTLE_ML } from "@/constants/defaults";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
-import { DEFAULT_BOTTLE_ML } from "@/constants/defaults";
 import { useAuth } from "@/context/auth";
 import { useFavorites } from "@/context/favorites";
 import { useFeedback } from "@/context/feedback";
-import { useInteractions } from "@/context/interactions";
 import { useIngredientKeys } from "@/context/ingredientKeys";
+import { useInteractions } from "@/context/interactions";
 import { useInventory } from "@/context/inventory";
 import { useLearnedPreferences } from "@/context/learnedPreferences";
 import {
@@ -25,13 +19,18 @@ import {
   normalizeIngredientKey,
 } from "@/context/ontology";
 import { usePreferences as usePreferencesContext } from "@/context/preferences";
+import { apiFetch } from "@/lib/api";
+import { warn } from "@/lib/logger";
+import { SoundService } from "@/lib/sounds";
+import FontAwesome from "@expo/vector-icons/FontAwesome";
+import { Stack, useLocalSearchParams } from "expo-router";
 
-import * as Sentry from "@sentry/react-native";
+import ScanSourceSheet, { ScanSourceResult } from "@/components/ScanSourceSheet";
+import { pickBottlePhotoFromCamera, pickBottlePhotoFromLibrary, showBottlePhotoActionSheet, type PickedPhoto } from "@/lib/pickBottlePhoto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Sentry from "@sentry/react-native";
 import * as Clipboard from "expo-clipboard";
 import * as ImageManipulator from "expo-image-manipulator";
-import { showBottlePhotoActionSheet, pickBottlePhotoFromCamera, pickBottlePhotoFromLibrary, type PickedPhoto } from "@/lib/pickBottlePhoto";
-import ScanSourceSheet, { ScanSourceResult } from "@/components/ScanSourceSheet";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -41,14 +40,12 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
-  View,
+  View
 } from "react-native";
 
 type Safety = {
@@ -1145,6 +1142,7 @@ export default function TabOneScreen() {
         method: "POST",
         body: {
           detected_ingredients: mergedIngredients,
+          guest: mode === "quick_look",
           locale: localeForApi,
           user_preference_vector: normalizedPrefVector,
         },
