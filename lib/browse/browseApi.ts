@@ -1,8 +1,8 @@
 // lib/browse/browseApi.ts
 // Query builder + fetch helper for GET /browse-recipes.
 // The params-object → query-string split exists so the Search Mode B
-// filter UI (spirit/style/exclude — next task) can extend BrowseQueryParams
-// without reworking call sites.
+// filter UI (spirit/style/exclude) extends BrowseQueryParams without
+// reworking call sites.
 
 import type { Session } from "@supabase/supabase-js";
 import { apiFetchJson } from "@/lib/api";
@@ -12,7 +12,10 @@ export type BrowseQueryParams = {
   q?: string;
   limit?: number;
   sort?: "score";
-  // Future filter params (Mode B full): base_spirit, style, exclude[]
+  // Mode B filters: lowercase exact-match on the backend.
+  base_spirit?: string;
+  style?: string;
+  exclude?: string[]; // joined with commas; server caps at 10
 };
 
 export type BrowseResponse = {
@@ -26,6 +29,10 @@ export function buildBrowseQuery(params: BrowseQueryParams): string {
   if (q) parts.push(`q=${encodeURIComponent(q)}`);
   if (params.limit != null) parts.push(`limit=${encodeURIComponent(String(params.limit))}`);
   if (params.sort) parts.push(`sort=${encodeURIComponent(params.sort)}`);
+  if (params.base_spirit) parts.push(`base_spirit=${encodeURIComponent(params.base_spirit)}`);
+  if (params.style) parts.push(`style=${encodeURIComponent(params.style)}`);
+  if (params.exclude && params.exclude.length > 0)
+    parts.push(`exclude=${encodeURIComponent(params.exclude.join(","))}`);
   return parts.length ? `?${parts.join("&")}` : "";
 }
 

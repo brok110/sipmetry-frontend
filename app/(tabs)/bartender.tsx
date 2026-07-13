@@ -2,9 +2,9 @@
 // V2 Category Carousel homepage per sipmetry-v3-carousel.html:
 // sticky search input → SPOTLIGHT row (existing hero pipeline) → up to 5
 // looping rails driven by GET /browse-recipes through the pure row engine
-// (lib/browse/rowEngine). Typing in the search bar swaps the body for an
-// inline 2-col results grid (Mode B lite, q-only); clearing restores the
-// carousel. Components stay dumb.
+// (lib/browse/rowEngine). Typing in the search bar or applying filters
+// (FilterSheet) swaps the body for an inline 2-col results grid (Mode B);
+// clearing both restores the carousel. Components stay dumb.
 
 import { apiFetch } from "@/lib/api";
 import { track as analytics } from "@/lib/analytics/analytics";
@@ -25,7 +25,13 @@ import {
   type SearchSuggestion,
 } from "@/lib/browse/browseApi";
 import SuggestionList from "@/components/browse/SuggestionList";
-import { buildRails, type BrowseItem } from "@/lib/browse/rowEngine";
+import FilterSheet, { type BrowseFilters } from "@/components/browse/FilterSheet";
+import {
+  buildRails,
+  humanizeKey,
+  STYLE_DISPLAY_NAMES,
+  type BrowseItem,
+} from "@/lib/browse/rowEngine";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -98,7 +104,14 @@ export default function BartenderScreen() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [searchTotal, setSearchTotal] = useState<number | null>(null);
   const searchSeqRef = useRef(0);
+
+  // ── Mode B filters state (FilterSheet) ──
+  const [filters, setFilters] = useState<BrowseFilters>({ excludes: [] });
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const filtersActive =
+    !!filters.baseSpirit || !!filters.style || filters.excludes.length > 0;
 
   // ── Typeahead suggestions state ──
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
@@ -204,15 +217,17 @@ export default function BartenderScreen() {
     );
   }, [refreshNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Inline search: debounced q-only fetch; sequence counter drops
-  // out-of-order responses. Empty query resets to the carousel.
+  // Inline search: debounced q + filters fetch; sequence counter drops
+  // out-of-order responses. Empty query with no filters resets to the
+  // carousel.
   useEffect(() => {
     const q = query.trim();
-    if (!q) {
+    if (!q && !filtersActive) {
       searchSeqRef.current++; // invalidate any in-flight response
       setSearchResults([]);
       setSearchError(null);
       setSearched(false);
+      setSearchTotal(null);
       setSearchLoading(false);
       return;
     }
@@ -220,11 +235,18 @@ export default function BartenderScreen() {
     setSearchLoading(true);
     const t = setTimeout(async () => {
       try {
-        const data = await fetchBrowseRecipes(session, { q, limit: 30 });
+        const data = await fetchBrowseRecipes(session, {
+          q: q || undefined,
+          limit: 30,
+          base_spirit: filters.baseSpirit,
+          style: filters.style,
+          exclude: filters.excludes.length > 0 ? filters.excludes : undefined,
+        });
         if (seq !== searchSeqRef.current) return;
         setSearchResults(data.items);
         setSearchError(null);
         setSearched(true);
+        setSearchTotal(data.total);
       } catch (e: any) {
         if (seq !== searchSeqRef.current) return;
         setSearchError(e?.message || "Something went wrong");
@@ -234,7 +256,7 @@ export default function BartenderScreen() {
       }
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [query, session]);
+  }, [query, session, filters]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Typeahead: debounced suggestion fetch, sequence-guarded like the grid
   // search. Empty query or programmatic fills close the dropdown; empty
@@ -287,8 +309,16 @@ export default function BartenderScreen() {
       });
       return;
     }
-    // spirit / ingredient (and recipe missing its code): fill the input and
-    // let the existing debounced grid search take it from here.
+    if (s.type === "spirit") {
+      // Spirit suggestions converge into the base_spirit filter — same
+      // destination as picking it in the FilterSheet.
+      suppressSuggestRef.current = true;
+      setQuery("");
+      setFilters((f) => ({ ...f, baseSpirit: s.label.trim().toLowerCase() }));
+      return;
+    }
+    // ingredient (and recipe missing its code): fill the input and let the
+    // existing debounced grid search take it from here.
     suppressSuggestRef.current = true;
     setQuery(s.label);
   }, [dismissSuggestions]);
@@ -346,6 +376,8 @@ export default function BartenderScreen() {
   }
 
   const searchActive = query.trim().length > 0;
+  const resultsActive = searchActive || filtersActive;
+  const resultsTotal = searchTotal ?? searchResults.length;
   const initialBrowseLoad = browseLoading && browseItems.length === 0;
   const browseFailed = !!browseError && browseItems.length === 0 && !browseLoading;
   const gridCardWidth = (windowWidth - SCREEN_PAD * 2 - GRID_GAP) / 2;
@@ -411,7 +443,73 @@ export default function BartenderScreen() {
               />
             </Pressable>
           )}
+          <Pressable
+            onPress={() => {
+              dismissSuggestions();
+              setFilterSheetOpen(true);
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Filter cocktails"
+          >
+            <View>
+              <FontAwesome
+                name="sliders"
+                size={15}
+                color={filtersActive ? OaklandDusk.brand.gold : `${OaklandDusk.text.primary}52`}
+              />
+              {filtersActive && <View style={styles.filterDot} />}
+            </View>
+          </Pressable>
         </View>
+        {filtersActive && (
+          <View style={styles.filterChipsRow}>
+            {!!filters.baseSpirit && (
+              <Pressable
+                style={styles.filterChip}
+                onPress={() => setFilters((f) => ({ ...f, baseSpirit: undefined }))}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove ${filters.baseSpirit} filter`}
+              >
+                <Text style={styles.filterChipText}>
+                  {filters.baseSpirit.toUpperCase()} ✕
+                </Text>
+              </Pressable>
+            )}
+            {!!filters.style && (
+              <Pressable
+                style={styles.filterChip}
+                onPress={() => setFilters((f) => ({ ...f, style: undefined }))}
+                accessibilityRole="button"
+                accessibilityLabel="Remove style filter"
+              >
+                <Text style={styles.filterChipText}>
+                  {STYLE_DISPLAY_NAMES[filters.style] ||
+                    humanizeKey(filters.style).toUpperCase()}{" "}
+                  ✕
+                </Text>
+              </Pressable>
+            )}
+            {filters.excludes.map((key) => (
+              <Pressable
+                key={key}
+                style={styles.filterChip}
+                onPress={() =>
+                  setFilters((f) => ({
+                    ...f,
+                    excludes: f.excludes.filter((k) => k !== key),
+                  }))
+                }
+                accessibilityRole="button"
+                accessibilityLabel={`Remove without ${key} filter`}
+              >
+                <Text style={styles.filterChipText}>
+                  NO {key.replace(/_/g, " ").toUpperCase()} ✕
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
         {suggestionsOpen && (
           <View style={styles.suggestDropdown}>
             <SuggestionList suggestions={suggestions} onPick={handleSuggestionPick} />
@@ -419,7 +517,7 @@ export default function BartenderScreen() {
         )}
       </View>
 
-      {searchActive ? (
+      {resultsActive ? (
         /* ── Inline search results (Mode B lite) ── */
         searchResults.length > 0 ? (
           <FlatList
@@ -431,6 +529,11 @@ export default function BartenderScreen() {
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
+            ListHeaderComponent={
+              <Text style={styles.resultsCount}>
+                «{resultsTotal > 10 ? "10+" : resultsTotal} COCKTAILS»
+              </Text>
+            }
             renderItem={({ item }) => (
               <RecipeCard
                 item={item}
@@ -452,7 +555,11 @@ export default function BartenderScreen() {
           <View style={styles.centerFill}>
             <FontAwesome name="glass" size={48} color={OaklandDusk.text.tertiary} />
             <Text style={[styles.stateMsg, { marginTop: 16 }]}>no cocktails found</Text>
-            <Text style={styles.stateSubMsg}>TRY A DIFFERENT NAME, SPIRIT, OR INGREDIENT</Text>
+            <Text style={styles.stateSubMsg}>
+              {filtersActive
+                ? "TRY REMOVING A FILTER"
+                : "TRY A DIFFERENT NAME, SPIRIT, OR INGREDIENT"}
+            </Text>
           </View>
         )
       ) : (
@@ -533,6 +640,14 @@ export default function BartenderScreen() {
           <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
         </View>
       )}
+
+      <FilterSheet
+        visible={filterSheetOpen}
+        initial={filters}
+        query={query.trim()}
+        onApply={setFilters}
+        onClose={() => setFilterSheetOpen(false)}
+      />
     </View>
   );
 }
@@ -608,6 +723,37 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
     color: OaklandDusk.text.primary,
   },
+  filterDot: {
+    position: "absolute",
+    top: -2,
+    right: -4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: OaklandDusk.brand.gold,
+  },
+
+  // Active-filter chips under the search bar (tap to remove)
+  filterChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: `${OaklandDusk.brand.gold}47`, // brand gold @28%
+    backgroundColor: `${OaklandDusk.brand.gold}1F`, // brand gold @12%
+    borderRadius: 999,
+  },
+  filterChipText: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: OaklandDusk.brand.gold,
+  },
 
   // Search results grid
   grid: {
@@ -618,6 +764,13 @@ const styles = StyleSheet.create({
   gridRow: {
     gap: GRID_GAP,
     marginBottom: 20,
+  },
+  resultsCount: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 10,
+    letterSpacing: 2,
+    color: OaklandDusk.text.tertiary,
+    marginBottom: 14,
   },
 
   // Spotlight row
