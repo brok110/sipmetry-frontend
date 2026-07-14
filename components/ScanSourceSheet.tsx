@@ -143,9 +143,14 @@ export default function ScanSourceSheet({
             <View style={{ width: 28, alignItems: "center" }}>
               <FontAwesome name="photo" size={20} color={OaklandDusk.text.secondary} />
             </View>
-            <Text style={{ fontSize: 16, fontWeight: "600", color: OaklandDusk.text.primary }}>
-              Choose Photos
-            </Text>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={{ fontSize: 16, fontWeight: "600", color: OaklandDusk.text.primary }}>
+                Choose Photos
+              </Text>
+              <Text style={{ fontSize: 12, color: OaklandDusk.text.tertiary }}>
+                Select multiple photos at once
+              </Text>
+            </View>
           </Pressable>
 
           <View
