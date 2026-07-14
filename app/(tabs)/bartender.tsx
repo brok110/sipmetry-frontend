@@ -113,6 +113,20 @@ export default function BartenderScreen() {
   const filtersActive =
     !!filters.baseSpirit || !!filters.style || filters.excludes.length > 0;
 
+  const handleFiltersApply = useCallback((f: BrowseFilters) => {
+    setFilters(f);
+    const active = !!f.baseSpirit || !!f.style || f.excludes.length > 0;
+    if (!active) return; // Done / clear exit — not an application
+    analytics(EVENTS.FILTERS_APPLIED, {
+      source: "filter_sheet",
+      base_spirit: f.baseSpirit ?? null,
+      style: f.style ?? null,
+      excludes: f.excludes,
+      exclude_count: f.excludes.length,
+      with_query: query.trim().length > 0,
+    });
+  }, [query]);
+
   // ── Typeahead suggestions state ──
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
@@ -315,6 +329,14 @@ export default function BartenderScreen() {
       suppressSuggestRef.current = true;
       setQuery("");
       setFilters((f) => ({ ...f, baseSpirit: s.label.trim().toLowerCase() }));
+      analytics(EVENTS.FILTERS_APPLIED, {
+        source: "typeahead_spirit",
+        base_spirit: s.label.trim().toLowerCase(),
+        style: null,
+        excludes: [],
+        exclude_count: 0,
+        with_query: false,
+      });
       return;
     }
     // ingredient (and recipe missing its code): fill the input and let the
@@ -645,7 +667,7 @@ export default function BartenderScreen() {
         visible={filterSheetOpen}
         initial={filters}
         query={query.trim()}
-        onApply={setFilters}
+        onApply={handleFiltersApply}
         onClose={() => setFilterSheetOpen(false)}
       />
     </View>

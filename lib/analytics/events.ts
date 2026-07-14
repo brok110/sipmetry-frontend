@@ -10,4 +10,5 @@ export const EVENTS = {
 
   SMART_RESTOCK_VIEWED: 'smart_restock_viewed',
   RESTOCK_ITEM_CLICKED: 'restock_item_clicked',
+  FILTERS_APPLIED: 'filters_applied',
 } as const;
