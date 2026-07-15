@@ -82,7 +82,6 @@ async function launchCamera(): Promise<PickedPhotos | null> {
   const result = await ImagePicker.launchCameraAsync({
     quality: 0.9,
     exif: false,
-    base64: true,
   });
 
   if (result.canceled) return null;
@@ -112,7 +111,6 @@ async function launchLibrary(): Promise<PickedPhotos | null> {
     allowsMultipleSelection: true,
     quality: 0.9,
     exif: false,
-    base64: true,
   });
 
   if (result.canceled || !result.assets || result.assets.length === 0) return null;
