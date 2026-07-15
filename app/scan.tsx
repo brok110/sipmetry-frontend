@@ -1416,6 +1416,11 @@ export default function TabOneScreen() {
               "Ingredient API failed: 413 (payload too large). Please crop tighter or use a closer shot. (Tip: focus on the label area only.)"
             );
           }
+          if (resp?.status === 429) {
+            throw new Error(
+              "Scan limit reached. Bottles identified so far are saved — please wait a minute, then scan the remaining photos."
+            );
+          }
           throw new Error(`Ingredient API failed: ${resp?.status ?? "unknown"} ${t}`);
         }
 
