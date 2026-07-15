@@ -1369,7 +1369,8 @@ export default function TabOneScreen() {
     setLastAnalyzeResponseJson(null);
     setError(null);
 
-    setActiveIngredients([]);
+    // activeIngredients intentionally NOT cleared here — the list accumulates
+    // across the whole scan session; resetScan() is the session boundary.
     setRecipes([]);
     setSafety(null);
     setHasRecommended(false);
@@ -1448,7 +1449,23 @@ export default function TabOneScreen() {
         })
         .filter((x) => String(x.display || "").trim().length > 0);
 
-      setActiveIngredients(nextWithCanonicalNormalized);
+      // Accumulate across photos in this session.
+      // Dedup key: canonical when resolved, otherwise lowercased display —
+      // unresolved items must stay visible/editable (unlike multiScanResults,
+      // which drops them).
+      setActiveIngredients((prev) => {
+        const keyOf = (x: ActiveIngredient) =>
+          x.canonical ? x.canonical : `display:${String(x.display || "").toLowerCase()}`;
+        const seen = new Set(prev.map(keyOf));
+        const merged = [...prev];
+        for (const item of nextWithCanonicalNormalized) {
+          const k = keyOf(item);
+          if (seen.has(k)) continue;
+          seen.add(k);
+          merged.push(item);
+        }
+        return merged;
+      });
       setSafety(data.safety ?? null);
 
       try {
@@ -2290,8 +2307,8 @@ export default function TabOneScreen() {
               {scanMode === "inventory"
                 ? (isZh ? "根據我的酒吧庫存" : "Based on my bar")
                 : (() => {
-                    // Use multiScanResults (all scans accumulated) not just the last scan
-                    const n = multiScanResults.length > 0 ? multiScanResults.length : activeIngredients.length;
+                    // activeIngredients accumulates the whole session (single source of truth)
+                    const n = activeIngredients.length;
                     return isZh
                       ? `根據 ${n} 種材料`
                       : `Based on ${n} ingredient${n !== 1 ? "s" : ""}`;
@@ -2309,12 +2326,9 @@ export default function TabOneScreen() {
       onConfirm={(staplesKeys) => {
         setShowStaplesModal(false);
         const mode = scanMode === "inventory" ? "inventory" : "quick_look";
-        // For quick_look: pass ALL accumulated scan results (multiScanResults),
-        // not just the last scan's activeIngredients
-        const ingredientSource = mode === "quick_look" && multiScanResults.length > 0
-          ? multiScanResults
-          : undefined;
-        regenerateRecipes(ingredientSource, staplesKeys, mode);
+        // activeIngredients accumulates the whole session and is the single
+        // source of truth — regenerateRecipes falls back to it by default.
+        regenerateRecipes(undefined, staplesKeys, mode);
       }}
       onCancel={() => setShowStaplesModal(false)}
     />
