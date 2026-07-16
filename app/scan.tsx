@@ -2215,8 +2215,13 @@ export default function TabOneScreen() {
 
           {/* Stage 4: Show me cocktails — moved to sticky footer below ScrollView */}
 
-          {/* Manual-input action buttons — shown when user has typed at least one ingredient */}
-          {activeIngredients.length > 0 && scanMode === "undecided" && (
+          {/* Manual-input action buttons — manual-typed flow, or post-error (e.g. 429)
+              in undecided mode. Hidden while a scan batch is in flight: `stage` is set
+              to "identifying ingredients" at every analyze() start and only returns to
+              "idle" via the error path or an entry handler — it does NOT reset on batch
+              success, but by then the intent resolver has flipped scanMode, so the mode
+              check hides the buttons anyway. */}
+          {activeIngredients.length > 0 && scanMode === "undecided" && stage === "idle" && (
             <View style={{ gap: 10, marginTop: 12 }}>
               <Pressable
                 onPress={async () => {
