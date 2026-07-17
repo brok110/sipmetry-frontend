@@ -1411,10 +1411,9 @@ export default function TabOneScreen() {
 
         if (!resp || !resp.ok) {
           const t = resp ? await resp.text() : "No response";
-          // SCAN-ERRSTATE B: copy must match the error-path closure below —
-          // non-guest resolves to inventory (bottles really do land in My Bar),
-          // guest stays quick_look (session list only, never inventory).
-          const isGuestIntent = searchParams.intent === "guest";
+          // Error copy is intent-neutral: the card only says "pause"; the
+          // batch-close alert that follows says where results live
+          // (My Bar vs session list).
           if (resp?.status === 413) {
             throw new Error(
               "Ingredient API failed: 413 (payload too large). Please crop tighter or use a closer shot. (Tip: focus on the label area only.)"
@@ -1422,16 +1421,12 @@ export default function TabOneScreen() {
           }
           if (resp?.status === 429) {
             throw new Error(
-              isGuestIntent
-                ? "Scan limit reached. Items identified so far are kept — please wait a minute, then scan the remaining photos."
-                : "Scan limit reached. Bottles identified so far are added to My Bar — please wait a minute, then scan the remaining photos."
+              "Scan limit reached — try again in a minute for the rest."
             );
           }
           if ((resp?.status ?? 0) >= 500) {
             throw new Error(
-              isGuestIntent
-                ? "The scanner hit a hiccup on our side. Items identified so far are kept — please try the remaining photos again in a moment."
-                : "The scanner hit a hiccup on our side. Bottles identified so far are added to My Bar — please try the remaining photos again in a moment."
+              "A quick hiccup on our side — try again in a minute."
             );
           }
           throw new Error(`Ingredient API failed: ${resp?.status ?? "unknown"} ${t}`);
@@ -1961,8 +1956,8 @@ export default function TabOneScreen() {
       )}
 
       {error ? (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
-          <Text style={[Type.heading, { color: OaklandDusk.accent.crimson }]}>Something went wrong</Text>
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
+          <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>One moment</Text>
           <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
         </View>
       ) : null}
