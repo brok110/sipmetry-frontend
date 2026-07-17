@@ -1411,6 +1411,10 @@ export default function TabOneScreen() {
 
         if (!resp || !resp.ok) {
           const t = resp ? await resp.text() : "No response";
+          // SCAN-ERRSTATE B: copy must match the error-path closure below —
+          // non-guest resolves to inventory (bottles really do land in My Bar),
+          // guest stays quick_look (session list only, never inventory).
+          const isGuestIntent = searchParams.intent === "guest";
           if (resp?.status === 413) {
             throw new Error(
               "Ingredient API failed: 413 (payload too large). Please crop tighter or use a closer shot. (Tip: focus on the label area only.)"
@@ -1418,7 +1422,16 @@ export default function TabOneScreen() {
           }
           if (resp?.status === 429) {
             throw new Error(
-              "Scan limit reached. Bottles identified so far are saved — please wait a minute, then scan the remaining photos."
+              isGuestIntent
+                ? "Scan limit reached. Items identified so far are kept — please wait a minute, then scan the remaining photos."
+                : "Scan limit reached. Bottles identified so far are added to My Bar — please wait a minute, then scan the remaining photos."
+            );
+          }
+          if ((resp?.status ?? 0) >= 500) {
+            throw new Error(
+              isGuestIntent
+                ? "The scanner hit a hiccup on our side. Items identified so far are kept — please try the remaining photos again in a moment."
+                : "The scanner hit a hiccup on our side. Bottles identified so far are added to My Bar — please try the remaining photos again in a moment."
             );
           }
           throw new Error(`Ingredient API failed: ${resp?.status ?? "unknown"} ${t}`);
@@ -1560,6 +1573,21 @@ export default function TabOneScreen() {
       SoundService.stop('scanning');
       // Clear queue on error so stale photos don't carry over
       imageQueueRef.current = [];
+      // SCAN-ERRSTATE B: close the session on error the same way a drained
+      // batch does (mirrors the batch-complete branch above). Photos that
+      // succeeded before the error are already in multiScanResults —
+      // undecided → "choice" hands off to the existing intent resolver
+      // (guest → quick_look, else → inventory + auto-add); resolved modes
+      // → re-fire "Scan More or Done" so the user has an exit. If nothing
+      // succeeded there is no residue to close — plain error display.
+      if (multiScanResults.length > 0) {
+        if (scanMode === "undecided") {
+          setScanPhase("choice");
+        } else {
+          setScanPhase("accumulating");
+          setBatchCompleteCount((c) => c + 1);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -2215,66 +2243,6 @@ export default function TabOneScreen() {
 
           {/* Stage 4: Show me cocktails — moved to sticky footer below ScrollView */}
 
-          {/* Manual-input action buttons — manual-typed flow, or post-error (e.g. 429)
-              in undecided mode. Hidden while a scan batch is in flight: `stage` is set
-              to "identifying ingredients" at every analyze() start and only returns to
-              "idle" via the error path or an entry handler — it does NOT reset on batch
-              success, but by then the intent resolver has flipped scanMode, so the mode
-              check hides the buttons anyway. */}
-          {activeIngredients.length > 0 && scanMode === "undecided" && stage === "idle" && (
-            <View style={{ gap: 10, marginTop: 12 }}>
-              <Pressable
-                onPress={async () => {
-                  setScanMode("inventory");
-                  if (session) {
-                    for (const ing of activeIngredients) {
-                      if (isAlcoholicIngredient(ing.canonical) === false) continue;
-                      if (isInInventory(ing.canonical)) continue;
-                      try {
-                        await addInventoryItem({
-                          ingredient_key: ing.canonical,
-                          display_name: ing.display,
-                          total_ml: DEFAULT_BOTTLE_ML,
-                          remaining_pct: 100,
-                        });
-                      } catch {}
-                    }
-                    await refreshInventory({ silent: true });
-                  }
-                  setScanPhase("accumulating");
-                  setBatchCompleteCount((c) => c + 1);
-                }}
-                style={{
-                  backgroundColor: OaklandDusk.brand.gold,
-                  borderRadius: 12,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
-                  Add to My Bar
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => {
-                  setScanMode("quick_look");
-                  setShowStaplesModal(true);
-                }}
-                style={{
-                  borderWidth: 1,
-                  borderColor: OaklandDusk.brand.gold,
-                  borderRadius: 12,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.brand.gold }}>
-                  Show Recipes
-                </Text>
-              </Pressable>
-            </View>
-          )}
         </View>
       </View>
 
