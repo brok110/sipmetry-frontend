@@ -585,6 +585,18 @@ export default function TabOneScreen() {
   const [scanPhase, setScanPhase] = useState<"idle" | "scanning" | "choice" | "accumulating" | "review">("idle");
   // Incremented once per completed batch (full photo queue drained); drives "Scan More or Done" alert
   const [batchCompleteCount, setBatchCompleteCount] = useState(0);
+  // INV-MODEL Batch A: per-batch add-outcome tally, written at the moment
+  // each add resolves — source of truth is the POST result, never state
+  // back-inference. Consumed + reset by the "Scan More or Done" alert
+  // effect; the alert is modal, so the next batch cannot start adding
+  // before the tally is read.
+  const addTallyRef = useRef({
+    added: 0,
+    already: 0,
+    failed: 0,
+    failedNames: [] as string[],
+    nonAlcoholicNames: [] as string[],
+  });
 
   // Guide bubble state (Stages 2-4)
   const [guideScanVisible, setGuideScanVisible] = useState(false);
@@ -731,16 +743,27 @@ export default function TabOneScreen() {
           // or category map not yet loaded) must NOT be silently dropped —
           // 2026-07-07 incident: scanned bottle never POSTed, alert claimed saved.
           // Matches the other two add sites (per-photo loop + manual Add to My Bar).
-          if (isAlcoholicIngredient(ing.canonical) === false) continue;
-          if (isInInventory(ing.canonical)) continue;
+          if (isAlcoholicIngredient(ing.canonical) === false) {
+            addTallyRef.current.nonAlcoholicNames.push(ing.display);
+            continue;
+          }
+          if (isInInventory(ing.canonical)) {
+            addTallyRef.current.already += 1;
+            continue;
+          }
           try {
-            await addInventoryItem({
+            const result = await addInventoryItem({
               ingredient_key: ing.canonical,
               display_name: ing.display,
               total_ml: DEFAULT_BOTTLE_ML,
               remaining_pct: 100,
             });
-          } catch {}
+            if (result.created) addTallyRef.current.added += 1;
+            else addTallyRef.current.already += 1;
+          } catch {
+            addTallyRef.current.failed += 1;
+            addTallyRef.current.failedNames.push(ing.display);
+          }
         }
         await refreshInventory({ silent: true });
       }
@@ -751,7 +774,10 @@ export default function TabOneScreen() {
   }, [scanPhase, multiScanResults.length]);
 
   // "Scan More or Done" alert — fires once per completed batch via batchCompleteCount
-  // Path A (inventory): distinguishes alcoholic (saved to bar) vs non-alcoholic (used for recipes only)
+  // Path A (inventory): counts come from the per-batch add tally (actual POST
+  // results). The optimistic prepend in addInventoryItem made post-hoc state
+  // inference read freshly-added bottles as "already there" and count
+  // swallowed failures as "added" — the tally is written at add time instead.
   // Path B (quick_look): simple item count, no inventory distinction
   useEffect(() => {
     if (scanPhase !== "accumulating") return;
@@ -761,29 +787,41 @@ export default function TabOneScreen() {
     let subtitle = "";
 
     if (scanMode === "inventory") {
-      // Path A: distinguish alcoholic (saved) vs non-alcoholic (not saved but used for recipes)
-      const alcoholic = multiScanResults.filter(
-        (ing) => isAlcoholicIngredient(ing.canonical) !== false
-      );
-      const nonAlcoholic = multiScanResults.filter(
-        (ing) => isAlcoholicIngredient(ing.canonical) === false
-      );
-      // Only count items not already in the bar
-      const newlyAdded = alcoholic.filter((ing) => !isInInventory(ing.canonical));
-      const addedCount = newlyAdded.length;
+      const t = addTallyRef.current;
+      const parts: string[] = [];
 
-      if (addedCount > 0) {
-        title = `${addedCount} bottle${addedCount !== 1 ? "s" : ""} added to My Bar`;
-      } else if (alcoholic.length > 0) {
+      if (t.added > 0) {
+        title = `${t.added} bottle${t.added !== 1 ? "s" : ""} added to My Bar`;
+      } else if (t.already > 0 && t.failed === 0) {
         title = "All set — already in My Bar";
+      } else if (t.failed > 0) {
+        title = "Some bottles couldn't be saved";
       } else {
         title = "No spirits found";
       }
 
-      if (nonAlcoholic.length > 0) {
-        const names = nonAlcoholic.map((x) => x.display).join(", ");
-        subtitle = `ℹ️ ${names} — not a spirit, still used for recipes`;
+      if (t.added > 0 && t.already > 0) {
+        parts.push(`${t.already} already in My Bar`);
       }
+      if (t.failed > 0) {
+        const names = [...new Set(t.failedNames)].join(", ");
+        parts.push(`⚠️ Couldn't save: ${names} — please try again`);
+      }
+      if (t.nonAlcoholicNames.length > 0) {
+        const names = [...new Set(t.nonAlcoholicNames)].join(", ");
+        parts.push(`ℹ️ ${names} — not a spirit, still used for recipes`);
+      }
+      subtitle = parts.join("\n");
+
+      // Consume-and-reset: the alert is modal, so the next batch cannot
+      // start adding before this effect has read the tally.
+      addTallyRef.current = {
+        added: 0,
+        already: 0,
+        failed: 0,
+        failedNames: [],
+        nonAlcoholicNames: [],
+      };
     } else {
       // Path B: simple count, no inventory distinction
       const n = multiScanResults.length;
@@ -1518,16 +1556,27 @@ export default function TabOneScreen() {
       // Inventory mode: add this photo's bottles to My Bar as they come in
       if (scanMode === "inventory" && session) {
         for (const ing of nextWithCanonicalNormalized) {
-          if (isAlcoholicIngredient(ing.canonical) === false) continue;
-          if (isInInventory(ing.canonical)) continue;
+          if (isAlcoholicIngredient(ing.canonical) === false) {
+            addTallyRef.current.nonAlcoholicNames.push(ing.display);
+            continue;
+          }
+          if (isInInventory(ing.canonical)) {
+            addTallyRef.current.already += 1;
+            continue;
+          }
           try {
-            await addInventoryItem({
+            const result = await addInventoryItem({
               ingredient_key: ing.canonical,
               display_name: ing.display,
               total_ml: DEFAULT_BOTTLE_ML,
               remaining_pct: 100,
             });
-          } catch {}
+            if (result.created) addTallyRef.current.added += 1;
+            else addTallyRef.current.already += 1;
+          } catch {
+            addTallyRef.current.failed += 1;
+            addTallyRef.current.failedNames.push(ing.display);
+          }
         }
         await refreshInventory({ silent: true });
       }
@@ -1613,7 +1662,11 @@ export default function TabOneScreen() {
         total_ml: DEFAULT_BOTTLE_ML,
         remaining_pct: 100,
       });
-    } catch {}
+    } catch {
+      // Manual adds sit outside the photo-batch alert cycle — surface the
+      // failure inline instead of polluting the batch tally.
+      setError(`Couldn't save ${display} to My Bar — please try again.`);
+    }
   };
 
   const addIngredient = async (preResolved?: { display: string; canonical: string }) => {

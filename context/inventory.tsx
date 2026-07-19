@@ -60,7 +60,7 @@ type InventoryContextValue = {
   initialized: boolean;
   error: string | null;
   refreshInventory: (options?: RefreshOptions) => Promise<InventoryItem[]>;
-  addInventoryItem: (payload: InventoryPayload) => Promise<InventoryItem>;
+  addInventoryItem: (payload: InventoryPayload) => Promise<InventoryItem & { created: boolean }>;
   updateInventoryItem: (id: string, updates: InventoryUpdatePayload) => Promise<InventoryItem>;
   deleteInventoryItem: (id: string) => Promise<void>;
   recordInventoryUse: (payload: InventoryUsePayload) => Promise<void>;
@@ -203,7 +203,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   }, [accessToken, refreshInventory]);
 
   const addInventoryItem = useCallback(
-    async (payload: InventoryPayload): Promise<InventoryItem> => {
+    async (payload: InventoryPayload): Promise<InventoryItem & { created: boolean }> => {
       if (!session?.access_token) throw new Error("Please sign in first");
       const version = authVersionRef.current;
 
@@ -217,6 +217,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       const item = normalizeInventoryItem(data?.item);
       if (!item) throw new Error("Inventory add succeeded but returned no item");
 
+      // INV-MODEL Batch A: server reports whether the upsert inserted a new
+      // row (created=true) or hit an existing one (created=false). Missing
+      // field (older backend) defaults to true — err on the "added" side.
+      const created = data?.created !== false;
+
       if (version !== authVersionRef.current) {
         throw new Error("Inventory auth changed during add");
       }
@@ -229,7 +234,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       });
 
       await checkAndNotify(item, { showAlert, session });
-      return item;
+      return { ...item, created };
     },
     [accessToken, session, showAlert]
   );
@@ -318,7 +323,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const inventoryByIngredientKey = useMemo(() => {
     const out: Record<string, InventoryItem> = {};
     for (const item of inventory) {
-      const key = String(item.ingredient_key ?? "").trim();
+      // INV-MODEL Batch A (C3): normalize map keys the same way lookups do
+      // (scan.tsx isInInventory lowercases + snake_cases) — blind rows can
+      // hold spaced/mixed-case keys, and the asymmetry made rescans miss
+      // the row and POST a duplicate.
+      const key = String(item.ingredient_key ?? "").trim().toLowerCase().replace(/\s+/g, "_");
       if (!key || out[key]) continue;
       out[key] = item;
     }
