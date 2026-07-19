@@ -532,6 +532,16 @@ function InventoryCard({
                 : ''}
               {remainingMl}ml left
             </Text>
+            {isLow && onRestock ? (
+              <Pressable
+                hitSlop={8}
+                accessibilityLabel={`Restock ${item.display_name}`}
+                onPress={onRestock}
+                style={styles.restockPill}
+              >
+                <Text style={styles.restockPillText}>RESTOCK</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {/* Level ring */}
@@ -1270,6 +1280,21 @@ const styles = StyleSheet.create({
     height: 7,
     borderRadius: 3.5,
     backgroundColor: 'rgb(192,72,88)',
+  },
+  restockPill: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgb(192,72,88)',
+    borderRadius: 999,
+  },
+  restockPillText: {
+    ...Type.label,
+    fontSize: 11,
+    letterSpacing: 0.7,
+    color: 'rgb(214,110,124)',
   },
 
   // Edit / delete buttons
