@@ -14,6 +14,7 @@ import RegistrationPrompt from '@/components/RegistrationPrompt'
 import SwipeRow from '@/components/ui/SwipeRow'
 import { useAuth } from '@/context/auth'
 import { InventoryItem, useInventory } from '@/context/inventory'
+import { useIngredientKeys } from '@/context/ingredientKeys'
 import { usePurchaseIntent } from '@/hooks/usePurchaseIntent'
 import { useFocusEffect, router } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -475,6 +476,19 @@ function InventoryCard({
   isFirstCard?: boolean
   onSwipeOpen?: () => void
 }) {
+  const { data: ingredientKeysData, resolve } = useIngredientKeys()
+  // INV-MODEL Batch B: a row is "blind" when its ingredient_key is unknown
+  // to the ingredient allowlist in every accepted form (raw, snake_case,
+  // spaced) — mirrors the K2 lesson that scanner keys arrive in mixed forms.
+  // Only label after the allowlist has loaded; never flash the label while
+  // it is still fetching.
+  const rawKey = String(item.ingredient_key ?? '').trim()
+  const isBlind =
+    ingredientKeysData.isLoaded &&
+    rawKey.length > 0 &&
+    resolve(rawKey) == null &&
+    resolve(rawKey.replace(/\s+/g, '_')) == null &&
+    resolve(rawKey.replace(/_+/g, ' ')) == null
   const parsedPct = Math.round(Number(item.remaining_pct))
   const remainingMl = Math.round(Number(item.remaining_ml))
   const isLow = parsedPct < 20
@@ -489,11 +503,27 @@ function InventoryCard({
         <View style={styles.cardHeader}>
           {/* Info */}
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Pressable onPress={() => openUrl(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.display_name + ' bottle')}`)}>
-              <Text style={styles.cardName} numberOfLines={1}>
-                {item.display_name}
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+              <Pressable style={{ flexShrink: 1, minWidth: 0 }} onPress={() => openUrl(`https://www.google.com/search?tbm=isch&q=${encodeURIComponent(item.display_name + ' bottle')}`)}>
+                <Text style={styles.cardName} numberOfLines={1}>
+                  {item.display_name}
+                </Text>
+              </Pressable>
+              {isBlind && (
+                <Pressable
+                  hitSlop={12}
+                  accessibilityLabel="Why this bottle is not matched to recipes"
+                  onPress={() =>
+                    Alert.alert(
+                      'Not in our library yet',
+                      "We couldn't match this bottle to our ingredient library, so it doesn't count toward recipe matching yet. Our library grows every week — once this bottle is added, your recipes will use it automatically. Scanning it also helps us prioritize."
+                    )
+                  }
+                >
+                  <View style={styles.blindDot} />
+                </Pressable>
+              )}
+            </View>
             <Text style={styles.cardMeta}>
               {sortBy === 'date_added'
                 ? `${formatAddedDate(item.updated_at)} · `
@@ -1234,6 +1264,12 @@ const styles = StyleSheet.create({
   cardMeta: {
     ...Type.caption,
     color: OaklandDusk.text.tertiary,
+  },
+  blindDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: 'rgb(192,72,88)',
   },
 
   // Edit / delete buttons
