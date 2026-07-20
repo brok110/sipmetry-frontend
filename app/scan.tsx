@@ -597,6 +597,15 @@ export default function TabOneScreen() {
     failedNames: [] as string[],
     nonAlcoholicNames: [] as string[],
   });
+  // SCAN-EDIT-ADD: snake-normalize exactly the way isInInventory and the
+  // context's inventoryByIngredientKey do — write and read sides must
+  // agree (C3 lesson).
+  const snakeKey = (s: string) => String(s ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  // SCAN-EDIT-ADD: inventory rows created by THIS scan session (POST
+  // returned created=true), keyed by snake-normalized canonical → row id.
+  // Lets the edit station remove a mis-scan's auto-added row while never
+  // touching rows that pre-date the session. Cleared in resetScan.
+  const sessionCreatedRef = useRef<Map<string, string>>(new Map());
 
   // Guide bubble state (Stages 2-4)
   const [guideScanVisible, setGuideScanVisible] = useState(false);
@@ -613,7 +622,7 @@ export default function TabOneScreen() {
   const [gpStep3Visible, setGpStep3Visible] = useState(false);
   const [gpStep4Visible, setGpStep4Visible] = useState(false);
   const { session } = useAuth();
-  const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem } = useInventory();
+  const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem, deleteInventoryItem } = useInventory();
   const ingredientKeys = useIngredientKeys();
   const filtered = useMemo(
     () => newIngredient.trim().length > 0 ? ingredientKeys.filter(newIngredient, 8) : [],
@@ -758,8 +767,12 @@ export default function TabOneScreen() {
               total_ml: DEFAULT_BOTTLE_ML,
               remaining_pct: 100,
             });
-            if (result.created) addTallyRef.current.added += 1;
-            else addTallyRef.current.already += 1;
+            if (result.created) {
+              addTallyRef.current.added += 1;
+              sessionCreatedRef.current.set(snakeKey(ing.canonical), result.id);
+            } else {
+              addTallyRef.current.already += 1;
+            }
           } catch {
             addTallyRef.current.failed += 1;
             addTallyRef.current.failedNames.push(ing.display);
@@ -1571,8 +1584,12 @@ export default function TabOneScreen() {
               total_ml: DEFAULT_BOTTLE_ML,
               remaining_pct: 100,
             });
-            if (result.created) addTallyRef.current.added += 1;
-            else addTallyRef.current.already += 1;
+            if (result.created) {
+              addTallyRef.current.added += 1;
+              sessionCreatedRef.current.set(snakeKey(ing.canonical), result.id);
+            } else {
+              addTallyRef.current.already += 1;
+            }
           } catch {
             addTallyRef.current.failed += 1;
             addTallyRef.current.failedNames.push(ing.display);
@@ -1650,22 +1667,31 @@ export default function TabOneScreen() {
   // addInventoryItem optimistically prepends to the context's inventory
   // state, which inventoryByIngredientKey (and thus isInInventory) memo
   // over.
-  const maybeAddManualToInventory = async (canonical: string, display: string) => {
-    if (scanMode !== "inventory" || !session) return;
-    if (!canonical) return;
-    if (isAlcoholicIngredient(canonical) === false) return;
-    if (isInInventory(canonical)) return;
+  // SCAN-EDIT-ADD: returns false only when the POST itself fails — guard
+  // skips (wrong mode, non-alcoholic, already stocked) are legitimate
+  // no-adds and return true, so the edit station can still remove a
+  // mis-scan's session-created row after a guard-skipped correction.
+  const maybeAddManualToInventory = async (canonical: string, display: string): Promise<boolean> => {
+    if (scanMode !== "inventory" || !session) return true;
+    if (!canonical) return true;
+    if (isAlcoholicIngredient(canonical) === false) return true;
+    if (isInInventory(canonical)) return true;
     try {
-      await addInventoryItem({
+      const result = await addInventoryItem({
         ingredient_key: canonical,
         display_name: display,
         total_ml: DEFAULT_BOTTLE_ML,
         remaining_pct: 100,
       });
+      if (result.created) {
+        sessionCreatedRef.current.set(snakeKey(canonical), result.id);
+      }
+      return true;
     } catch {
       // Manual adds sit outside the photo-batch alert cycle — surface the
       // failure inline instead of polluting the batch tally.
       setError(`Couldn't save ${display} to My Bar — please try again.`);
+      return false;
     }
   };
 
@@ -1780,6 +1806,7 @@ export default function TabOneScreen() {
   };
 
   const resetScan = () => {
+    sessionCreatedRef.current.clear();
     setScanMode("undecided");
     setMultiScanResults([]);
     setScanCount(0);
@@ -1849,6 +1876,10 @@ export default function TabOneScreen() {
 
     const existing = activeIngredients.find((x) => x.id === id);
     const before = String(existing?.display ?? "").trim();
+    // SCAN-EDIT-ADD: the pre-edit canonical is the mis-scan's key — capture
+    // it before the state update below wipes it, so the session-created row
+    // it points at can be removed once the correction lands.
+    const oldCanonical = String(existing?.canonical ?? "").trim();
 
     if (before && before.toLowerCase() === v.toLowerCase()) {
       setEditingId(null);
@@ -1883,6 +1914,26 @@ export default function TabOneScreen() {
         if (!stillExists) return prev;
         return prev.map((x) => (x.id === id ? { ...x, canonical: canon } : x));
       });
+      // SCAN-EDIT-ADD: an edit is the user declaring "that chip is not this
+      // bottle" — sync My Bar both ways. Add the corrected bottle first
+      // (manual-station semantics: inline setError, no batch tally); only
+      // after the add path reports no failure remove the mis-scan's row,
+      // and only if THIS session created it — rows that pre-date the
+      // session are never touched. Add-then-delete order: a failed add
+      // leaves the old row in place (no net loss).
+      const added = await maybeAddManualToInventory(canon, v);
+      const oldKey = snakeKey(oldCanonical);
+      if (added && oldKey && oldKey !== snakeKey(canon)) {
+        const staleRowId = sessionCreatedRef.current.get(oldKey);
+        if (staleRowId) {
+          try {
+            await deleteInventoryItem(staleRowId);
+            sessionCreatedRef.current.delete(oldKey);
+          } catch {
+            setError(`Couldn't remove ${before || "the previous bottle"} from My Bar — you can remove it in My Bar.`);
+          }
+        }
+      }
     } catch {
       return;
     }
