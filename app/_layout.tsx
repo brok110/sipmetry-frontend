@@ -107,6 +107,17 @@ export default Sentry.wrap(function RootLayout() {
   );
 });
 
+// 共用返回鈕:五個 stack 頁的 headerLeft 同一份渲染(批 6 去重)
+function HeaderBackButton({ label }: { label: string }) {
+  const router = useRouter();
+  return (
+    <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+      <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
+      <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function RootLayoutNav() {
   const { user, hydrated, isAnonymous } = useAuth();
   const router = useRouter();
@@ -190,12 +201,7 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: OaklandDusk.bg.void },
             headerTintColor: OaklandDusk.text.primary,
             headerTitleStyle: { color: OaklandDusk.text.primary },
-            headerLeft: () => (
-              <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
-                <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>Recipe</Text>
-              </Pressable>
-            ),
+            headerLeft: () => <HeaderBackButton label="Recipe" />,
           }}
         />
         <Stack.Screen
@@ -211,31 +217,19 @@ function RootLayoutNav() {
         />
         <Stack.Screen name="profile/preferences" options={{
           title: 'Preferences',
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
-              <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>Profile</Text>
-            </Pressable>
-          ),
+          headerLeft: () => <HeaderBackButton label="Profile" />,
         }} />
         <Stack.Screen name="profile/favorites" options={{
           title: 'Favorites',
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
-              <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>Profile</Text>
-            </Pressable>
-          ),
+          headerLeft: () => <HeaderBackButton label="Profile" />,
         }} />
         <Stack.Screen name="profile/taste-dna" options={{
           title: 'Taste DNA',
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <FontAwesome name="chevron-left" size={16} color={OaklandDusk.brand.gold} />
-              <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>Profile</Text>
-            </Pressable>
-          ),
+          headerLeft: () => <HeaderBackButton label="Profile" />,
         }} />
+        {/* CABINET-3A 批 7(F4):退出原生 header——iOS 26 對 header 內按鈕
+            強制圓形玻璃殼(RNS 4.16.0 無開關),header 帶改由 screen 自繪 */}
+        <Stack.Screen name="shelf/[shelf]" options={{ headerShown: false }} />
         <Stack.Screen name="age-gate" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
       </Stack>
