@@ -11,7 +11,7 @@ import { V3 } from '@/constants/v3DesignTokens'
 import { useAuth } from '@/context/auth'
 import { useInventory } from '@/context/inventory'
 import { apiFetch } from '@/lib/api'
-import { SHELF_ORDER, groupInventoryByShelf } from '@/lib/cabinet'
+import { SHELF_ORDER, groupBottlesByShelf } from '@/lib/cabinet'
 import { pickBottlePhotoFromCamera, pickBottlePhotoFromLibrary } from '@/lib/pickBottlePhoto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { LinearGradient } from 'expo-linear-gradient'
@@ -169,14 +169,18 @@ export default function MyBarScreen() {
     refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {})
   }
 
-  // ── Cabinet 分組(lib/cabinet):空層不渲染,層序 = P2 ──────────────────────
-  const shelvesById = useMemo(() => groupInventoryByShelf(inventory), [inventory])
+  // ── Cabinet 分組(lib/cabinet):空層不渲染,層序 = P2;一瓶一 glyph ──────
+  const shelvesById = useMemo(() => groupBottlesByShelf(inventory), [inventory])
   const nonEmptyShelves = useMemo(
     () =>
-      SHELF_ORDER.map((id) => ({ id, items: shelvesById.get(id)! })).filter(
-        (shelf) => shelf.items.length > 0
+      SHELF_ORDER.map((id) => ({ id, units: shelvesById.get(id)! })).filter(
+        (shelf) => shelf.units.length > 0
       ),
     [shelvesById]
+  )
+  const totalBottles = useMemo(
+    () => nonEmptyShelves.reduce((n, shelf) => n + shelf.units.length, 0),
+    [nonEmptyShelves]
   )
 
   const handleSeeRecipes = async (staplesKeys: string[] = []) => {
@@ -272,8 +276,8 @@ export default function MyBarScreen() {
         }
       />
       <View style={styles.metaRow}>
-        <Text style={styles.metaNum}>{inventory.length}</Text>
-        <Text style={styles.metaUnit}>{inventory.length === 1 ? 'bottle' : 'bottles'}</Text>
+        <Text style={styles.metaNum}>{totalBottles}</Text>
+        <Text style={styles.metaUnit}>{totalBottles === 1 ? 'bottle' : 'bottles'}</Text>
         <Text style={styles.metaDot}>·</Text>
         <Text style={styles.metaNum}>{nonEmptyShelves.length}</Text>
         <Text style={styles.metaUnit}>{nonEmptyShelves.length === 1 ? 'shelf' : 'shelves'}</Text>
@@ -381,8 +385,8 @@ export default function MyBarScreen() {
                     style={styles.backboardInnerShadow}
                     pointerEvents="none"
                   />
-                  {nonEmptyShelves.map(({ id, items }) => (
-                    <Shelf key={id} shelfId={id} items={items} />
+                  {nonEmptyShelves.map(({ id, units }) => (
+                    <Shelf key={id} shelfId={id} units={units} />
                   ))}
                 </View>
               </View>

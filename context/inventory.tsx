@@ -7,6 +7,17 @@ import { EVENTS } from "@/lib/analytics/events";
 import { apiFetch } from "@/lib/api";
 import { checkAndNotify, scanAndNotifyAll } from "@/lib/lowStockNotifier";
 
+// INV-MODEL batch 4-FE-a: per-bottle rows from GET /inventory (batch 4-BE).
+// fifo marks the bottle the backend FIFO rule selects — single source of
+// truth for the edit modal and the default deduction target.
+export type InventoryBottle = {
+  id: string;
+  total_ml: number;
+  remaining_volume: number;
+  created_at: string;
+  fifo: boolean;
+};
+
 export type InventoryItem = {
   id: string;
   ingredient_key: string;
@@ -21,6 +32,7 @@ export type InventoryItem = {
   family_key: string | null;
   created_at: string;
   updated_at: string;
+  bottles: InventoryBottle[];
 };
 
 type InventoryPayload = {
@@ -89,7 +101,28 @@ function normalizeInventoryItem(raw: any): InventoryItem | null {
     family_key: raw?.family_key ? String(raw.family_key).trim() : null,
     created_at: String(raw?.created_at ?? ""),
     updated_at: String(raw?.updated_at ?? ""),
+    bottles: normalizeBottles(raw?.bottles),
   };
+}
+
+// POST/PATCH responses carry no bottles array (only GET does) — missing or
+// empty input normalizes to [] and callers fill the gap (merge previous
+// bottles + silent refresh).
+function normalizeBottles(raw: any): InventoryBottle[] {
+  if (!Array.isArray(raw)) return [];
+  const out: InventoryBottle[] = [];
+  for (const b of raw) {
+    const id = String(b?.id ?? "").trim();
+    if (!id) continue;
+    out.push({
+      id,
+      total_ml: Number(b?.total_ml ?? 0),
+      remaining_volume: Number(b?.remaining_volume ?? 0),
+      created_at: String(b?.created_at ?? ""),
+      fifo: b?.fifo === true,
+    });
+  }
+  return out;
 }
 
 function dedupeIngredientKeys(items: InventoryItem[]): string[] {
@@ -226,17 +259,28 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Inventory auth changed during add");
       }
 
-      setInventory((prev) => [item, ...prev.filter((x) => x.id !== item.id)]);
+      // INV-MODEL batch 4-FE-a: POST response item carries no bottles —
+      // keep the previous row's bottles so glyphs don't flash empty, then
+      // silently refresh so the real bottle set (new bottle + fifo flags)
+      // lands from GET.
+      setInventory((prev) => {
+        const prevItem = prev.find((x) => x.id === item.id);
+        const merged = item.bottles.length > 0 || !prevItem
+          ? item
+          : { ...item, bottles: prevItem.bottles };
+        return [merged, ...prev.filter((x) => x.id !== item.id)];
+      });
       setError(null);
       track(EVENTS.INVENTORY_CREATED, {
         ingredient_key: item.ingredient_key,
         family_key: item.family_key,
       });
+      refreshInventory({ silent: true }).catch(() => {});
 
       await checkAndNotify(item, { showAlert, session });
       return { ...item, created };
     },
-    [accessToken, session, showAlert]
+    [accessToken, session, showAlert, refreshInventory]
   );
 
   const updateInventoryItem = useCallback(
@@ -258,13 +302,22 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Inventory auth changed during update");
       }
 
-      setInventory((prev) => prev.map((x) => (x.id === id ? item : x)));
+      // INV-MODEL batch 4-FE-a: PATCH response item carries no bottles —
+      // keep previous bottles for instant render; silent refresh reconciles
+      // the edited bottle's real values.
+      setInventory((prev) =>
+        prev.map((x) => {
+          if (x.id !== id) return x;
+          return item.bottles.length > 0 ? item : { ...item, bottles: x.bottles };
+        })
+      );
       setError(null);
+      refreshInventory({ silent: true }).catch(() => {});
 
       await checkAndNotify(item, { showAlert, session });
       return item;
     },
-    [accessToken, session, showAlert]
+    [accessToken, session, showAlert, refreshInventory]
   );
 
   const deleteInventoryItem = useCallback(

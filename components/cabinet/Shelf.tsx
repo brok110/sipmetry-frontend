@@ -1,10 +1,9 @@
 import BottleGlyph, { BottleReflection } from '@/components/cabinet/BottleGlyph'
 import CabinetTokens, { withAlpha } from '@/constants/cabinetTokens'
 import OaklandDusk from '@/constants/OaklandDusk'
-import type { InventoryItem } from '@/context/inventory'
 import { useIngredientKeys } from '@/context/ingredientKeys'
 import { isBlindKey } from '@/lib/isBlindKey'
-import { MAX_VISIBLE_BOTTLES, isLowStockPct, type ShelfId } from '@/lib/cabinet'
+import { MAX_VISIBLE_BOTTLES, type BottleUnit, type ShelfId } from '@/lib/cabinet'
 import { LinearGradient } from 'expo-linear-gradient'
 import { router } from 'expo-router'
 import React from 'react'
@@ -47,11 +46,12 @@ function PlankGrain({ shelfId }: { shelfId: ShelfId }) {
 }
 
 // 一層貨架 = 單一 tap target;onPress 進分類詳情頁
-export default function Shelf({ shelfId, items }: { shelfId: ShelfId; items: InventoryItem[] }) {
+// INV-MODEL batch 4-FE-a:渲染單位 = BottleUnit(一瓶一 glyph)
+export default function Shelf({ shelfId, units }: { shelfId: ShelfId; units: BottleUnit[] }) {
   const { data: ingredientKeysData, resolve } = useIngredientKeys()
-  const visible = items.slice(0, MAX_VISIBLE_BOTTLES)
-  const overflow = items.length - MAX_VISIBLE_BOTTLES
-  const countLabel = items.length === 1 ? '1 BOTTLE' : `${items.length} BOTTLES`
+  const visible = units.slice(0, MAX_VISIBLE_BOTTLES)
+  const overflow = units.length - MAX_VISIBLE_BOTTLES
+  const countLabel = units.length === 1 ? '1 BOTTLE' : `${units.length} BOTTLES`
 
   return (
     <Pressable
@@ -79,28 +79,25 @@ export default function Shelf({ shelfId, items }: { shelfId: ShelfId; items: Inv
       <View style={styles.stage}>
         <Uplight shelfId={shelfId} />
         <View style={styles.bottlesRow}>
-          {visible.map((item) => {
-            const pct = Number(item.remaining_pct)
-            return (
-              <BottleGlyph
-                key={item.id}
-                id={item.id}
-                shelf={shelfId}
-                pct={pct}
-                isLow={isLowStockPct(pct)}
-                isBlind={isBlindKey(item.ingredient_key, ingredientKeysData, resolve)}
-              />
-            )
-          })}
+          {visible.map((unit) => (
+            <BottleGlyph
+              key={unit.bottleId}
+              id={unit.bottleId}
+              shelf={shelfId}
+              pct={unit.pct}
+              isLow={unit.isLow}
+              isBlind={isBlindKey(unit.ingredientKey, ingredientKeysData, resolve)}
+            />
+          ))}
         </View>
         {overflow > 0 && <Text style={styles.overflowTag}>{`+${overflow}`}</Text>}
         <View style={styles.reflectionRow}>
-          {visible.map((item) => (
+          {visible.map((unit) => (
             <BottleReflection
-              key={item.id}
-              id={item.id}
+              key={unit.bottleId}
+              id={unit.bottleId}
               shelf={shelfId}
-              isLow={isLowStockPct(Number(item.remaining_pct))}
+              isLow={unit.isLow}
             />
           ))}
         </View>
