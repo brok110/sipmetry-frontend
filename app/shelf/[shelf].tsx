@@ -281,11 +281,18 @@ function EditBottleModal({
   const [isCustomSize, setIsCustomSize] = useState(false)
   const [customMlText, setCustomMlText] = useState('')
 
-  // Sync fields when modal opens for a different item
+  // Sync fields when modal opens for a different item.
+  // INV-MODEL batch 4-FE-b: numeric fields come from the FIFO bottle (the
+  // one that pours first — backend fifo flag), matching what PATCH edits.
+  // Fallback to the row aggregate when bottles are absent (transition).
   useEffect(() => {
     if (item) {
       setName(item.display_name)
-      const ml = Number(item.total_ml)
+      const fifoBottle = item.bottles.find((b) => b.fifo) ?? item.bottles[0] ?? null
+      const ml = fifoBottle ? Number(fifoBottle.total_ml) : Number(item.total_ml)
+      const pctVal = fifoBottle
+        ? (fifoBottle.total_ml > 0 ? Math.round((fifoBottle.remaining_volume / fifoBottle.total_ml) * 100) : 0)
+        : Math.round(Number(item.remaining_pct))
       if (BOTTLE_SIZES.includes(ml)) {
         setTotalMl(ml)
         setIsCustomSize(false)
@@ -295,7 +302,7 @@ function EditBottleModal({
         setIsCustomSize(true)
         setCustomMlText(String(ml))
       }
-      setPct(Math.round(Number(item.remaining_pct)))
+      setPct(pctVal)
     }
   }, [item])
 
@@ -338,6 +345,11 @@ function EditBottleModal({
         <Pressable style={modalStyles.overlay} onPress={onClose}>
           <Pressable style={modalStyles.sheet} onPress={(e) => e.stopPropagation()}>
             <Text style={modalStyles.title}>Edit Bottle</Text>
+            {item.bottles.length > 1 ? (
+              <Text style={modalStyles.bottleHint}>
+                {`${item.bottles.length} bottles in bar — editing the one that pours first`}
+              </Text>
+            ) : null}
 
           {/* Name */}
           <Text style={modalStyles.fieldLabel}>Name</Text>
@@ -479,6 +491,11 @@ function InventoryCard({
                   {item.display_name}
                 </Text>
               </Pressable>
+              {item.bottles.length > 1 && (
+                <View style={styles.bottleCountPill}>
+                  <Text style={styles.bottleCountPillText}>{`×${item.bottles.length}`}</Text>
+                </View>
+              )}
               {isBlind && (
                 <Pressable
                   hitSlop={12}
@@ -1053,6 +1070,20 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
     backgroundColor: 'rgb(192,72,88)',
   },
+  bottleCountPill: {
+    backgroundColor: withAlpha(OaklandDusk.brand.gold, 0.1),
+    borderWidth: 1,
+    borderColor: withAlpha(OaklandDusk.brand.gold, 0.25),
+    borderRadius: 6,
+    paddingVertical: 1,
+    paddingHorizontal: 6,
+  },
+  bottleCountPillText: {
+    fontFamily: 'DMMono',
+    fontSize: 11,
+    letterSpacing: 0.5,
+    color: OaklandDusk.brand.gold,
+  },
   restockPill: {
     alignSelf: 'flex-start',
     marginTop: 8,
@@ -1076,6 +1107,13 @@ const modalStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.65)',
     justifyContent: 'flex-end',
+  },
+  bottleHint: {
+    fontFamily: 'DMMono',
+    fontSize: 12,
+    color: OaklandDusk.text.secondary,
+    marginTop: 4,
+    marginBottom: 2,
   },
   sheet: {
     backgroundColor: OaklandDusk.bg.card,

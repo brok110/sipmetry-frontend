@@ -72,9 +72,10 @@ type InventoryContextValue = {
   initialized: boolean;
   error: string | null;
   refreshInventory: (options?: RefreshOptions) => Promise<InventoryItem[]>;
-  addInventoryItem: (payload: InventoryPayload) => Promise<InventoryItem & { created: boolean }>;
+  addInventoryItem: (payload: InventoryPayload) => Promise<InventoryItem & { created: boolean; bottle_id: string | null; bottle_count: number }>;
   updateInventoryItem: (id: string, updates: InventoryUpdatePayload) => Promise<InventoryItem>;
   deleteInventoryItem: (id: string) => Promise<void>;
+  deleteInventoryBottle: (itemId: string, bottleId: string) => Promise<void>;
   recordInventoryUse: (payload: InventoryUsePayload) => Promise<void>;
   replaceInventoryItem: (item: InventoryItem) => void;
 };
@@ -236,7 +237,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   }, [accessToken, refreshInventory]);
 
   const addInventoryItem = useCallback(
-    async (payload: InventoryPayload): Promise<InventoryItem & { created: boolean }> => {
+    async (payload: InventoryPayload): Promise<InventoryItem & { created: boolean; bottle_id: string | null; bottle_count: number }> => {
       if (!session?.access_token) throw new Error("Please sign in first");
       const version = authVersionRef.current;
 
@@ -254,6 +255,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       // row (created=true) or hit an existing one (created=false). Missing
       // field (older backend) defaults to true — err on the "added" side.
       const created = data?.created !== false;
+      // INV-MODEL batch 4-FE-b: batch 2 responses carry the inserted bottle
+      // and the row's bottle count — the scan flow needs both for the
+      // "Nth bottle" copy and swipe-undo.
+      const bottleId = typeof data?.bottle?.id === "string" ? data.bottle.id : null;
+      const bottleCount = Number.isFinite(Number(data?.bottle_count)) ? Number(data.bottle_count) : (created ? 1 : 0);
 
       if (version !== authVersionRef.current) {
         throw new Error("Inventory auth changed during add");
@@ -278,7 +284,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       refreshInventory({ silent: true }).catch(() => {});
 
       await checkAndNotify(item, { showAlert, session });
-      return { ...item, created };
+      return { ...item, created, bottle_id: bottleId, bottle_count: bottleCount };
     },
     [accessToken, session, showAlert, refreshInventory]
   );
@@ -336,6 +342,47 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       setError(null);
     },
     [accessToken, session]
+  );
+
+  // INV-MODEL batch 4-FE-b: undo path — remove one bottle (batch 4-BE
+  // endpoint). row_deleted=true → the whole row left with it (last-bottle
+  // ruling); otherwise apply the recomputed aggregate and drop the bottle
+  // locally so every derived count updates in the same frame, then
+  // silently refresh for truth (fifo flags).
+  const deleteInventoryBottle = useCallback(
+    async (itemId: string, bottleId: string): Promise<void> => {
+      if (!session?.access_token) throw new Error("Please sign in first");
+      const version = authVersionRef.current;
+
+      const res = await apiFetch(`/inventory/${itemId}/bottles/${bottleId}`, { session, method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? "Delete failed");
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (version !== authVersionRef.current) {
+        throw new Error("Inventory auth changed during bottle delete");
+      }
+
+      if (data?.row_deleted === true) {
+        setInventory((prev) => prev.filter((x) => x.id !== itemId));
+      } else {
+        const item = normalizeInventoryItem(data?.item);
+        setInventory((prev) =>
+          prev.map((x) => {
+            if (x.id !== itemId) return x;
+            const base = item ?? x;
+            const bottles = (base.bottles.length > 0 ? base.bottles : x.bottles).filter((b) => b.id !== bottleId);
+            return { ...base, bottles };
+          })
+        );
+        refreshInventory({ silent: true }).catch(() => {});
+      }
+      setError(null);
+    },
+    [accessToken, session, refreshInventory]
   );
 
   const recordInventoryUse = useCallback(
@@ -403,6 +450,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,
+      deleteInventoryBottle,
       recordInventoryUse,
       replaceInventoryItem,
     }),
@@ -419,6 +467,7 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,
+      deleteInventoryBottle,
       recordInventoryUse,
       replaceInventoryItem,
     ]

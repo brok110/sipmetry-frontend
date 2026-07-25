@@ -592,7 +592,7 @@ export default function TabOneScreen() {
   // before the tally is read.
   const addTallyRef = useRef({
     added: 0,
-    already: 0,
+    extra: [] as Array<{ name: string; ordinal: number }>,
     failed: 0,
     failedNames: [] as string[],
     nonAlcoholicNames: [] as string[],
@@ -606,6 +606,18 @@ export default function TabOneScreen() {
   // Lets the edit station remove a mis-scan's auto-added row while never
   // touching rows that pre-date the session. Cleared in resetScan.
   const sessionCreatedRef = useRef<Map<string, string>>(new Map());
+  // INV-MODEL batch 4-FE-b: bottles this session added to EXISTING rows
+  // (POST returned created=false), keyed by snake canonical → list of
+  // { itemId, bottleId, ordinal }. The same key can gain several bottles
+  // in one session (per-photo adds don't dedupe) — undo removes them all.
+  // Cleared in resetScan alongside sessionCreatedRef.
+  const sessionBottlesRef = useRef<Map<string, Array<{ itemId: string; bottleId: string; ordinal: number }>>>(new Map());
+  // 2 → "2nd", 3 → "3rd", 11 → "11th" …
+  const ordinalLabel = (n: number) => {
+    const v = n % 100;
+    if (v >= 11 && v <= 13) return `${n}th`;
+    switch (n % 10) { case 1: return `${n}st`; case 2: return `${n}nd`; case 3: return `${n}rd`; default: return `${n}th`; }
+  };
 
   // Guide bubble state (Stages 2-4)
   const [guideScanVisible, setGuideScanVisible] = useState(false);
@@ -622,7 +634,7 @@ export default function TabOneScreen() {
   const [gpStep3Visible, setGpStep3Visible] = useState(false);
   const [gpStep4Visible, setGpStep4Visible] = useState(false);
   const { session } = useAuth();
-  const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem, deleteInventoryItem } = useInventory();
+  const { availableIngredientKeys, inventoryByIngredientKey, initialized: inventoryInitialized, refreshInventory, addInventoryItem, deleteInventoryItem, deleteInventoryBottle } = useInventory();
   const ingredientKeys = useIngredientKeys();
   const filtered = useMemo(
     () => newIngredient.trim().length > 0 ? ingredientKeys.filter(newIngredient, 8) : [],
@@ -756,10 +768,9 @@ export default function TabOneScreen() {
             addTallyRef.current.nonAlcoholicNames.push(ing.display);
             continue;
           }
-          if (isInInventory(ing.canonical)) {
-            addTallyRef.current.already += 1;
-            continue;
-          }
+// INV-MODEL batch 4-FE-b: dedup gate removed — every scan adds a
+          // bottle (batch 0 ruling). created=false = extra bottle of a key
+          // already stocked, tracked for the alert copy and swipe-undo.
           try {
             const result = await addInventoryItem({
               ingredient_key: ing.canonical,
@@ -767,11 +778,17 @@ export default function TabOneScreen() {
               total_ml: DEFAULT_BOTTLE_ML,
               remaining_pct: 100,
             });
+            addTallyRef.current.added += 1;
             if (result.created) {
-              addTallyRef.current.added += 1;
               sessionCreatedRef.current.set(snakeKey(ing.canonical), result.id);
             } else {
-              addTallyRef.current.already += 1;
+              addTallyRef.current.extra.push({ name: ing.display, ordinal: result.bottle_count });
+              if (result.bottle_id) {
+                const k = snakeKey(ing.canonical);
+                const list = sessionBottlesRef.current.get(k) ?? [];
+                list.push({ itemId: result.id, bottleId: result.bottle_id, ordinal: result.bottle_count });
+                sessionBottlesRef.current.set(k, list);
+              }
             }
           } catch {
             addTallyRef.current.failed += 1;
@@ -805,16 +822,14 @@ export default function TabOneScreen() {
 
       if (t.added > 0) {
         title = `${t.added} bottle${t.added !== 1 ? "s" : ""} added to My Bar`;
-      } else if (t.already > 0 && t.failed === 0) {
-        title = "All set — already in My Bar";
       } else if (t.failed > 0) {
         title = "Some bottles couldn't be saved";
       } else {
         title = "No spirits found";
       }
 
-      if (t.added > 0 && t.already > 0) {
-        parts.push(`${t.already} already in My Bar`);
+      for (const x of t.extra) {
+        parts.push(`${x.name} — ${ordinalLabel(x.ordinal)} bottle`);
       }
       if (t.failed > 0) {
         const names = [...new Set(t.failedNames)].join(", ");
@@ -830,7 +845,7 @@ export default function TabOneScreen() {
       // start adding before this effect has read the tally.
       addTallyRef.current = {
         added: 0,
-        already: 0,
+        extra: [],
         failed: 0,
         failedNames: [],
         nonAlcoholicNames: [],
@@ -1573,10 +1588,8 @@ export default function TabOneScreen() {
             addTallyRef.current.nonAlcoholicNames.push(ing.display);
             continue;
           }
-          if (isInInventory(ing.canonical)) {
-            addTallyRef.current.already += 1;
-            continue;
-          }
+// INV-MODEL batch 4-FE-b: dedup gate removed (same ruling as the
+          // batch-resolver site above).
           try {
             const result = await addInventoryItem({
               ingredient_key: ing.canonical,
@@ -1584,11 +1597,17 @@ export default function TabOneScreen() {
               total_ml: DEFAULT_BOTTLE_ML,
               remaining_pct: 100,
             });
+            addTallyRef.current.added += 1;
             if (result.created) {
-              addTallyRef.current.added += 1;
               sessionCreatedRef.current.set(snakeKey(ing.canonical), result.id);
             } else {
-              addTallyRef.current.already += 1;
+              addTallyRef.current.extra.push({ name: ing.display, ordinal: result.bottle_count });
+              if (result.bottle_id) {
+                const k = snakeKey(ing.canonical);
+                const list = sessionBottlesRef.current.get(k) ?? [];
+                list.push({ itemId: result.id, bottleId: result.bottle_id, ordinal: result.bottle_count });
+                sessionBottlesRef.current.set(k, list);
+              }
             }
           } catch {
             addTallyRef.current.failed += 1;
@@ -1660,7 +1679,7 @@ export default function TabOneScreen() {
   // the per-photo auto-add semantics exactly:
   // - skip only when isAlcoholicIngredient === false (unknown
   //   classification must be added — see the auto-add sites above)
-  // - skip when already in inventory (no dup POSTs)
+  // - never skips stocked keys (batch 4-FE-b: every scan adds a bottle)
   // No-op in "undecided" (bulk button flow) and "quick_look" (guest —
   // manual adds must NOT touch inventory).
   // The "In bar ✓" badge lights up without an explicit refresh:
@@ -1675,7 +1694,6 @@ export default function TabOneScreen() {
     if (scanMode !== "inventory" || !session) return true;
     if (!canonical) return true;
     if (isAlcoholicIngredient(canonical) === false) return true;
-    if (isInInventory(canonical)) return true;
     try {
       const result = await addInventoryItem({
         ingredient_key: canonical,
@@ -1685,6 +1703,13 @@ export default function TabOneScreen() {
       });
       if (result.created) {
         sessionCreatedRef.current.set(snakeKey(canonical), result.id);
+      } else if (result.bottle_id) {
+        // INV-MODEL batch 4-FE-b: manual adds to stocked keys land as extra
+        // bottles too — tracked for undo, outside the batch tally.
+        const k = snakeKey(canonical);
+        const list = sessionBottlesRef.current.get(k) ?? [];
+        list.push({ itemId: result.id, bottleId: result.bottle_id, ordinal: result.bottle_count });
+        sessionBottlesRef.current.set(k, list);
       }
       return true;
     } catch {
@@ -1807,6 +1832,7 @@ export default function TabOneScreen() {
 
   const resetScan = () => {
     sessionCreatedRef.current.clear();
+    sessionBottlesRef.current.clear();
     setScanMode("undecided");
     setMultiScanResults([]);
     setScanCount(0);
@@ -1825,6 +1851,25 @@ export default function TabOneScreen() {
 
   const removeIngredient = (idx: number) => {
     if (recipes.length > 0) invalidateRecipes();
+    // INV-MODEL batch 4-FE-b: swiping away a chip whose scans added bottles
+    // to an EXISTING row this session = undo those adds (bottle-level
+    // DELETE). Rows the session CREATED keep their pre-existing semantics
+    // (removable in My Bar) — chip removal alone never deletes them.
+    const target = activeIngredients[idx];
+    const k = snakeKey(String(target?.canonical ?? ""));
+    const sessionBottles = k ? sessionBottlesRef.current.get(k) : undefined;
+    if (sessionBottles && sessionBottles.length > 0) {
+      sessionBottlesRef.current.delete(k);
+      (async () => {
+        for (const b of sessionBottles) {
+          try {
+            await deleteInventoryBottle(b.itemId, b.bottleId);
+          } catch {
+            setError(`Couldn't undo ${target?.display ?? "the bottle"} — you can remove it in My Bar.`);
+          }
+        }
+      })();
+    }
     setActiveIngredients((prev) => prev.filter((_, i) => i !== idx));
     setHasRecommended(false);
     setHasRecommendedLocal(false);
@@ -1931,6 +1976,21 @@ export default function TabOneScreen() {
             sessionCreatedRef.current.delete(oldKey);
           } catch {
             setError(`Couldn't remove ${before || "the previous bottle"} from My Bar — you can remove it in My Bar.`);
+          }
+        }
+      }
+      // INV-MODEL batch 4-FE-b: the mis-scan may have landed as an extra
+      // bottle on an existing row — undo those the same way.
+      if (added && oldKey && oldKey !== snakeKey(canon)) {
+        const staleBottles = sessionBottlesRef.current.get(oldKey);
+        if (staleBottles && staleBottles.length > 0) {
+          sessionBottlesRef.current.delete(oldKey);
+          for (const b of staleBottles) {
+            try {
+              await deleteInventoryBottle(b.itemId, b.bottleId);
+            } catch {
+              setError(`Couldn't remove ${before || "the previous bottle"} from My Bar — you can remove it in My Bar.`);
+            }
           }
         }
       }
@@ -2181,6 +2241,24 @@ export default function TabOneScreen() {
                             // === false (not !== true): unknown-classification bottles
                             // are now auto-added; hide badge only for known non-alcoholic.
                             if (alcoholic === false) return null;
+const sessionBottles = sessionBottlesRef.current.get(snakeKey(ing.canonical));
+                            if (sessionBottles && sessionBottles.length > 0) {
+                              const last = sessionBottles[sessionBottles.length - 1];
+                              return (
+                                <View style={{
+                                  paddingHorizontal: 8,
+                                  paddingVertical: 4,
+                                  backgroundColor: OaklandDusk.bg.surface,
+                                  borderRadius: 8,
+                                  borderWidth: 0.5,
+                                  borderColor: OaklandDusk.brand.gold,
+                                }}>
+                                  <Text style={{ fontWeight: "600", color: OaklandDusk.brand.gold, fontSize: 11 }}>
+                                    {`${ordinalLabel(last.ordinal)} bottle ✓`}
+                                  </Text>
+                                </View>
+                              );
+                            }
                             if (!isInInventory(ing.canonical)) return null;
 
                             // BYPASSED: auto-add replaces manual add-to-bar flow
