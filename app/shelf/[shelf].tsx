@@ -759,12 +759,12 @@ export default function ShelfDetailScreen() {
         )}
       </View>
 
-      {/* Head:標題 + 金色大數字(批 4 排版) */}
+      {/* Head:標題 + 金色大數字(批 4 排版;fix:數瓶不數列,與酒櫃層標籤一致) */}
       <View style={styles.head}>
         <View style={styles.titleRow}>
           <Text style={styles.title}>{shelfId.toUpperCase()}</Text>
           <View style={styles.titleSpacer} />
-          <Text style={styles.titleCount}>{shelfItems.length}</Text>
+          <Text style={styles.titleCount}>{shelfItems.reduce((n, it) => n + Math.max(1, it.bottles.length), 0)}</Text>
         </View>
       </View>
 
