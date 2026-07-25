@@ -7,7 +7,7 @@ import OaklandDusk from '@/constants/OaklandDusk'
 import Type from '@/constants/typography'
 import { V3 } from '@/constants/v3DesignTokens'
 import { useIngredientKeys } from '@/context/ingredientKeys'
-import { InventoryItem, useInventory } from '@/context/inventory'
+import { InventoryBottle, InventoryItem, useInventory } from '@/context/inventory'
 import { usePurchaseIntent } from '@/hooks/usePurchaseIntent'
 import { isShelfId, shelfFor, type ShelfId } from '@/lib/cabinet'
 import { isBlindKey } from '@/lib/isBlindKey'
@@ -148,6 +148,8 @@ function HorizontalPctSlider({
 }) {
   const trackWidth = useSharedValue(0)
   const fillPct = useSharedValue(value)
+  // FIX-SLIDER: 拖曳中即時回報(5% 級距去重),REMAINING 讀數不再等放手
+  const lastSent = useSharedValue(value)
 
   useEffect(() => {
     fillPct.value = value
@@ -174,6 +176,11 @@ function HorizontalPctSlider({
       if (trackWidth.value <= 0) return
       const pct = Math.max(0, Math.min(100, (e.x / trackWidth.value) * 100))
       fillPct.value = pct
+      const snapped = snapTo5(pct)
+      if (snapped !== lastSent.value) {
+        lastSent.value = snapped
+        runOnJS(stableOnChange)(snapped)
+      }
     })
     .onEnd(() => {
       'worklet'
@@ -265,14 +272,18 @@ const BOTTLE_SIZES: number[] = [375, 500, 700, 750, 1000, 1750]
 // ── Edit Bottle Modal ─────────────────────────────────────────────────────────
 function EditBottleModal({
   item,
+  bottle,
+  bottleIndex,
   visible,
   onClose,
   onSave,
 }: {
   item: InventoryItem | null
+  bottle: InventoryBottle | null
+  bottleIndex: number
   visible: boolean
   onClose: () => void
-  onSave: (id: string, updates: { display_name: string; total_ml: number; remaining_pct: number }) => Promise<void>
+  onSave: (id: string, updates: { display_name: string; total_ml: number; remaining_pct: number; bottle_id?: string }) => Promise<void>
 }) {
   const [name, setName] = useState('')
   const [totalMl, setTotalMl] = useState(DEFAULT_BOTTLE_ML)
@@ -282,16 +293,15 @@ function EditBottleModal({
   const [customMlText, setCustomMlText] = useState('')
 
   // Sync fields when modal opens for a different item.
-  // INV-MODEL batch 4-FE-b: numeric fields come from the FIFO bottle (the
-  // one that pours first — backend fifo flag), matching what PATCH edits.
-  // Fallback to the row aggregate when bottles are absent (transition).
+  // INV-MODEL batch 4-FE-c-FE: numeric fields come from the bottle whose
+  // card page opened the modal (explicit target). Fallback to the row
+  // aggregate when no bottle is passed (transition states).
   useEffect(() => {
     if (item) {
       setName(item.display_name)
-      const fifoBottle = item.bottles.find((b) => b.fifo) ?? item.bottles[0] ?? null
-      const ml = fifoBottle ? Number(fifoBottle.total_ml) : Number(item.total_ml)
-      const pctVal = fifoBottle
-        ? (fifoBottle.total_ml > 0 ? Math.round((fifoBottle.remaining_volume / fifoBottle.total_ml) * 100) : 0)
+      const ml = bottle ? Number(bottle.total_ml) : Number(item.total_ml)
+      const pctVal = bottle
+        ? (bottle.total_ml > 0 ? Math.round((bottle.remaining_volume / bottle.total_ml) * 100) : 0)
         : Math.round(Number(item.remaining_pct))
       if (BOTTLE_SIZES.includes(ml)) {
         setTotalMl(ml)
@@ -304,7 +314,7 @@ function EditBottleModal({
       }
       setPct(pctVal)
     }
-  }, [item])
+  }, [item, bottle])
 
   const handleSave = async () => {
     if (!item || saving) return
@@ -319,7 +329,12 @@ function EditBottleModal({
     }
     setSaving(true)
     try {
-      await onSave(item.id, { display_name: trimmed, total_ml: totalMl, remaining_pct: pct })
+      await onSave(item.id, {
+        display_name: trimmed,
+        total_ml: totalMl,
+        remaining_pct: pct,
+        ...(bottle && bottle.id !== item.id ? { bottle_id: bottle.id } : {}),
+      })
     } catch (e: any) {
       Alert.alert('Error', e?.message ?? 'Update failed')
     } finally {
@@ -347,7 +362,7 @@ function EditBottleModal({
             <Text style={modalStyles.title}>Edit Bottle</Text>
             {item.bottles.length > 1 ? (
               <Text style={modalStyles.bottleHint}>
-                {`${item.bottles.length} bottles in bar — editing the one that pours first`}
+                {`Bottle #${bottleIndex} of ${item.bottles.length}`}
               </Text>
             ) : null}
 
@@ -462,8 +477,8 @@ function InventoryCard({
 }: {
   item: InventoryItem
   sortBy: SortBy
-  onEdit: (item: InventoryItem) => void
-  onDelete: (id: string, name: string) => void
+  onEdit: (item: InventoryItem, bottle: InventoryBottle, ordinal: number) => void
+  onDelete: (id: string, name: string, bottle: InventoryBottle, ordinal: number, totalBottles: number) => void
   onRestock?: () => void
   isFirstCard?: boolean
   onSwipeOpen?: () => void
@@ -471,16 +486,44 @@ function InventoryCard({
   const { data: ingredientKeysData, resolve } = useIngredientKeys()
   // 盲點判定抽共用:lib/isBlindKey(CABINET-3A),邏輯與原卡片內判定一字不改
   const isBlind = isBlindKey(item.ingredient_key, ingredientKeysData, resolve)
-  const parsedPct = Math.round(Number(item.remaining_pct))
-  const remainingMl = Math.round(Number(item.remaining_ml))
-  const isLow = parsedPct < 20
+
+  // INV-MODEL batch 4-FE-c-FE:瓶卡疊(方案乙)。顯示順序 = created_at 升冪,
+  // 標 #1/#2…;點卡片或頁點換瓶;bottles 空(POST/PATCH 過渡態)以列
+  // aggregate 充當一瓶(pseudo 瓶,id 同列 id)。
+  const bottles = useMemo<InventoryBottle[]>(() => {
+    if (item.bottles.length === 0) {
+      return [{
+        id: item.id,
+        total_ml: Number(item.total_ml),
+        remaining_volume: Number(item.remaining_volume),
+        created_at: item.created_at,
+        fifo: true,
+      }]
+    }
+    return [...item.bottles].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+  }, [item])
+  const [pageIdx, setPageIdx] = useState(0)
+  useEffect(() => {
+    if (pageIdx >= bottles.length) setPageIdx(0)
+  }, [pageIdx, bottles.length])
+  const safeIdx = Math.min(pageIdx, bottles.length - 1)
+  const bottle = bottles[safeIdx]
+  const multi = bottles.length > 1
+  const bottlePct = bottle.total_ml > 0 ? Math.round((bottle.remaining_volume / bottle.total_ml) * 100) : 0
+  const bottleMl = Math.round(Number(bottle.remaining_volume))
+  const isLow = bottlePct < 20
 
   return (
     <SwipeRow
-      onEdit={() => onEdit(item)}
-      onDelete={() => onDelete(item.id, item.display_name)}
+      onEdit={() => onEdit(item, bottle, safeIdx + 1)}
+      onDelete={() => onDelete(item.id, item.display_name, bottle, safeIdx + 1, bottles.length)}
       onSwipeOpen={isFirstCard ? onSwipeOpen : undefined}
     >
+      <Pressable
+        disabled={!multi}
+        onPress={() => setPageIdx((safeIdx + 1) % bottles.length)}
+        accessibilityLabel={multi ? `Bottle ${safeIdx + 1} of ${bottles.length}, tap for next bottle` : undefined}
+      >
       <View style={[styles.card, isLow && { backgroundColor: 'rgba(192,72,88,0.08)' }]}>
         <View style={styles.cardHeader}>
           {/* Info */}
@@ -491,9 +534,9 @@ function InventoryCard({
                   {item.display_name}
                 </Text>
               </Pressable>
-              {item.bottles.length > 1 && (
+              {multi && (
                 <View style={styles.bottleCountPill}>
-                  <Text style={styles.bottleCountPillText}>{`×${item.bottles.length}`}</Text>
+                  <Text style={styles.bottleCountPillText}>{`#${safeIdx + 1}`}</Text>
                 </View>
               )}
               {isBlind && (
@@ -512,12 +555,12 @@ function InventoryCard({
               )}
             </View>
             <Text style={styles.cardMeta}>
-              {sortBy === 'date_added'
+              {sortBy === 'date_added' && !multi
                 ? `${formatAddedDate(item.updated_at)} · `
                 : sortBy === 'last_used_at'
                 ? `${formatRelativeTime(item.last_used_at)} · `
                 : ''}
-              {remainingMl}ml left
+              {bottleMl}ml left{multi ? ` · ${formatAddedDate(bottle.created_at)}` : ''}
             </Text>
             {isLow && onRestock ? (
               <Pressable
@@ -531,10 +574,20 @@ function InventoryCard({
             ) : null}
           </View>
 
-          {/* Level ring */}
-          <LevelRing percent={parsedPct} size={40} />
+          {/* Level ring:當前瓶 */}
+          <LevelRing percent={bottlePct} size={40} />
         </View>
+        {multi && (
+          <View style={styles.pageDots}>
+            {bottles.map((b, i) => (
+              <Pressable key={b.id} hitSlop={8} onPress={() => setPageIdx(i)} accessibilityLabel={`Bottle ${i + 1}`}>
+                <View style={[styles.pageDot, i === safeIdx && styles.pageDotActive]} />
+              </Pressable>
+            ))}
+          </View>
+        )}
       </View>
+      </Pressable>
     </SwipeRow>
   )
 }
@@ -552,8 +605,8 @@ function InventoryCardWithGuide({
 }: {
   item: InventoryItem
   sortBy: SortBy
-  onEdit: (item: InventoryItem) => void
-  onDelete: (id: string, name: string) => void
+  onEdit: (item: InventoryItem, bottle: InventoryBottle, ordinal: number) => void
+  onDelete: (id: string, name: string, bottle: InventoryBottle, ordinal: number, totalBottles: number) => void
   onRestock?: () => void
   isFirstCard: boolean
   guideSwipeDismissed: boolean
@@ -608,6 +661,7 @@ export default function ShelfDetailScreen() {
     refreshInventory,
     updateInventoryItem,
     deleteInventoryItem,
+    deleteInventoryBottle,
   } = useInventory()
 
   // ── Sort state (預設：加入時間 降冪) ──────────────────────
@@ -615,6 +669,8 @@ export default function ShelfDetailScreen() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [editItem, setEditItem] = useState<InventoryItem | null>(null)
+  const [editBottle, setEditBottle] = useState<InventoryBottle | null>(null)
+  const [editBottleIndex, setEditBottleIndex] = useState(1)
   const [guideSwipeDismissed, setGuideSwipeDismissed] = useState(true)
 
   // swipe 提示沿用原 My Bar 的 gating 鏈(CTA、GP_STEP_6 皆 dismissed 後才出現)
@@ -680,24 +736,38 @@ export default function ShelfDetailScreen() {
     }
   }
 
-  const handleEdit = (item: InventoryItem) => {
+  const handleEdit = (item: InventoryItem, bottle: InventoryBottle, ordinal: number) => {
     dismissSwipeGuide()
     setEditItem(item)
+    setEditBottle(bottle)
+    setEditBottleIndex(ordinal)
   }
 
   const handleEditSave = async (
     id: string,
-    updates: { display_name: string; total_ml: number; remaining_pct: number }
+    updates: { display_name: string; total_ml: number; remaining_pct: number; bottle_id?: string }
   ) => {
     await updateInventoryItem(id, updates)
     setEditItem(null)
   }
 
-  const handleDelete = (id: string, name: string) => {
+  // INV-MODEL batch 4-FE-c-FE:刪除統一瓶級——確認文案逐瓶點名,最後一瓶
+  // 提示整卡連動移除(backend cascade)。「一滑刪整列」地雷正式拆除。
+  // pseudo 瓶(bottles 過渡態,id 同列 id)回退列級刪除。
+  const handleDelete = (
+    id: string,
+    name: string,
+    bottle: InventoryBottle,
+    ordinal: number,
+    totalBottles: number
+  ) => {
     dismissSwipeGuide()
+    const last = totalBottles <= 1
     Alert.alert(
-      'Remove from My Bar',
-      `Remove "${name}"?`,
+      last ? 'Remove from My Bar' : `Remove bottle #${ordinal}`,
+      last
+        ? `Remove "${name}"? This is the last bottle — the card goes with it.`
+        : `Remove bottle #${ordinal} of "${name}"? The other ${totalBottles - 1 === 1 ? 'bottle stays' : 'bottles stay'}.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -705,9 +775,13 @@ export default function ShelfDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteInventoryItem(id)
+              if (bottle.id === id) {
+                await deleteInventoryItem(id)
+              } else {
+                await deleteInventoryBottle(id, bottle.id)
+              }
             } catch (e: any) {
-              Alert.alert('Error', e?.message ?? 'Could not delete item')
+              Alert.alert('Error', e?.message ?? 'Could not delete bottle')
             }
           },
         },
@@ -818,8 +892,10 @@ export default function ShelfDetailScreen() {
         {/* Edit Bottle Modal */}
         <EditBottleModal
           item={editItem}
+          bottle={editBottle}
+          bottleIndex={editBottleIndex}
           visible={editItem !== null}
-          onClose={() => setEditItem(null)}
+          onClose={() => { setEditItem(null); setEditBottle(null) }}
           onSave={handleEditSave}
         />
 
@@ -1083,6 +1159,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.5,
     color: OaklandDusk.brand.gold,
+  },
+  pageDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  pageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: withAlpha(OaklandDusk.text.primary, 0.25),
+  },
+  pageDotActive: {
+    backgroundColor: OaklandDusk.brand.gold,
   },
   restockPill: {
     alignSelf: 'flex-start',

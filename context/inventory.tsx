@@ -46,6 +46,9 @@ type InventoryUpdatePayload = {
   display_name: string;
   total_ml: number;
   remaining_pct: number;
+  // INV-MODEL batch 4-FE-c-FE: numeric edits may target a specific bottle
+  // (batch 4-FE-c-BE PATCH support). Absent → backend FIFO default.
+  bottle_id?: string;
 };
 
 type InventoryUsePayload = {
