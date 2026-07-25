@@ -14,7 +14,7 @@ import { isBlindKey } from '@/lib/isBlindKey'
 import { openUrl } from '@/lib/openUrl'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
 import { Redirect, router, useFocusEffect, useLocalSearchParams } from 'expo-router'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
@@ -148,48 +148,76 @@ function HorizontalPctSlider({
 }) {
   const trackWidth = useSharedValue(0)
   const fillPct = useSharedValue(value)
-  // FIX-SLIDER: 拖曳中即時回報(5% 級距去重),REMAINING 讀數不再等放手
+  // FIX-SLIDER-3:gesture 用 useMemo 一次成型——拖曳中 setPct 觸發
+  // re-render 若重建 gesture,進行中的手勢會被孤兒化,後續 runOnJS
+  // 全數無聲丟棄(前兩版失同步/全死的根因)。回呼走 ref,worklet
+  // 綁定的 emit 永久穩定,實際函式由 ref 隨時指向最新。
   const lastSent = useSharedValue(value)
+  const isDragging = useSharedValue(0)
 
   useEffect(() => {
-    fillPct.value = value
+    if (isDragging.value === 0) {
+      fillPct.value = value
+    }
   }, [value])
 
-  const stableOnChange = useCallback((v: number) => {
-    onChange(v)
-  }, [onChange])
+  const onChangeRef = useRef(onChange)
+  const onTouchStartRef = useRef(onTouchStart)
+  useEffect(() => {
+    onChangeRef.current = onChange
+    onTouchStartRef.current = onTouchStart
+  })
 
-  const stableOnTouchStart = useCallback(() => {
-    if (onTouchStart) onTouchStart()
-  }, [onTouchStart])
+  const emitChange = useCallback((v: number) => {
+    onChangeRef.current(v)
+  }, [])
 
-  const gesture = Gesture.Pan()
+  const emitTouchStart = useCallback(() => {
+    if (onTouchStartRef.current) onTouchStartRef.current()
+  }, [])
+
+  const gesture = useMemo(() => Gesture.Pan()
     .onBegin((e) => {
       'worklet'
-      if (onTouchStart) runOnJS(stableOnTouchStart)()
+      // FIX-SLIDER-5:純點擊(零位移)實證不觸發 onFinalize,提交
+      // 不能等結束回呼——onBegin 當下即提交。拖曳會多送一發起點值,
+      // 由 onUpdate 的 lastSent 去重吸收,無害。isDragging 不在此
+      // 上鎖(移至 onUpdate 第一個移動),點擊路徑永不上鎖。
+      lastSent.value = -1
+      runOnJS(emitTouchStart)()
       if (trackWidth.value <= 0) return
       const pct = Math.max(0, Math.min(100, (e.x / trackWidth.value) * 100))
       fillPct.value = pct
+      const snapped = snapTo5(pct)
+      lastSent.value = snapped
+      runOnJS(emitChange)(snapped)
     })
     .onUpdate((e) => {
       'worklet'
+      isDragging.value = 1
       if (trackWidth.value <= 0) return
       const pct = Math.max(0, Math.min(100, (e.x / trackWidth.value) * 100))
       fillPct.value = pct
       const snapped = snapTo5(pct)
       if (snapped !== lastSent.value) {
         lastSent.value = snapped
-        runOnJS(stableOnChange)(snapped)
+        runOnJS(emitChange)(snapped)
       }
     })
-    .onEnd(() => {
+    .onFinalize(() => {
       'worklet'
+      // 拖曳收尾:snap 動畫 + 去重補發保險 + 解鎖。純點擊實證不進
+      // 此處(提交已在 onBegin 完成,isDragging 亦未上鎖)。
       const snapped = snapTo5(fillPct.value)
       fillPct.value = withTiming(snapped, { duration: 80 })
-      runOnJS(stableOnChange)(snapped)
+      if (snapped !== lastSent.value) {
+        lastSent.value = snapped
+        runOnJS(emitChange)(snapped)
+      }
+      isDragging.value = 0
     })
     .hitSlop({ top: 20, bottom: 20, left: 10, right: 10 })
-    .minDistance(0)
+    .minDistance(0), [emitChange, emitTouchStart, trackWidth, fillPct, lastSent, isDragging])
 
   const fillStyle = useAnimatedStyle(() => {
     const isLow = fillPct.value <= 15
@@ -556,7 +584,7 @@ function InventoryCard({
             </View>
             <Text style={styles.cardMeta}>
               {sortBy === 'date_added' && !multi
-                ? `${formatAddedDate(item.updated_at)} · `
+                ? `${formatAddedDate(bottle.created_at)} · `
                 : sortBy === 'last_used_at'
                 ? `${formatRelativeTime(item.last_used_at)} · `
                 : ''}
