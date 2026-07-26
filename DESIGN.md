@@ -146,13 +146,89 @@ Dual-accent system (gold for actions, crimson for warnings). Warm neutrals from 
 - **Disabled:** opacity 0.4-0.7 depending on context
 - **Loading:** Gold ActivityIndicator + descriptive text
 - **Error:** Crimson text on rose background (soft, not alarming)
-- **Empty:** Centered icon (48px, tertiary) + title + subtitle + optional CTA
+- **Empty:** Centered icon (48px, tertiary) + title + subtitle + CTA (see Behavior Rules #2)
 
 ## Accessibility
 - **Touch targets:** 44px minimum (use hitSlop to pad small icons)
 - **Color contrast:** text.primary on bg.void passes WCAG AA
 - **Labels:** All interactive elements must have accessibilityLabel
 - **Roles:** Pressable buttons use accessibilityRole="button"
+
+## Behavior Rules
+
+Rules about *where things go and how they behave* — the counterpart to the
+visual rules above. Everything here is checkable in QA mode.
+
+### 1. Primary actions live in the thumb zone
+The main action of a screen belongs in the bottom third, reachable one-handed.
+
+- Full-screen modals and sheets (`AddToInventoryModal`, `FilterSheet`): the
+  primary CTA is **pinned to the bottom**, outside the scroll container. It
+  must not scroll away with the content.
+- In-content CTAs (a hero card's "pour this") are secondary by position —
+  never make one the only way to complete the screen's task.
+- Destructive actions do **not** go in the thumb zone. Put them behind a
+  swipe (`SwipeRow`) or in a secondary position so they aren't hit blind.
+
+### 2. Every screen and component ships four states
+Loading, empty, error, and success are part of the deliverable, not polish.
+A component that only handles the happy path is unfinished.
+
+| State | Requirement |
+|-------|-------------|
+| Loading | Never a bare spinner where layout will shift. Use a skeleton in the final layout when the slot's size is known; a gold `ActivityIndicator` only when it isn't. |
+| Empty | Icon + title + subtitle + **a CTA that gets the user out of it**. "Nothing here" with no exit is a dead end. |
+| Error | Crimson-on-rose message + a retry affordance whenever the action is retryable. |
+| Success | Confirm the state change in place. A silent mutation reads as a failure. |
+
+Empty-state CTA is required, not optional — pick the narrowest useful exit
+("clear the filter", "scan a bottle"), not a generic "go home".
+
+### 3. No hidden affordances
+If a feature has no visible entry point, it does not exist for the user.
+
+- Any gesture-only or tap-target-only feature (shaking, long-press, tapping
+  a logo) must have either a visible control or a first-run `GuideBubble`.
+- Prefer exposing content directly over hiding it behind a tap. If a value
+  fits on the card, show it; don't make the user open a detail screen for it.
+- Corollary: don't ship a feature whose only discovery path is the changelog.
+
+### 4. Sliders are for one-time setup, not repeated entry
+Continuous drag inputs are the wrong control for values a user edits often or
+needs to hit precisely.
+
+- **Repeated / precise → discrete choice.** Offer tappable presets (full / ¾ /
+  ½ / ¼ / empty) as the primary path.
+- **One-time setup / approximate → slider is fine.**
+- If a slider must carry repeated entry, it needs a tap-to-commit path, a
+  numeric readout, and snapping. Free drag alone is not enough.
+- **Known exception:** `BottleFillSlider` (per-bottle fill level) is a
+  repeated-entry slider. It is grandfathered in with tap-commit + live
+  readout + 5% snapping; QA should not flag it. New surfaces follow the rule.
+  - **Re-evaluation trigger:** the exception is conditional on the control
+    working. If precision is reported as a problem again — a user or QA
+    report about missed taps, drag overshoot, or not being able to land an
+    intended value — the exception lapses and `BottleFillSlider` converts to
+    presets (full / ¾ / ½ / ¼ / empty) with long-press for fine adjustment.
+    Two rounds of fixes are already spent (`FIX_SLIDER_5_BRIEF_DONE.md`, then
+    the drag-lock rework); a third report is the signal that the control type
+    is wrong, not the tuning. Do not open a fourth tuning pass.
+
+### 5. Search is never blank
+A focused, empty search field must show something useful — never a void.
+In priority order: recent searches → the user's own shelf (top base spirits)
+→ popular/curated picks. The typeahead dropdown returning null on an empty
+query is not an acceptable resting state.
+
+### 6. Selection over manual input
+Where the set of valid answers is known, give tappable options instead of a
+keyboard.
+
+- Known-set fields (base spirit, style, bottle size, preferences) → chips or
+  a picker, with an "other" escape hatch that opens manual entry.
+- Reserve free text for genuinely open values (custom bottle names, notes).
+- Free text that gets normalized on the backend anyway should have been a
+  selection.
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -162,3 +238,6 @@ Dual-accent system (gold for actions, crimson for warnings). Warm neutrals from 
 | 2026-03-27 | Serif body text (Cormorant Garamond) planned | Deliberate risk: literary premium feel for cocktail culture, unusual for mobile |
 | 2026-03-27 | Bebas Neue display font planned | Condensed bold matches bartender/industrial energy |
 | 2026-03-27 | 4px base spacing, 12px primary radius | Derived from codebase analysis of most common values |
+| 2026-07-26 | Behavior Rules section added | Placement/behavior rules the visual system didn't cover: thumb zone, four required states, no hidden affordances, slider scope, non-blank search, selection over input |
+| 2026-07-26 | Empty-state CTA required (was optional) | An empty state with no exit is a dead end; narrowest useful exit, not a generic one |
+| 2026-07-26 | BottleFillSlider exception made conditional | Two tuning passes already spent; a third precision report means the control type is wrong — converts to presets rather than a fourth fix |
