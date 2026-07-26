@@ -183,7 +183,7 @@ export default function BartenderScreen() {
     setBrowseLoading(true);
     setBrowseError(null);
     try {
-      const data = await fetchBrowseRecipes(session, { limit: 100, sort: "score" });
+      const data = await fetchBrowseRecipes(session, { limit: 250, sort: "score" });
       if (seq !== browseSeqRef.current) return;
       setBrowseItems(data.items);
     } catch (e: any) {

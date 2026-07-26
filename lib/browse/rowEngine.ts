@@ -21,6 +21,7 @@ export type BrowseItem = {
 export type RailKind =
   | "ready"
   | "one_away"
+  | "seasonal"
   | "taste"
   | "spirit_shelf"
   | "style"
@@ -35,8 +36,30 @@ export type Rail = {
 };
 
 const MAX_RAIL_CARDS = 12;
-const MIN_BUCKET_ROW = 3; // rows 1/2/6 need ≥3 items
+const MIN_BUCKET_ROW = 3; // rows 1/2/2.5/6 need ≥3 items
 const MIN_GROUP_WITHIN_REACH = 4; // rows 4/5 need ≥4 within-reach items
+
+// Seasonal curated rail (row 2.5). Swap title + code set per season —
+// content curation only, engine mechanics stay put. 2026 summer: spritz.
+export const SEASONAL_RAIL_TITLE = "SUMMER SPRITZ";
+export const SEASONAL_CODES = new Set<string>([
+  "IBA_AIRMAIL",
+  "IBA_AMERICANO",
+  "IBA_APEROL_SPRITZ",
+  "IBA_BARRACUDA",
+  "IBA_BELLINI",
+  "IBA_CHAMPAGNE_COCKTAIL",
+  "IBA_FRENCH_75",
+  "IBA_FRENCH_76",
+  "IBA_FRENCH_77",
+  "IBA_KIR",
+  "IBA_KIR_ROYALE",
+  "IBA_MIMOSA",
+  "IBA_NEGRONI_SBAGLIATO",
+  "DB_OLD_CUBAN",
+  "DB_RUSSIAN_SPRING_PUNCH",
+  "DB_SPRITZ",
+]);
 
 // Provisional display copy for style rails — keep in one const for easy tweaks.
 export const STYLE_DISPLAY_NAMES: Record<string, string> = {
@@ -120,6 +143,14 @@ export function buildRails(items: BrowseItem[], options: BuildRailsOptions = {})
   const oneAway = unused().filter((i) => i.bucket === "one_away");
   if (oneAway.length >= MIN_BUCKET_ROW) {
     rails.push({ key: "one_away", kind: "one_away", title: "ONE BOTTLE AWAY", items: claim(oneAway), dimmed: false });
+  }
+
+  // 2.5 SEASONAL — curated code set; same claim/threshold rules as
+  // bucket rows. Position: after the core-promise rows, before the
+  // catch-all TASTE row so it can still draw good cards.
+  const seasonal = unused().filter((i) => SEASONAL_CODES.has(i.iba_code));
+  if (seasonal.length >= MIN_BUCKET_ROW) {
+    rails.push({ key: "seasonal", kind: "seasonal", title: SEASONAL_RAIL_TITLE, items: claim(seasonal), dimmed: false });
   }
 
   // 3. FOR YOUR TASTE — always shows (whatever the pool still holds)
