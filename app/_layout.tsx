@@ -227,6 +227,10 @@ function RootLayoutNav() {
           title: 'Taste DNA',
           headerLeft: () => <HeaderBackButton label="Profile" />,
         }} />
+        <Stack.Screen name="profile/feedback" options={{
+          title: 'Feedback',
+          headerLeft: () => <HeaderBackButton label="Profile" />,
+        }} />
         {/* CABINET-3A 批 7(F4):退出原生 header——iOS 26 對 header 內按鈕
             強制圓形玻璃殼(RNS 4.16.0 無開關),header 帶改由 screen 自繪 */}
         <Stack.Screen name="shelf/[shelf]" options={{ headerShown: false }} />
