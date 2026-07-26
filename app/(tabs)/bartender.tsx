@@ -1,7 +1,8 @@
 // app/(tabs)/bartender.tsx
 // V2 Category Carousel homepage per sipmetry-v3-carousel.html:
-// sticky search input → SPOTLIGHT row (existing hero pipeline) → up to 5
-// looping rails driven by GET /browse-recipes through the pure row engine
+// sticky search input → SPOTLIGHT row (seeded pick from hero top-5) →
+// fixed page: READY pinned first, three seeded-draw middle rails, HUNT
+// pinned last — driven by GET /browse-recipes through the pure row engine
 // (lib/browse/rowEngine). Typing in the search bar or applying filters
 // (FilterSheet) swaps the body for an inline 2-col results grid (Mode B);
 // clearing both restores the carousel. Components stay dumb.
@@ -29,6 +30,7 @@ import FilterSheet, { type BrowseFilters } from "@/components/browse/FilterSheet
 import {
   buildRails,
   humanizeKey,
+  seededPickOne,
   STYLE_DISPLAY_NAMES,
   type BrowseItem,
 } from "@/lib/browse/rowEngine";
@@ -85,7 +87,10 @@ export default function BartenderScreen() {
   const { width: windowWidth } = useWindowDimensions();
 
   // ── Spotlight (hero pipeline) state ──
-  const [heroPick, setHeroPick] = useState<Pick | null>(null);
+  // LOGO-SHUFFLE: fetch keeps the top hero candidates; the shown pick is
+  // a seeded choice from them (refreshNonce as seed) so every logo tap
+  // rotates the spotlight deterministically.
+  const [heroRecs, setHeroRecs] = useState<Pick[]>([]);
   const [heroLoading, setHeroLoading] = useState(false);
   const [explorationMode, setExplorationMode] = useState(false);
   // Tracks last fetched signature to dedupe hero refetches (preferences
@@ -164,15 +169,11 @@ export default function BartenderScreen() {
           (r) => Number(r.recipe_vec?.alcoholStrength ?? 0) < 2.5
         );
       }
-      const top = recs[0] || null;
-      setHeroPick(top);
-      if (top) {
-        analytics(EVENTS.RECOMMENDATION_VIEWED, { source: "bartender", count: 1 });
-      }
+      setHeroRecs(recs.slice(0, 5));
     } catch {
       // Spotlight is best-effort: on failure the row simply hides and the
       // rails (independent fetch) carry the screen.
-      setHeroPick(null);
+      setHeroRecs([]);
     } finally {
       setHeroLoading(false);
     }
@@ -345,10 +346,23 @@ export default function BartenderScreen() {
     setQuery(s.label);
   }, [dismissSuggestions]);
 
+  // Seeded spotlight: same nonce + same candidates → same pick.
+  const heroPick = useMemo(
+    () => seededPickOne(heroRecs, refreshNonce),
+    [heroRecs, refreshNonce]
+  );
+
+  useEffect(() => {
+    if (heroPick) {
+      analytics(EVENTS.RECOMMENDATION_VIEWED, { source: "bartender", count: 1 });
+    }
+  }, [heroPick]);
+
   // Spotlight joins the used-set so its recipe never repeats in a rail.
+  // refreshNonce doubles as the shuffle seed for the whole page.
   const rails = useMemo(
-    () => buildRails(browseItems, { excludeCodes: heroPick ? [heroPick.iba_code] : [] }),
-    [browseItems, heroPick]
+    () => buildRails(browseItems, { excludeCodes: heroPick ? [heroPick.iba_code] : [], seed: refreshNonce }),
+    [browseItems, heroPick, refreshNonce]
   );
 
   const openHeroRecipe = useCallback(() => {

@@ -1,7 +1,8 @@
 // lib/browse/rowEngine.ts
 // Pure row engine for the V2 category-carousel bartender homepage.
-// items[] (from GET /browse-recipes) → rails[] in fixed priority order.
-// No React, no IO — unit-testable in plain node.
+// items[] (from GET /browse-recipes) → rails[]: READY pinned first, three
+// seeded-draw middle rails (of five types), WORTH THE HUNT pinned last.
+// Same seed + same items → same page. No React, no IO — unit-testable.
 
 export type BrowseBucket = "can_make" | "one_away" | "two_away" | "not_found";
 
@@ -36,8 +37,37 @@ export type Rail = {
 };
 
 const MAX_RAIL_CARDS = 12;
-const MIN_BUCKET_ROW = 3; // rows 1/2/2.5/6 need ≥3 items
-const MIN_GROUP_WITHIN_REACH = 4; // rows 4/5 need ≥4 within-reach items
+const MIN_BUCKET_ROW = 3; // bucket-style rails need ≥3 items
+const MIN_GROUP_WITHIN_REACH = 4; // shelf/style rails need ≥4 within-reach items
+const MIDDLE_RAILS_PER_PAGE = 3; // drawn from the five middle rail types
+const RAIL_PICK_POOL = 24; // each rail deals 12 from its top-24 by score
+
+// Deterministic PRNG (mulberry32) + seeded Fisher-Yates. Same seed →
+// same sequence, so any page render is reproducible in plain node.
+export function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function seededShuffle<T>(arr: readonly T[], rand: () => number): T[] {
+  const out = [...arr];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+export function seededPickOne<T>(arr: readonly T[], seed: number): T | null {
+  if (arr.length === 0) return null;
+  return arr[Math.floor(mulberry32((seed >>> 0) + 1)() * arr.length)] ?? null;
+}
 
 // Seasonal curated rail (row 2.5). Swap title + code set per season —
 // content curation only, engine mechanics stay put. 2026 summer: spritz.
@@ -80,10 +110,6 @@ function byScoreDesc(a: BrowseItem, b: BrowseItem): number {
   return a.name.localeCompare(b.name); // deterministic tie-break
 }
 
-function cap(items: BrowseItem[]): BrowseItem[] {
-  return items.slice(0, MAX_RAIL_CARDS);
-}
-
 // Among within-reach items (can_make ∪ one_away), find the group key
 // (base_spirit or style) with the most items. Ties break alphabetically
 // so refetches don't flip the rail. Returns null when no group clears
@@ -114,91 +140,103 @@ export type BuildRailsOptions = {
   // Recipes already on screen elsewhere (e.g. the spotlight pick) — they
   // join the used-set up front so they never reappear in a rail.
   excludeCodes?: string[];
+  // Shuffle seed (the masthead refreshNonce). Defaults to 0 — the cold-
+  // open page is the deterministic seed-0 hand.
+  seed?: number;
 };
 
-// Global greedy dedup by row priority: each row claims its cards from the
-// not-yet-used pool (same per-row filters + score sort + cap 12). An item
-// appears at most once per page. Row visibility thresholds are evaluated
-// AFTER dedup — a row that fails its threshold claims nothing.
+// Page structure: READY claims first (pinned top slot), then the five
+// middle rail types are walked in seeded order — each qualifying type
+// claims its cards until MIDDLE_RAILS_PER_PAGE rails fill (fewer on a
+// thin pool). Walk order doubles as display order. WORTH THE HUNT claims
+// last (pinned bottom). Global greedy dedup: each rail claims from the
+// not-yet-used pool, so an item appears at most once per page.
 export function buildRails(items: BrowseItem[], options: BuildRailsOptions = {}): Rail[] {
   const rails: Rail[] = [];
   if (!Array.isArray(items) || items.length === 0) return rails;
 
+  const rand = mulberry32(((options.seed ?? 0) >>> 0) + 1);
   const used = new Set<string>(options.excludeCodes || []);
   const unused = () => items.filter((i) => !used.has(i.iba_code));
 
+  // Each rail deals MAX_RAIL_CARDS seeded picks from its top
+  // RAIL_PICK_POOL by score — faces rotate between taps while staying
+  // inside the quality pool.
   const claim = (candidates: BrowseItem[]): BrowseItem[] => {
-    const take = cap([...candidates].sort(byScoreDesc));
+    const pool = [...candidates].sort(byScoreDesc).slice(0, RAIL_PICK_POOL);
+    const take = seededShuffle(pool, rand).slice(0, MAX_RAIL_CARDS);
     for (const item of take) used.add(item.iba_code);
     return take;
   };
 
-  // 1. READY TO MAKE
+  // 1. READY TO MAKE — pinned first.
   const ready = unused().filter((i) => i.bucket === "can_make");
   if (ready.length >= MIN_BUCKET_ROW) {
     rails.push({ key: "ready", kind: "ready", title: "READY TO MAKE", items: claim(ready), dimmed: false });
   }
 
-  // 2. ONE BOTTLE AWAY
-  const oneAway = unused().filter((i) => i.bucket === "one_away");
-  if (oneAway.length >= MIN_BUCKET_ROW) {
-    rails.push({ key: "one_away", kind: "one_away", title: "ONE BOTTLE AWAY", items: claim(oneAway), dimmed: false });
+  // 2. Middle draw — five builders, seeded walk, stop at three rails.
+  const middleBuilders: Array<() => Rail | null> = [
+    () => {
+      const oneAway = unused().filter((i) => i.bucket === "one_away");
+      if (oneAway.length < MIN_BUCKET_ROW) return null;
+      return { key: "one_away", kind: "one_away", title: "ONE BOTTLE AWAY", items: claim(oneAway), dimmed: false };
+    },
+    () => {
+      const seasonal = unused().filter((i) => SEASONAL_CODES.has(i.iba_code));
+      if (seasonal.length < MIN_BUCKET_ROW) return null;
+      return { key: "seasonal", kind: "seasonal", title: SEASONAL_RAIL_TITLE, items: claim(seasonal), dimmed: false };
+    },
+    () => {
+      const taste = unused();
+      if (taste.length === 0) return null;
+      return { key: "taste", kind: "taste", title: "FOR YOUR TASTE", items: claim(taste), dimmed: false };
+    },
+    () => {
+      const shelfPool = unused();
+      const shelfReach = shelfPool.filter(
+        (i) => i.bucket === "can_make" || i.bucket === "one_away"
+      );
+      const topSpirit = pickTopGroup(shelfReach, (i) => i.base_spirit, ["none"]);
+      if (!topSpirit) return null;
+      const shelf = shelfPool.filter((i) => (i.base_spirit || "").trim() === topSpirit);
+      return {
+        key: `spirit:${topSpirit}`,
+        kind: "spirit_shelf",
+        title: `YOUR ${humanizeKey(topSpirit).toUpperCase()} SHELF`,
+        items: claim(shelf),
+        dimmed: false,
+      };
+    },
+    () => {
+      const stylePool = unused();
+      const styleReach = stylePool.filter(
+        (i) => i.bucket === "can_make" || i.bucket === "one_away"
+      );
+      const styleBasis = styleReach.length > 0 ? styleReach : stylePool;
+      const topStyle = pickTopGroup(styleBasis, (i) => i.style);
+      if (!topStyle) return null;
+      const styled = stylePool.filter((i) => (i.style || "").trim() === topStyle);
+      return {
+        key: `style:${topStyle}`,
+        kind: "style",
+        title: STYLE_DISPLAY_NAMES[topStyle] || humanizeKey(topStyle).toUpperCase(),
+        items: claim(styled),
+        dimmed: false,
+      };
+    },
+  ];
+  let drawn = 0;
+  for (const build of seededShuffle(middleBuilders, rand)) {
+    if (drawn >= MIDDLE_RAILS_PER_PAGE) break;
+    const rail = build();
+    if (rail) {
+      rails.push(rail);
+      drawn += 1;
+    }
   }
 
-  // 2.5 SEASONAL — curated code set; same claim/threshold rules as
-  // bucket rows. Position: after the core-promise rows, before the
-  // catch-all TASTE row so it can still draw good cards.
-  const seasonal = unused().filter((i) => SEASONAL_CODES.has(i.iba_code));
-  if (seasonal.length >= MIN_BUCKET_ROW) {
-    rails.push({ key: "seasonal", kind: "seasonal", title: SEASONAL_RAIL_TITLE, items: claim(seasonal), dimmed: false });
-  }
-
-  // 3. FOR YOUR TASTE — always shows (whatever the pool still holds)
-  const taste = unused();
-  if (taste.length > 0) {
-    rails.push({ key: "taste", kind: "taste", title: "FOR YOUR TASTE", items: claim(taste), dimmed: false });
-  }
-
-  // 4. YOUR {SPIRIT} SHELF — base_spirit="none" excluded from this row type
-  const shelfPool = unused();
-  const shelfReach = shelfPool.filter(
-    (i) => i.bucket === "can_make" || i.bucket === "one_away"
-  );
-  const topSpirit = pickTopGroup(shelfReach, (i) => i.base_spirit, ["none"]);
-  if (topSpirit) {
-    const shelf = shelfPool.filter((i) => (i.base_spirit || "").trim() === topSpirit);
-    rails.push({
-      key: `spirit:${topSpirit}`,
-      kind: "spirit_shelf",
-      title: `YOUR ${humanizeKey(topSpirit).toUpperCase()} SHELF`,
-      items: claim(shelf),
-      dimmed: false,
-    });
-  }
-
-  // 5. {STYLE ROW}
-  // Normally picked from within-reach items (≥4 rule), but on a fully cold
-  // bar (zero within reach) it falls back to the whole pool: per spec, cold
-  // start keeps rows 3/5/6 — the style row is taste-based, unlike the
-  // possessive "YOUR X SHELF" which must vanish when nothing is in reach.
-  const stylePool = unused();
-  const styleReach = stylePool.filter(
-    (i) => i.bucket === "can_make" || i.bucket === "one_away"
-  );
-  const styleBasis = styleReach.length > 0 ? styleReach : stylePool;
-  const topStyle = pickTopGroup(styleBasis, (i) => i.style);
-  if (topStyle) {
-    const styled = stylePool.filter((i) => (i.style || "").trim() === topStyle);
-    rails.push({
-      key: `style:${topStyle}`,
-      kind: "style",
-      title: STYLE_DISPLAY_NAMES[topStyle] || humanizeKey(topStyle).toUpperCase(),
-      items: claim(styled),
-      dimmed: false,
-    });
-  }
-
-  // 6. WORTH THE HUNT
+  // 3. WORTH THE HUNT — pinned last.
   const hunt = unused().filter(
     (i) => i.bucket === "two_away" || i.bucket === "not_found"
   );
