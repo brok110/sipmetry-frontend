@@ -57,7 +57,14 @@ availability paths preserved verbatim. P1-7 shipped — 4 commits
 Ingredients/Instructions card), `008baf8` (4/4, Footer CTA + toast) — all of
 `recipe.tsx`'s inline styles moved into a single `StyleSheet.create` block,
 byte-identical values, `insets.top`/`insets.bottom`/`toastOpacity` kept
-dynamic where required, no numeric drift. Remaining, pending:
+dynamic where required, no numeric drift. P0-2 symptom (1) shipped — commit
+`c68521d` (2026-07-26): rail `ScrollView` now renders unconditionally
+(wrapped in a new `railArea` container), search results render as an
+absolutely-positioned `searchOverlay` on top instead of a ternary swap —
+rails no longer unmount/remount at the search boundary. Real behavior
+change, not pure refactor: rail scroll position and each rail's own
+horizontal swipe offset now persist across a search session. Symptom (2)
+was already resolved by P0-1a/P1-5 in Batch 1. Remaining, pending:
 
 - **P0-1c** — partially addressed, commit `aa22bfb` (2026-07-26):
   `MAX_RAIL_CARDS` 12 → 10 (~120 → ~100 mounted cards across 5 rails). No
@@ -65,9 +72,6 @@ dynamic where required, no numeric drift. Remaining, pending:
   kept anyway since there's no downside. Whether to push further to 8, or do
   real windowing (derived visible-index range, medium risk), is deferred
   until Android ships or there's real low-end-device data to justify it.
-- **P0-2** — symptom (1) (search boundary mount/unmount) is a behavior
-  change and needs sign-off before implementing. Symptom (2) (per-keystroke
-  grid re-render) was already resolved by P0-1a/P1-5 in Batch 1.
 
 **Scope scanned:** `app/(tabs)/bartender.tsx`, `components/browse/RailRow.tsx`,
 `components/browse/LoopingRail.tsx`, `components/browse/RecipeCard.tsx`,
@@ -130,6 +134,19 @@ back — a visible hitch. (2) With results on screen, each character
 re-renders 30 unmemoized grid cards. P0-1a fixes symptom (2) on its own.
 Symptom (1) needs the carousel to stay mounted behind an overlay — that is a
 behavior change and needs sign-off.
+**Shipped: commit `c68521d`** (2026-07-26) — symptom (1): rail `ScrollView`
+now renders unconditionally inside a new `railArea` wrapper; search results
+render as an absolutely-positioned `searchOverlay` (`...StyleSheet.absoluteFillObject`,
+`zIndex: 5`, opaque `bg.void` background) shown via `{resultsActive && (...)}`
+instead of the old ternary swap, with `pointerEvents={resultsActive ? "none"
+: "auto"}` on the `ScrollView` as a gesture guard. `resultsActive`/
+`searchActive` derivations unchanged — only their JSX consumption changed.
+Confirmed real behavior deltas (sign-off given): rail vertical scroll
+position and each `LoopingRail`'s own horizontal swipe offset now persist
+across a search session instead of resetting on remount; rails can
+re-render off-screen if the Masthead logo is tapped mid-search (confirmed
+inert — `refreshOverlay` already covers the full screen during that
+refetch).
 
 ### P1
 
