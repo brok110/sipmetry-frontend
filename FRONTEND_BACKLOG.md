@@ -59,9 +59,12 @@ Ingredients/Instructions card), `008baf8` (4/4, Footer CTA + toast) — all of
 byte-identical values, `insets.top`/`insets.bottom`/`toastOpacity` kept
 dynamic where required, no numeric drift. Remaining, pending:
 
-- **P0-1c** — needs a product decision from Brok: window the rail (derived
-  visible-index range, medium risk) vs. drop `MAX_RAIL_CARDS` 12 → ~8
-  (fewer faces per rail, no new risk). Unresolved — Brok's call.
+- **P0-1c** — partially addressed, commit `aa22bfb` (2026-07-26):
+  `MAX_RAIL_CARDS` 12 → 10 (~120 → ~100 mounted cards across 5 rails). No
+  perceptible difference on the current dev machine (iPhone 17 Pro Max);
+  kept anyway since there's no downside. Whether to push further to 8, or do
+  real windowing (derived visible-index range, medium risk), is deferred
+  until Android ships or there's real low-end-device data to justify it.
 - **P0-2** — symptom (1) (search boundary mount/unmount) is a behavior
   change and needs sign-off before implementing. Symptom (2) (per-keystroke
   grid re-render) was already resolved by P0-1a/P1-5 in Batch 1.
@@ -113,8 +116,11 @@ scroll jank. Three separable sub-items:
   `MAX_RAIL_CARDS`.** The only change that actually takes 120 → ~30. Either
   (a) derive the visible index range from `wrapped` and mount ~5 cells
   (needs a derived value + index-change-throttled `runOnJS`; medium risk), or
-  (b) drop rowEngine.ts:39 from 12 to ~8 → 80 cards. (b) means fewer faces
-  per rail — Brok's call.
+  (b) drop rowEngine.ts:39 further. (b), partial: `MAX_RAIL_CARDS` 12 → 10,
+  **commit `aa22bfb`** (2026-07-26) — ~120 → ~100 mounted cards, no
+  perceptible difference on the current dev machine, kept anyway (no
+  downside). Pushing to 8, or doing (a) instead, is deferred until Android
+  ships or there's real low-end-device data — Brok's call, still open.
 
 **P0-2. Every keystroke re-renders the whole bartender screen, and crossing
 the search boundary unmounts/remounts everything.** `query` lives at screen
