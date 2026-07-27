@@ -55,6 +55,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 const SUGGEST_DEBOUNCE_MS = 200;
 const SUGGEST_LIMIT = 8;
 
+const searchKeyExtractor = (item: BrowseItem) => item.iba_code;
+
 // Hero pipeline pick (/bartender-recommend). Kept because it carries the
 // interaction/rerank/exclude logic the browse endpoint doesn't.
 type Pick = {
@@ -398,6 +400,37 @@ export default function BartenderScreen() {
     });
   }, []);
 
+  // Hoisted above the `!inventoryInitialized` early return so the hooks
+  // below stay in the unconditional-hooks zone. Pure derivations of state
+  // already available here — no value change from moving them.
+  const resultsTotal = searchTotal ?? searchResults.length;
+  const gridCardWidth = (windowWidth - SCREEN_PAD * 2 - GRID_GAP) / 2;
+
+  const handleBrowsePress = useCallback(
+    (item: BrowseItem) => openBrowseRecipe(item, "browse"),
+    [openBrowseRecipe]
+  );
+  const handleSearchPress = useCallback(
+    (item: BrowseItem) => openBrowseRecipe(item, "search"),
+    [openBrowseRecipe]
+  );
+
+  const renderSearchItem = useCallback(
+    ({ item }: { item: BrowseItem }) => (
+      <RecipeCard item={item} width={gridCardWidth} onPress={() => handleSearchPress(item)} />
+    ),
+    [gridCardWidth, handleSearchPress]
+  );
+
+  const searchListHeader = useMemo(
+    () => (
+      <Text style={styles.resultsCount}>
+        «{resultsTotal > 10 ? "10+" : resultsTotal} COCKTAILS»
+      </Text>
+    ),
+    [resultsTotal]
+  );
+
   // Branch 0: Inventory context not yet initialized — brief flicker on
   // app open; avoids firing the hero fetch with an empty key set.
   if (!inventoryInitialized) {
@@ -413,10 +446,8 @@ export default function BartenderScreen() {
 
   const searchActive = query.trim().length > 0;
   const resultsActive = searchActive || filtersActive;
-  const resultsTotal = searchTotal ?? searchResults.length;
   const initialBrowseLoad = browseLoading && browseItems.length === 0;
   const browseFailed = !!browseError && browseItems.length === 0 && !browseLoading;
-  const gridCardWidth = (windowWidth - SCREEN_PAD * 2 - GRID_GAP) / 2;
 
   return (
     <View style={styles.root}>
@@ -558,25 +589,18 @@ export default function BartenderScreen() {
         searchResults.length > 0 ? (
           <FlatList
             data={searchResults}
-            keyExtractor={(item) => item.iba_code}
+            keyExtractor={searchKeyExtractor}
             numColumns={2}
             columnWrapperStyle={styles.gridRow}
             contentContainerStyle={styles.grid}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             showsVerticalScrollIndicator={false}
-            ListHeaderComponent={
-              <Text style={styles.resultsCount}>
-                «{resultsTotal > 10 ? "10+" : resultsTotal} COCKTAILS»
-              </Text>
-            }
-            renderItem={({ item }) => (
-              <RecipeCard
-                item={item}
-                width={gridCardWidth}
-                onPress={() => openBrowseRecipe(item, "search")}
-              />
-            )}
+            initialNumToRender={8}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+            ListHeaderComponent={searchListHeader}
+            renderItem={renderSearchItem}
           />
         ) : searchLoading || !searched ? (
           <View style={styles.centerFill}>
@@ -642,11 +666,7 @@ export default function BartenderScreen() {
             </View>
           ) : (
             rails.map((rail) => (
-              <RailRow
-                key={rail.key}
-                rail={rail}
-                onPressItem={(item) => openBrowseRecipe(item, "browse")}
-              />
+              <RailRow key={rail.key} rail={rail} onPressItem={handleBrowsePress} />
             ))
           )}
 

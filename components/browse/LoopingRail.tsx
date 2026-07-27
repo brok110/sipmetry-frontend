@@ -7,7 +7,7 @@
 // events, no offset jumps — so it is seamless by construction for both
 // slow drags and withDecay flings.
 
-import React, { useMemo } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import { StyleSheet, View, useWindowDimensions } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -28,6 +28,21 @@ type LoopingRailProps = {
   onPressItem: (item: BrowseItem) => void;
 };
 
+type RailCellProps = {
+  item: BrowseItem;
+  dimmed?: boolean;
+  onPressItem: (item: BrowseItem) => void;
+};
+
+const RailCell = memo(function RailCell({ item, dimmed, onPressItem }: RailCellProps) {
+  const handlePress = useCallback(() => onPressItem(item), [onPressItem, item]);
+  return (
+    <View style={styles.cell}>
+      <RecipeCard item={item} dimmed={dimmed} onPress={handlePress} />
+    </View>
+  );
+});
+
 export default function LoopingRail({ items, dimmed, onPressItem }: LoopingRailProps) {
   const { width: windowWidth } = useWindowDimensions();
 
@@ -41,18 +56,22 @@ export default function LoopingRail({ items, dimmed, onPressItem }: LoopingRailP
   // edge — the loop's affordance).
   const offset = useSharedValue(-SIDE_INSET);
 
-  const pan = Gesture.Pan()
-    .activeOffsetX([-10, 10]) // let taps through
-    .failOffsetY([-8, 8]) // let the outer vertical ScrollView win
-    .onBegin(() => {
-      cancelAnimation(offset); // touch stops an in-flight fling, like native
-    })
-    .onChange((e) => {
-      offset.value -= e.changeX;
-    })
-    .onEnd((e) => {
-      offset.value = withDecay({ velocity: -e.velocityX });
-    });
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-10, 10]) // let taps through
+        .failOffsetY([-8, 8]) // let the outer vertical ScrollView win
+        .onBegin(() => {
+          cancelAnimation(offset); // touch stops an in-flight fling, like native
+        })
+        .onChange((e) => {
+          offset.value -= e.changeX;
+        })
+        .onEnd((e) => {
+          offset.value = withDecay({ velocity: -e.velocityX });
+        }),
+    [offset]
+  );
 
   const trackStyle = useAnimatedStyle(() => {
     if (period <= 0) return {};
@@ -77,9 +96,7 @@ export default function LoopingRail({ items, dimmed, onPressItem }: LoopingRailP
       <View style={styles.viewport}>
         <Animated.View style={[styles.track, trackStyle]}>
           {cells.map(({ item, key }) => (
-            <View key={key} style={styles.cell}>
-              <RecipeCard item={item} dimmed={dimmed} onPress={() => onPressItem(item)} />
-            </View>
+            <RailCell key={key} item={item} dimmed={dimmed} onPressItem={onPressItem} />
           ))}
         </Animated.View>
       </View>

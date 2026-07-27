@@ -1,7 +1,6 @@
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady, isGuideDismissed } from "@/components/GuideBubble";
-import { useNavigation } from "@react-navigation/native";
-import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter, router as staticRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Animated, Image, Pressable, ScrollView, Share, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -56,16 +55,54 @@ type DbRecipe = {
   recipe_vec?: Record<string, any> | null;
 };
 
+function paramToString(v: any): string {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+  return "";
+}
+
+// NOTE: intentionally NOT the same as rowEngine.ts:104's humanizeKey (that
+// one does not capitalize) — keep this a separate, local helper.
+function humanizeKey(k: string): string {
+  const s = String(k || "").trim();
+  if (!s) return "";
+  return s
+    .split("_")
+    .filter(Boolean)
+    .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : ""))
+    .join(" ");
+}
+
+const NO_SELECTION_HEADER_OPTIONS = {
+  title: "",
+  headerStyle: { backgroundColor: OaklandDusk.bg.void },
+  headerTintColor: OaklandDusk.brand.gold,
+  headerShadowVisible: false,
+  headerLeft: () => (
+    <Pressable
+      onPress={() => {
+        if (staticRouter.canGoBack()) {
+          staticRouter.back();
+        } else {
+          staticRouter.replace("/(tabs)/bartender" as any);
+        }
+      }}
+      hitSlop={16}
+      style={{ paddingHorizontal: 8, paddingVertical: 8 }}
+    >
+      <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
+        ‹ Back
+      </Text>
+    </Pressable>
+  ),
+};
+
+const RECIPE_HEADER_OPTIONS = { title: "", headerShown: false };
 
 export default function TabTwoScreen() {
 
   const router = useRouter();
-  const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-
-  useEffect(() => {
-    navigation?.setOptions?.({ title: "Recipe" });
-  }, [navigation]);
 
   const params = useLocalSearchParams<{
     idx?: string;
@@ -79,12 +116,6 @@ export default function TabTwoScreen() {
     overlap_hits_json?: string;
     mode?: string;
   }>();
-
-  const paramToString = (v: any): string => {
-    if (typeof v === "string") return v;
-    if (Array.isArray(v) && typeof v[0] === "string") return v[0];
-    return "";
-  };
 
   const isGuestSession = paramToString((params as any).mode) === "quick_look";
 
@@ -214,27 +245,19 @@ export default function TabTwoScreen() {
     }
   }, [(params as any).overlap_hits_json]);
 
-  const humanizeKey = (k: string) => {
-    const s = String(k || "").trim();
-    if (!s) return "";
-    return s
-      .split("_")
-      .filter(Boolean)
-      .map((w) => (w.length ? w[0].toUpperCase() + w.slice(1) : ""))
-      .join(" ");
-  };
+  const resolveDisplayForIngredientKey = useCallback(
+    (ingredientKey: string): { display: string; substitute: boolean } => {
+      const k = String(ingredientKey || "").trim().toLowerCase();
+      if (!k) return { display: "", substitute: false };
 
+      // Direct match from scan display names
+      const direct = scanDisplayByCanonical[k];
+      if (direct) return { display: direct, substitute: false };
 
-  const resolveDisplayForIngredientKey = (ingredientKey: string): { display: string; substitute: boolean } => {
-    const k = String(ingredientKey || "").trim().toLowerCase();
-    if (!k) return { display: "", substitute: false };
-
-    // Direct match from scan display names
-    const direct = scanDisplayByCanonical[k];
-    if (direct) return { display: direct, substitute: false };
-
-    return { display: "", substitute: false };
-  };
+      return { display: "", substitute: false };
+    },
+    [scanDisplayByCanonical]
+  );
 
   const ibaCode = useMemo(() => {
     const fromParam = paramToString((params as any).iba_code).trim();
@@ -306,6 +329,13 @@ export default function TabTwoScreen() {
   const [shareHintVisible, setShareHintVisible] = useState(false);
   const [favHintVisible, setFavHintVisible] = useState(false);
   const madeDrinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const favHintTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (favHintTimeoutRef.current) clearTimeout(favHintTimeoutRef.current);
+    };
+  }, []);
 
   // Stage 4: Track whether user took any positive action during this visit
   const hadPositiveActionRef = useRef(false);
@@ -625,6 +655,29 @@ export default function TabTwoScreen() {
     return compareFlavorVectors(recipeFlavorVector, userPreferenceVector, DEFAULT_FLAVOR_WEIGHTS);
   }, [recipeFlavorVector, userPreferenceVector]);
 
+  const confidenceSignal = useMemo(() => {
+    if (!ingredientAvailability || !dbRecipe) return null;
+    const ingKeys = dbRecipe.ingredients
+      .map((it) => String(it.item ?? "").trim())
+      .filter(Boolean);
+    const allAvailable = ingKeys.every((k) => {
+      const info = ingredientAvailability[k];
+      return info?.status === "in_bar" || info?.status === "substitute";
+    });
+    // Optional ingredients don't block making the drink (backend can_make
+    // excludes is_optional), so they don't count toward "Missing N"
+    const missingCount = dbRecipe.ingredients
+      .filter((it) => !it.is_optional)
+      .map((it) => String(it.item ?? "").trim())
+      .filter(Boolean)
+      .filter((k) => {
+        const info = ingredientAvailability[k];
+        return !info || info.status === "missing";
+      }).length;
+    // Optional-only gaps still count as ready (backend can_make parity)
+    const isReady = missingCount === 0;
+    return { allAvailable, missingCount, isReady };
+  }, [ingredientAvailability, dbRecipe]);
 
   const copyDebug = async () => {
     try {
@@ -1153,29 +1206,7 @@ export default function TabTwoScreen() {
   if (!hasSelection) {
     return (
       <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-        <Stack.Screen options={{
-          title: "",
-          headerStyle: { backgroundColor: OaklandDusk.bg.void },
-          headerTintColor: OaklandDusk.brand.gold,
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace("/(tabs)/bartender" as any);
-                }
-              }}
-              hitSlop={16}
-              style={{ paddingHorizontal: 8, paddingVertical: 8 }}
-            >
-              <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
-                ‹ Back
-              </Text>
-            </Pressable>
-          ),
-        }} />
+        <Stack.Screen options={NO_SELECTION_HEADER_OPTIONS} />
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ padding: 16, gap: 12 }}
@@ -1210,7 +1241,7 @@ export default function TabTwoScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      <Stack.Screen options={{ title: "", headerShown: false }} />
+      <Stack.Screen options={RECIPE_HEADER_OPTIONS} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 100 }}
@@ -1347,54 +1378,33 @@ export default function TabTwoScreen() {
         ) : null}
 
         {/* C2: Confidence signal */}
-        {ingredientAvailability && dbRecipe && (() => {
-          const ingKeys = dbRecipe.ingredients
-            .map(it => String(it.item ?? "").trim())
-            .filter(Boolean);
-          const allAvailable = ingKeys.every(k => {
-            const info = ingredientAvailability[k];
-            return info?.status === "in_bar" || info?.status === "substitute";
-          });
-          // Optional ingredients don't block making the drink (backend can_make
-          // excludes is_optional), so they don't count toward "Missing N"
-          const missingCount = dbRecipe.ingredients
-            .filter(it => !it.is_optional)
-            .map(it => String(it.item ?? "").trim())
-            .filter(Boolean)
-            .filter(k => {
-              const info = ingredientAvailability[k];
-              return !info || info.status === "missing";
-            }).length;
-          // Optional-only gaps still count as ready (backend can_make parity)
-          const isReady = missingCount === 0;
-          return (
-            <View style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingVertical: 8,
-              paddingHorizontal: 12,
-              backgroundColor: isReady ? "rgba(29,158,117,0.06)" : "rgba(200,120,40,0.06)",
-              borderWidth: 1,
-              borderColor: isReady ? "rgba(29,158,117,0.15)" : "rgba(200,120,40,0.15)",
-              borderRadius: 8,
-              marginBottom: 12,
-            }}>
-              {isReady ? (
-                <Text style={{ color: OaklandDusk.semantic.ready, fontSize: 14, fontWeight: "700" }}>✓</Text>
-              ) : (
-                <FontAwesome name="cart-plus" size={14} color={OaklandDusk.brand.gold} />
-              )}
-              <Text style={{ color: isReady ? OaklandDusk.semantic.ready : OaklandDusk.brand.gold, fontSize: 12 }}>
-                {isReady
-                  ? allAvailable ? "You have everything" : "Ready to make"
-                  : missingCount === 1
-                    ? "Just 1 ingredient away"
-                    : `${missingCount} ingredients away`}
-              </Text>
-            </View>
-          );
-        })()}
+        {confidenceSignal && (
+          <View style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+            backgroundColor: confidenceSignal.isReady ? "rgba(29,158,117,0.06)" : "rgba(200,120,40,0.06)",
+            borderWidth: 1,
+            borderColor: confidenceSignal.isReady ? "rgba(29,158,117,0.15)" : "rgba(200,120,40,0.15)",
+            borderRadius: 8,
+            marginBottom: 12,
+          }}>
+            {confidenceSignal.isReady ? (
+              <Text style={{ color: OaklandDusk.semantic.ready, fontSize: 14, fontWeight: "700" }}>✓</Text>
+            ) : (
+              <FontAwesome name="cart-plus" size={14} color={OaklandDusk.brand.gold} />
+            )}
+            <Text style={{ color: confidenceSignal.isReady ? OaklandDusk.semantic.ready : OaklandDusk.brand.gold, fontSize: 12 }}>
+              {confidenceSignal.isReady
+                ? confidenceSignal.allAvailable ? "You have everything" : "Ready to make"
+                : confidenceSignal.missingCount === 1
+                  ? "Just 1 ingredient away"
+                  : `${confidenceSignal.missingCount} ingredients away`}
+            </Text>
+          </View>
+        )}
 
         {loading ? (
           <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, backgroundColor: OaklandDusk.bg.card }}>
@@ -1592,11 +1602,9 @@ export default function TabTwoScreen() {
                   setGpStep6Visible(false);
                 }
 
-                setTimeout(() => {
+                favHintTimeoutRef.current = setTimeout(() => {
                   isGuideDismissed(GUIDE_KEYS.RECIPE_FAV).then((d) => {
-                    console.log("[DEBUG] RECIPE_FAV dismissed?", d, "isFav?", isFav);
                     if (!d) {
-                      console.log("[DEBUG] Setting favHintVisible=true");
                       setFavHintVisible(true);
                     }
                   });

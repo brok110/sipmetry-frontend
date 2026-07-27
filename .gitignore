@@ -49,3 +49,8 @@ app/.vscode/
 .env.local
 BARTENDER_HERO_TRIM_*.md
 *_STAGE_*.md
+*_BRIEF.md
+
+# Claude Code — installed/local content, not source of truth
+.claude/skills/
+.claude/settings.local.json

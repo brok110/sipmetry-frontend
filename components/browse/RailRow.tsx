@@ -2,7 +2,7 @@
 // One carousel row: title + looping rail. Title + cards only per the
 // mockup — no subtitles, no counts, no "see all".
 
-import React from "react";
+import React, { memo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -15,7 +15,7 @@ type RailRowProps = {
   onPressItem: (item: BrowseItem) => void;
 };
 
-export default function RailRow({ rail, onPressItem }: RailRowProps) {
+function RailRow({ rail, onPressItem }: RailRowProps) {
   if (rail.items.length === 0) return null;
 
   return (
@@ -38,6 +38,8 @@ export default function RailRow({ rail, onPressItem }: RailRowProps) {
     </View>
   );
 }
+
+export default memo(RailRow);
 
 const styles = StyleSheet.create({
   row: {

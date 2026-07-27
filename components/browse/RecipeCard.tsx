@@ -3,7 +3,7 @@
 // mockup: 3:4 image with dark bottom gradient, lowercase name (1 line),
 // one bucket-derived chip. All data logic lives in lib/browse/rowEngine.
 
-import React from "react";
+import React, { memo, useMemo } from "react";
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -19,7 +19,7 @@ type RecipeCardProps = {
   onPress: () => void;
 };
 
-export function BucketChip({ item }: { item: BrowseItem }) {
+export const BucketChip = memo(function BucketChip({ item }: { item: BrowseItem }) {
   if (item.bucket === "can_make") {
     return (
       <View style={[styles.chip, styles.chipReady]}>
@@ -46,12 +46,17 @@ export function BucketChip({ item }: { item: BrowseItem }) {
       </Text>
     </View>
   );
-}
+});
 
-export default function RecipeCard({ item, width = CARD_WIDTH, dimmed, onPress }: RecipeCardProps) {
+function RecipeCard({ item, width = CARD_WIDTH, dimmed, onPress }: RecipeCardProps) {
+  // width set inline: rail passes fixed CARD_WIDTH, search grid passes computed gridCardWidth
+  const cardStyle = useMemo(
+    () => [{ width }, dimmed && styles.cardDimmed],
+    [width, dimmed]
+  );
   return (
     <Pressable
-      style={[styles.card, { width }, dimmed && styles.cardDimmed]}
+      style={cardStyle}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={item.name}
@@ -85,10 +90,9 @@ export default function RecipeCard({ item, width = CARD_WIDTH, dimmed, onPress }
   );
 }
 
+export default memo(RecipeCard);
+
 const styles = StyleSheet.create({
-  card: {
-    // width set inline (rail: 128 fixed; search grid: computed)
-  },
   cardDimmed: {
     opacity: 0.82,
   },
