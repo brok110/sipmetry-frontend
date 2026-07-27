@@ -1225,33 +1225,22 @@ export default function TabTwoScreen() {
           </View>
         ) : null}
 
-        <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+        <View style={styles.ratingButtonsRow}>
           <Pressable
             onPress={() => sendFeedback("like")}
             hitSlop={12}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 12,
-              backgroundColor: currentRating === "like" ? "#1A2A1A" : OaklandDusk.bg.card,
-              borderWidth: 0.5,
-              borderColor: currentRating === "like" ? "#6B8F6B" : OaklandDusk.bg.border,
-              opacity: currentRating === "dislike" ? 0.4 : 1,
-            }}
+            style={[
+              styles.ratingButtonBase,
+              currentRating === "like" ? styles.ratingButtonLikeSelected : styles.ratingButtonUnselected,
+              currentRating === "dislike" && styles.dimmed,
+            ]}
           >
             <FontAwesome
               name={currentRating === "like" ? "thumbs-up" : "thumbs-o-up"}
               color={currentRating === "like" ? "#6B8F6B" : OaklandDusk.text.tertiary}
               size={16}
             />
-            <Text style={{
-              fontSize: 13,
-              fontWeight: "700",
-              color: currentRating === "like" ? "#6B8F6B" : OaklandDusk.text.tertiary,
-            }}>
+            <Text style={[styles.ratingText, currentRating === "like" ? styles.ratingTextLikeSelected : styles.ratingTextUnselected]}>
               {currentRating === "like" ? "Liked" : "Like"}
             </Text>
           </Pressable>
@@ -1259,29 +1248,18 @@ export default function TabTwoScreen() {
           <Pressable
             onPress={() => sendFeedback("dislike")}
             hitSlop={12}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 6,
-              paddingHorizontal: 14,
-              paddingVertical: 8,
-              borderRadius: 12,
-              backgroundColor: currentRating === "dislike" ? "#3A2A2A" : OaklandDusk.bg.card,
-              borderWidth: 0.5,
-              borderColor: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.bg.border,
-              opacity: currentRating === "like" ? 0.4 : 1,
-            }}
+            style={[
+              styles.ratingButtonBase,
+              currentRating === "dislike" ? styles.ratingButtonDislikeSelected : styles.ratingButtonUnselected,
+              currentRating === "like" && styles.dimmed,
+            ]}
           >
             <FontAwesome
               name={currentRating === "dislike" ? "thumbs-down" : "thumbs-o-down"}
               color={currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary}
               size={16}
             />
-            <Text style={{
-              fontSize: 13,
-              fontWeight: "700",
-              color: currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary,
-            }}>
+            <Text style={[styles.ratingText, currentRating === "dislike" ? styles.ratingTextDislikeSelected : styles.ratingTextUnselected]}>
               {currentRating === "dislike" ? "Disliked" : "Dislike"}
             </Text>
           </Pressable>
@@ -1593,5 +1571,47 @@ const styles = StyleSheet.create({
     borderColor: OaklandDusk.bg.border,
     borderRadius: 12,
     backgroundColor: OaklandDusk.bg.card,
+  },
+  ratingButtonsRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "center",
+  },
+  ratingButtonBase: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 0.5,
+  },
+  ratingButtonUnselected: {
+    backgroundColor: OaklandDusk.bg.card,
+    borderColor: OaklandDusk.bg.border,
+  },
+  ratingButtonLikeSelected: {
+    backgroundColor: "#1A2A1A",
+    borderColor: "#6B8F6B",
+  },
+  ratingButtonDislikeSelected: {
+    backgroundColor: "#3A2A2A",
+    borderColor: OaklandDusk.accent.crimson,
+  },
+  dimmed: {
+    opacity: 0.4,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  ratingTextUnselected: {
+    color: OaklandDusk.text.tertiary,
+  },
+  ratingTextLikeSelected: {
+    color: "#6B8F6B",
+  },
+  ratingTextDislikeSelected: {
+    color: OaklandDusk.accent.crimson,
   },
 });

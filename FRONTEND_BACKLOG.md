@@ -325,24 +325,37 @@ workaround.
 
 ---
 
-## recipe.tsx: feedback toast uses raw color codes, not OaklandDusk tokens
+## recipe.tsx: feedback toast + Like/Dislike buttons use raw color codes, not OaklandDusk tokens
 
-**Status:** Logged 2026-07-26, not fixed. Found while scoping P1-7's commit
-boundaries (commit 4 will touch this file region, but the token swap is a
-design decision, not a mechanical relocation — deliberately not bundled into
-that commit).
+**Status:** Logged 2026-07-26, not fixed. Toast instance found while scoping
+P1-7's commit boundaries; Like/Dislike instances found and consolidated here
+(not a new entry) while executing P1-7 commit 2. Both are design decisions,
+not mechanical relocations — deliberately not bundled into P1-7's mechanical
+commits.
 
-**Symptom:** `app/recipe.tsx`'s "Stage 3: First-interaction feedback toast"
-block (currently ~line 1481-1500) uses `backgroundColor: "#1e293b"` and
-`color: "white"` — neither matches any token in `DESIGN.md`'s OaklandDusk
-palette. `#1e293b` is a cool slate-blue, at odds with the documented "warm
-neutrals from deep void to warm ivory" palette; nothing in `bg.*` is close.
-`"white"` isn't `text.primary` (`#F0E4C8`, warm ivory) either.
+**Symptom — toast:** `app/recipe.tsx`'s "Stage 3: First-interaction feedback
+toast" block (currently ~line 1481-1500) uses `backgroundColor: "#1e293b"`
+and `color: "white"` — neither matches any token in `DESIGN.md`'s
+OaklandDusk palette. `#1e293b` is a cool slate-blue, at odds with the
+documented "warm neutrals from deep void to warm ivory" palette; nothing in
+`bg.*` is close. `"white"` isn't `text.primary` (`#F0E4C8`, warm ivory)
+either.
+
+**Symptom — Like/Dislike buttons:** the rating row's selected-state colors
+(now `styles.ratingButtonLikeSelected`, `styles.ratingButtonDislikeSelected`,
+`styles.ratingTextLikeSelected` in the `StyleSheet.create` block P1-7 commit
+2 added) use `"#1A2A1A"` / `"#6B8F6B"` (like-selected background/border+text)
+and `"#3A2A2A"` (dislike-selected background) — 3 more raw hex codes with no
+matching OaklandDusk token. Note `OaklandDusk.accent.crimson` (dislike's
+selected border/text/icon color) is already a real token — not a violation,
+not one of the 3 codes above.
 
 **Fix (deferred):** Needs a product/design call on which token(s) actually
-belong here (`bg.card` + `text.primary` are the obvious candidates, but
-worth confirming intentionally rather than assuming) — not a P1-7-style pure
-relocation, so kept out of the mechanical inline-style-to-StyleSheet passes.
+belong in each spot (`bg.card` + `text.primary` are the obvious toast
+candidates, but worth confirming intentionally; the Like/Dislike greens have
+no obvious existing OaklandDusk match and may need a new token) — not a
+P1-7-style pure relocation, so kept out of the mechanical
+inline-style-to-StyleSheet passes (commits 3 and 4 still ahead).
 
 ---
 
