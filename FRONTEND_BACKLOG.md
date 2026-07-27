@@ -47,7 +47,11 @@ no pixel or data-flow change (see the Batch 1 section below for the full
 list). P0-1b shipped — commit `54bb608` (2026-07-26): RN `Image` →
 `expo-image` in `RecipeCard.tsx` + `recipe.tsx`, `resizeMode` → `contentFit`,
 cachePolicy/placeholder/transition left at defaults (disk cache is already
-the default, so no behavior change). Remaining, pending:
+the default, so no behavior change). P1-6 shipped — commit `2e1b2b8`
+(2026-07-26): `renderDbIngredients()` extracted to a memoized
+`components/DbIngredientsList.tsx`, row/badge colors moved to named
+`StyleSheet` variants (no array merges), both SSoT/local-fallback
+availability paths preserved verbatim. Remaining, pending:
 
 - **P0-1c** — needs a product decision from Brok: window the rail (derived
   visible-index range, medium risk) vs. drop `MAX_RAIL_CARDS` 12 → ~8
@@ -55,7 +59,6 @@ the default, so no behavior change). Remaining, pending:
 - **P0-2** — symptom (1) (search boundary mount/unmount) is a behavior
   change and needs sign-off before implementing. Symptom (2) (per-keystroke
   grid re-render) was already resolved by P0-1a/P1-5 in Batch 1.
-- **P1-6** — low risk, not zero-risk; deferred, not yet scheduled.
 - **P1-7** — low risk but large surface (~100 inline styles) and touches
   visuals; needs its own commit + a DESIGN.md/screenshot diff pass per
   CLAUDE.md before it can ship.
@@ -138,6 +141,7 @@ behavior change and needs sign-off.
   `invByKey` map and allocates dozens of inline style objects. One tap on the
   servings stepper re-runs the whole thing. Extract to a memoized component,
   `useMemo` the map, move styles into `StyleSheet.create`.
+  **Shipped: commit `2e1b2b8`** (2026-07-26).
 - **P1-7 [low risk, large surface] — recipe.tsx is almost entirely inline
   styles.** Roughly a hundred `style={{...}}` literals between lines 1219 and
   1652. Violates `ui-styling`. Mechanical rewrite, but big enough to deserve
@@ -250,3 +254,71 @@ navigation params. If either lands, this becomes a real guest-mode bug.
 detected-ingredients payload inside the effect from a ref. Note that adding
 it as-is will re-fire the fetch whenever the memo identity changes, so the
 memo needs to stay stable.
+
+---
+
+## DbIngredientsList.tsx: `availBadge` is computed but never rendered (dead code)
+
+**Status:** Logged 2026-07-26, not fixed. Found while executing P1-6 —
+inherited as-is from the pre-extraction `renderDbIngredients()`, so it
+predates this session; the extraction faithfully preserved it rather than
+cleaning it up (P1-6 was scoped as a pure identity move, not a behavior
+audit).
+
+**Symptom:** `components/DbIngredientsList.tsx:93-126` builds
+`let availBadge: React.ReactNode = null;` and assigns it across all 6
+branches of the SSoT/local-fallback availability logic (missing, running low
+×2, in-bar-ok ×2, substitute) — real work, not a no-op. The row JSX returned
+at :148-165 never references `{availBadge}` anywhere. Confirmed via grep: the
+identifier appears only in the assignment branches, never in a render
+position. The variable is computed and discarded every render, for every
+ingredient row.
+
+**Root cause:** Confirmed pre-existing in the original `renderDbIngredients()`
+before extraction, not something P1-6 introduced. Likely a leftover from an
+earlier design where the row rendered `availBadge` as a second status line,
+later superseded by the border-color band + small badge pill (the
+`bandKey`/`ROW_STYLE_BY_BAND` logic a few lines below it) without deleting
+the now-unused computation.
+
+**Fix (deferred, separate from P1-6):** Either delete the whole `availBadge`
+block (6 branches, ~34 lines) once it's confirmed the band+badge treatment
+already carries the same information, or find where it was meant to render
+and wire it in. Needs a product call on which is correct before touching it —
+that's why it stayed out of P1-6's zero-risk scope.
+
+---
+
+## iOS Simulator MCP tool: `attach`/`tap` fail with a spurious Xcode-select error
+
+**Status:** Logged 2026-07-26. Recurring across three separate sessions
+(Batch 1, P0-1b, P1-6) — track here instead of re-diagnosing from scratch
+each time.
+
+**Symptom:** `mcp__Claude_Code_iOS_Simulator__control` with `action: "attach"`
+or `action: "tap"` fails every time with: "Xcode is installed but not
+selected. Run `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
+...". This is the tool's own precondition check, not a real state of the host.
+
+**Why it's likely a false positive:** In the same shell environment,
+`xcode-select -p` reports `/Applications/Xcode.app/Contents/Developer`,
+`xcodebuild -version` reports a working Xcode 26.6 install, and a raw
+`xcrun simctl launch` / `xcrun simctl io ... screenshot` against the booted
+simulator both succeed without issue. So the actual toolchain is fine — the
+MCP tool's internal check (likely running in a different process/env context
+than the Bash tool) is disagreeing with reality.
+
+**Current workaround:** Screenshots and app launch/relaunch via raw
+`xcrun simctl` (`launch`, `terminate`, `io ... screenshot`) work fine and were
+used for verification in all three sessions. What raw `simctl` can't do:
+simulate taps/gestures — there's no `simctl` subcommand for that — so any
+verification step that needs a tap (e.g. navigating into a recipe detail
+screen) has to be handed to Brok to do by hand.
+
+**Fix:** Unclear whether this is fixable from this environment at all —
+`sudo xcode-select -s ...` needs Brok's password to even test whether it's a
+real fix or the tool's check is simply broken. Re-test next time the tool is
+needed rather than assuming it's still broken; if it still fails after a
+manual `sudo xcode-select -s` confirmation, the tool's precondition check
+itself is the bug and worth a report upstream rather than another local
+workaround.
