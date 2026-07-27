@@ -44,9 +44,11 @@ Re-verify when upgrading RNS.
 **Status:** Batch 1 shipped — commit `5ae7965` (2026-07-26): D1-D3, P0-1a,
 P1-3, P1-4, P1-5, P2-8, P2-9, P2-10, P2-11. Pure memo/hoist/dead-code removal,
 no pixel or data-flow change (see the Batch 1 section below for the full
-list). Remaining, pending:
+list). P0-1b shipped — commit `54bb608` (2026-07-26): RN `Image` →
+`expo-image` in `RecipeCard.tsx` + `recipe.tsx`, `resizeMode` → `contentFit`,
+cachePolicy/placeholder/transition left at defaults (disk cache is already
+the default, so no behavior change). Remaining, pending:
 
-- **P0-1b** — needs a new dependency (`expo-image`) + dev client rebuild.
 - **P0-1c** — needs a product decision from Brok: window the rail (derived
   visible-index range, medium risk) vs. drop `MAX_RAIL_CARDS` 12 → ~8
   (fewer faces per rail, no new risk). Unresolved — Brok's call.
@@ -100,6 +102,7 @@ scroll jank. Three separable sub-items:
   `npx expo install expo-image` + a dev client rebuild, plus `resizeMode` →
   `contentFit` (note recipe.tsx:1306 passes `resizeMode` inside `style`).
   Rules: `ui-expo-image`, `list-performance-images`.
+  **Shipped: commit `54bb608`** (2026-07-26).
 - **P0-1c [needs a product decision] — window the rail, or cut
   `MAX_RAIL_CARDS`.** The only change that actually takes 120 → ~30. Either
   (a) derive the visible index range from `wrapped` and mount ~5 cells
