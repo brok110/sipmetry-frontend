@@ -36,7 +36,7 @@ export type Rail = {
   dimmed: boolean;
 };
 
-const MAX_RAIL_CARDS = 12;
+const MAX_RAIL_CARDS = 10;
 const MIN_BUCKET_ROW = 3; // bucket-style rails need ≥3 items
 const MIN_GROUP_WITHIN_REACH = 4; // shelf/style rails need ≥4 within-reach items
 const MIDDLE_RAILS_PER_PAGE = 3; // drawn from the five middle rail types
