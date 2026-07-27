@@ -4,7 +4,8 @@
 // one bucket-derived chip. All data logic lives in lib/browse/rowEngine.
 
 import React, { memo, useMemo } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
@@ -66,7 +67,7 @@ function RecipeCard({ item, width = CARD_WIDTH, dimmed, onPress }: RecipeCardPro
           <Image
             source={{ uri: item.image_url }}
             style={StyleSheet.absoluteFill}
-            resizeMode="cover"
+            contentFit="cover"
           />
         ) : (
           <View style={styles.artFallback}>

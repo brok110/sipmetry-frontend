@@ -2,7 +2,8 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady, isGuideDismissed } from "@/components/GuideBubble";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter, router as staticRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Image, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import * as Sentry from "@sentry/react-native";
@@ -1334,7 +1335,8 @@ export default function TabTwoScreen() {
           {dbRecipe?.image_url ? (
             <Image
               source={{ uri: dbRecipe.image_url }}
-              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
+              style={{ width: "100%", height: "100%" }}
+              contentFit="cover"
             />
           ) : null}
           <View style={{
