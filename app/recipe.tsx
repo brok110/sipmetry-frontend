@@ -1267,31 +1267,17 @@ export default function TabTwoScreen() {
 
         {/* Servings selector */}
         {session && dbRecipe && madeDrinkState !== 'hidden' ? (
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 12,
-            marginTop: 8,
-          }}>
+          <View style={styles.servingsRow}>
             <Pressable
               onPress={() => setServings(s => Math.max(1, s - 1))}
               disabled={servings <= 1}
               hitSlop={10}
-              style={{
-                width: 32, height: 32,
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: servings <= 1 ? OaklandDusk.bg.border : OaklandDusk.text.tertiary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: servings <= 1 ? 0.3 : 1,
-              }}
+              style={[styles.stepperButtonBase, servings <= 1 ? styles.stepperButtonDisabled : styles.stepperButtonEnabled]}
             >
-              <Text style={{ color: OaklandDusk.text.primary, fontSize: 18, fontWeight: '700' }}>−</Text>
+              <Text style={styles.stepperSymbolText}>−</Text>
             </Pressable>
 
-            <Text style={{ color: OaklandDusk.text.primary, fontSize: 20, fontWeight: '900', minWidth: 60, textAlign: 'center' }}>
+            <Text style={styles.stepperCountText}>
               {servings} {servings === 1 ? 'serving' : 'servings'}
             </Text>
 
@@ -1299,27 +1285,19 @@ export default function TabTwoScreen() {
               onPress={() => setServings(s => Math.min(5, s + 1))}
               disabled={servings >= 5}
               hitSlop={10}
-              style={{
-                width: 32, height: 32,
-                borderRadius: 18,
-                borderWidth: 1,
-                borderColor: servings >= 5 ? OaklandDusk.bg.border : OaklandDusk.text.tertiary,
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: servings >= 5 ? 0.3 : 1,
-              }}
+              style={[styles.stepperButtonBase, servings >= 5 ? styles.stepperButtonDisabled : styles.stepperButtonEnabled]}
             >
-              <Text style={{ color: OaklandDusk.text.primary, fontSize: 18, fontWeight: '700' }}>+</Text>
+              <Text style={styles.stepperSymbolText}>+</Text>
             </Pressable>
           </View>
         ) : null}
 
-        <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 12, backgroundColor: OaklandDusk.bg.card }}>
+        <View style={styles.recipeContentCard}>
           <View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <View style={styles.sectionHeaderRow}>
               <FontAwesome name="flask" size={14} color={OaklandDusk.brand.gold} />
               {/* Type.title — section header */}
-              <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>Ingredients</Text>
+              <Text style={[Type.title, styles.primaryText]}>Ingredients</Text>
             </View>
             {dbRecipe ? (
               <DbIngredientsList
@@ -1333,25 +1311,25 @@ export default function TabTwoScreen() {
                 confirmedStaplesSet={confirmedStaplesSet}
               />
             ) : loading ? (
-              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>(Loading full recipe…)</Text>
+              <Text style={[Type.caption, styles.tertiaryText]}>(Loading full recipe…)</Text>
             ) : error ? (
-              <Text style={[Type.body, { color: OaklandDusk.semantic.error }]}>Failed to load recipe: {error}</Text>
+              <Text style={[Type.body, styles.errorText]}>Failed to load recipe: {error}</Text>
             ) : ibaCode ? (
-              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>(Waiting for full recipe…)</Text>
+              <Text style={[Type.caption, styles.tertiaryText]}>(Waiting for full recipe…)</Text>
             ) : (
-              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>(Missing iba_code)</Text>
+              <Text style={[Type.caption, styles.tertiaryText]}>(Missing iba_code)</Text>
             )}
           </View>
 
           {dbRecipe?.instructions ? (
             <View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <View style={styles.sectionHeaderRow}>
                 <FontAwesome name="list-ol" size={14} color={OaklandDusk.brand.gold} />
                 {/* Type.title — section header */}
-              <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>Instructions</Text>
+                <Text style={[Type.title, styles.primaryText]}>Instructions</Text>
               </View>
               {/* Type.body — instructions paragraph */}
-              <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>{String(dbRecipe.instructions)}</Text>
+              <Text style={[Type.body, styles.secondaryText]}>{String(dbRecipe.instructions)}</Text>
             </View>
           ) : null}
         </View>
@@ -1613,5 +1591,60 @@ const styles = StyleSheet.create({
   },
   ratingTextDislikeSelected: {
     color: OaklandDusk.accent.crimson,
+  },
+  servingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  stepperButtonBase: {
+    width: 32,
+    height: 32,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperButtonDisabled: {
+    borderColor: OaklandDusk.bg.border,
+    opacity: 0.3,
+  },
+  stepperButtonEnabled: {
+    borderColor: OaklandDusk.text.tertiary,
+    opacity: 1,
+  },
+  stepperSymbolText: {
+    color: OaklandDusk.text.primary,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  stepperCountText: {
+    color: OaklandDusk.text.primary,
+    fontSize: 20,
+    fontWeight: '900',
+    minWidth: 60,
+    textAlign: 'center',
+  },
+  recipeContentCard: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: OaklandDusk.bg.border,
+    borderRadius: 12,
+    gap: 12,
+    backgroundColor: OaklandDusk.bg.card,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  tertiaryText: {
+    color: OaklandDusk.text.tertiary,
+  },
+  errorText: {
+    color: OaklandDusk.semantic.error,
   },
 });

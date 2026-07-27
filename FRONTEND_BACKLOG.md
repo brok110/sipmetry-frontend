@@ -410,3 +410,43 @@ but a shared abstraction would tempt exactly that.
 **Fix:** none needed — this entry exists so P1-7's later commits (or any
 future pass) don't "helpfully" deduplicate these into a shared style/component
 without realizing the branches are independent.
+
+---
+
+## recipe.tsx: the inline ladder's error branch never fires without the standalone error card also firing
+
+**Status:** Logged 2026-07-26, informational — a redundant duplicate, not
+dead code, not fixed. Found while scoping P1-7 commit 3; log-only per scope,
+no behavior change bundled into that commit.
+
+**Symptom:** Inside the Ingredients card's 4-way conditional ladder
+(`dbRecipe ? <DbIngredientsList/> : loading ? ... : error ? ... : ibaCode ? ... : ...`),
+the `error` branch renders "Failed to load recipe: {error}" as a plain
+caption line. Immediately below the card, a separate standalone block
+renders the same `error` string again, styled as a prominent crimson/rose
+card with an "Error" heading. Whenever the inline branch shows, the
+standalone card shows the identical message directly underneath it.
+
+**Root cause:** traced via the only two truthy `setError(...)` call sites
+in the file. The main recipe-fetch effect sets `error` truthy while *also*
+setting `dbRecipe` to `null` in the same branch (both the "Recipe not
+found" path and its catch block do this). `createShareAndGo`'s catch block
+— invoked via `handleSharePress`'s "Show QR Code" action — sets `error`
+truthy *without* touching `dbRecipe`; `handleSharePress` itself opens with
+`if (!dbRecipe) return;`, independently guaranteeing `dbRecipe` is already
+truthy on every path that reaches this catch. The ladder's `error` arm is
+only reachable when `!dbRecipe`; the standalone card's condition is bare
+`error` truthy, independent of `dbRecipe`/`loading`.
+
+**Conclusion:** the inline branch is not dead — it fires whenever the main
+fetch effect fails. But every condition that reaches it is a strict subset
+of the standalone card's condition, so the standalone card always renders
+alongside it — the inline text is redundant every time it appears. The
+standalone card can fire alone (the share-failure path), where the ladder
+stays on the `<DbIngredientsList>` arm and the inline caption never shows.
+
+**Fix (deferred, low priority):** delete the inline `error ?` arm of the
+ladder — it can never show without the standalone card already showing the
+same message, so the standalone card alone is sufficient. A (trivial)
+behavior change, not a pure identity move, so needs a product/design nod —
+out of scope for P1-7's mechanical commits.
