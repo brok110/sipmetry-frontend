@@ -584,51 +584,18 @@ export default function BartenderScreen() {
         )}
       </View>
 
-      {resultsActive ? (
-        /* ── Inline search results (Mode B lite) ── */
-        searchResults.length > 0 ? (
-          <FlatList
-            data={searchResults}
-            keyExtractor={searchKeyExtractor}
-            numColumns={2}
-            columnWrapperStyle={styles.gridRow}
-            contentContainerStyle={styles.grid}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            showsVerticalScrollIndicator={false}
-            initialNumToRender={8}
-            maxToRenderPerBatch={6}
-            windowSize={5}
-            ListHeaderComponent={searchListHeader}
-            renderItem={renderSearchItem}
-          />
-        ) : searchLoading || !searched ? (
-          <View style={styles.centerFill}>
-            <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
-          </View>
-        ) : searchError ? (
-          <View style={styles.centerFill}>
-            <Text style={styles.stateMsg}>something went wrong</Text>
-            <Text style={styles.stateSubMsg}>{searchError}</Text>
-          </View>
-        ) : (
-          <View style={styles.centerFill}>
-            <FontAwesome name="glass" size={48} color={OaklandDusk.text.tertiary} />
-            <Text style={[styles.stateMsg, { marginTop: 16 }]}>no cocktails found</Text>
-            <Text style={styles.stateSubMsg}>
-              {filtersActive
-                ? "TRY REMOVING A FILTER"
-                : "TRY A DIFFERENT NAME, SPIRIT, OR INGREDIENT"}
-            </Text>
-          </View>
-        )
-      ) : (
-        /* ── Carousel homepage ── */
+      <View style={styles.railArea}>
+        {/* ── Carousel homepage — permanently mounted. The search-results
+            overlay below covers it (not unmounted) while resultsActive, so
+            rail scroll position, each rail's own swipe offset, and already-
+            decoded images all survive a search session. FRONTEND_BACKLOG P0-2
+            symptom (1). ── */}
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          pointerEvents={resultsActive ? "none" : "auto"}
         >
           {/* Row 0: SPOTLIGHT — hero pipeline top result */}
           {heroPick && (
@@ -678,7 +645,49 @@ export default function BartenderScreen() {
             </View>
           )}
         </ScrollView>
-      )}
+
+        {/* ── Inline search results (Mode B lite) — overlay ── */}
+        {resultsActive && (
+          <View style={styles.searchOverlay}>
+            {searchResults.length > 0 ? (
+              <FlatList
+                data={searchResults}
+                keyExtractor={searchKeyExtractor}
+                numColumns={2}
+                columnWrapperStyle={styles.gridRow}
+                contentContainerStyle={styles.grid}
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator={false}
+                initialNumToRender={8}
+                maxToRenderPerBatch={6}
+                windowSize={5}
+                ListHeaderComponent={searchListHeader}
+                renderItem={renderSearchItem}
+              />
+            ) : searchLoading || !searched ? (
+              <View style={styles.centerFill}>
+                <ActivityIndicator color={OaklandDusk.brand.gold} size="small" />
+              </View>
+            ) : searchError ? (
+              <View style={styles.centerFill}>
+                <Text style={styles.stateMsg}>something went wrong</Text>
+                <Text style={styles.stateSubMsg}>{searchError}</Text>
+              </View>
+            ) : (
+              <View style={styles.centerFill}>
+                <FontAwesome name="glass" size={48} color={OaklandDusk.text.tertiary} />
+                <Text style={[styles.stateMsg, { marginTop: 16 }]}>no cocktails found</Text>
+                <Text style={styles.stateSubMsg}>
+                  {filtersActive
+                    ? "TRY REMOVING A FILTER"
+                    : "TRY A DIFFERENT NAME, SPIRIT, OR INGREDIENT"}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
 
       {/* Outside-tap catcher while suggestions are open: covers everything
           except the search area (which z-stacks above it). First tap
@@ -740,6 +749,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 30,
     paddingBottom: 80, // optical center above the keyboard
+  },
+
+  // Rail area: wraps the permanently-mounted carousel ScrollView + the
+  // search-results overlay that layers on top of it while resultsActive.
+  railArea: {
+    flex: 1,
+  },
+  searchOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: OaklandDusk.bg.void, // opaque — fully occludes the rails beneath
+    zIndex: 5, // above the rail ScrollView (unset), below suggestScrim/refreshOverlay (10) and searchArea (20)
   },
 
   // Sticky Mode B search bar (+ typeahead dropdown anchor)
