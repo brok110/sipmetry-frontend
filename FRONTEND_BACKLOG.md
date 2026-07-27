@@ -41,8 +41,22 @@ Re-verify when upgrading RNS.
 
 ## Bartender rail chain — RN performance (2026-07-26 scan)
 
-**Status:** Logged only. Nothing changed. Batch 1 (zero-risk + pure
-deletion) is ready to execute but deliberately deferred by Brok.
+**Status:** Batch 1 shipped — commit `5ae7965` (2026-07-26): D1-D3, P0-1a,
+P1-3, P1-4, P1-5, P2-8, P2-9, P2-10, P2-11. Pure memo/hoist/dead-code removal,
+no pixel or data-flow change (see the Batch 1 section below for the full
+list). Remaining, pending:
+
+- **P0-1b** — needs a new dependency (`expo-image`) + dev client rebuild.
+- **P0-1c** — needs a product decision from Brok: window the rail (derived
+  visible-index range, medium risk) vs. drop `MAX_RAIL_CARDS` 12 → ~8
+  (fewer faces per rail, no new risk). Unresolved — Brok's call.
+- **P0-2** — symptom (1) (search boundary mount/unmount) is a behavior
+  change and needs sign-off before implementing. Symptom (2) (per-keystroke
+  grid re-render) was already resolved by P0-1a/P1-5 in Batch 1.
+- **P1-6** — low risk, not zero-risk; deferred, not yet scheduled.
+- **P1-7** — low risk but large surface (~100 inline styles) and touches
+  visuals; needs its own commit + a DESIGN.md/screenshot diff pass per
+  CLAUDE.md before it can ship.
 
 **Scope scanned:** `app/(tabs)/bartender.tsx`, `components/browse/RailRow.tsx`,
 `components/browse/LoopingRail.tsx`, `components/browse/RecipeCard.tsx`,
@@ -159,8 +173,11 @@ Pure deletions:
 
 Batch 1 = D1–D3 plus P0-1a, P1-3, P1-4, P1-5, P2-8, P2-9, P2-10, P2-11. None
 of these change a pixel or a data flow — they only move identity and memo
-boundaries. Ship that batch, re-measure, and only then decide on P0-1b /
-P0-1c / P0-2.
+boundaries.
+
+**Shipped: commit `5ae7965`** (2026-07-26). Re-measure, then decide on
+P0-1b / P0-1c / P0-2 — see the Status block at the top of this section for
+what each one (plus P1-6 / P1-7) is still waiting on.
 
 ### Explicitly NOT a problem — do not spend time here
 
