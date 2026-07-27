@@ -322,3 +322,78 @@ needed rather than assuming it's still broken; if it still fails after a
 manual `sudo xcode-select -s` confirmation, the tool's precondition check
 itself is the bug and worth a report upstream rather than another local
 workaround.
+
+---
+
+## recipe.tsx: feedback toast uses raw color codes, not OaklandDusk tokens
+
+**Status:** Logged 2026-07-26, not fixed. Found while scoping P1-7's commit
+boundaries (commit 4 will touch this file region, but the token swap is a
+design decision, not a mechanical relocation — deliberately not bundled into
+that commit).
+
+**Symptom:** `app/recipe.tsx`'s "Stage 3: First-interaction feedback toast"
+block (currently ~line 1481-1500) uses `backgroundColor: "#1e293b"` and
+`color: "white"` — neither matches any token in `DESIGN.md`'s OaklandDusk
+palette. `#1e293b` is a cool slate-blue, at odds with the documented "warm
+neutrals from deep void to warm ivory" palette; nothing in `bg.*` is close.
+`"white"` isn't `text.primary` (`#F0E4C8`, warm ivory) either.
+
+**Fix (deferred):** Needs a product/design call on which token(s) actually
+belong here (`bg.card` + `text.primary` are the obvious candidates, but
+worth confirming intentionally rather than assuming) — not a P1-7-style pure
+relocation, so kept out of the mechanical inline-style-to-StyleSheet passes.
+
+---
+
+## recipe.tsx: taste tag pill styles reconfigured per-item inside `.map()`
+
+**Status:** Logged 2026-07-26, not fixed. Found while scoping P1-7's commit
+1 (Nav bar + hero image + tags + loading card) — deliberately left inline
+rather than folded into that commit's `StyleSheet.create` extraction.
+
+**Symptom:** `app/recipe.tsx`'s taste-tag row (currently ~lines 1194-1206)
+allocates a fresh `<View style={{...}}>` and `<Text style={{...}}>` per tag
+inside `tasteTags.map(...)`. Neither style actually varies by `tag` — every
+pill gets the identical object, just a freshly allocated reference each
+iteration — so both could be hoisted to static `StyleSheet.create` entries
+with zero behavior change, same treatment as everything else in P1-7.
+
+**Why it's deferred rather than folded into commit 1:** kept out on purpose
+so commit 1's diff stays tightly scoped to what was explicitly planned; this
+is a trivial, low-value addition on its own and better swept up alongside
+whichever future pass does a final pass over P1-7's leftovers, rather than
+silently expanding commit 1's surface.
+
+**Fix (when picked up):** hoist both objects to named `StyleSheet.create`
+entries (e.g. `tagPill`, `tagPillText`) — no per-tag variation exists, so no
+lookup/variant logic is needed, just a straight static extraction.
+
+---
+
+## recipe.tsx: two near-identical back buttons serve different branches — do not merge
+
+**Status:** Logged 2026-07-26, informational — not a bug, a guardrail against
+a future "helpful" cleanup.
+
+**Symptom:** `app/recipe.tsx` has two back-button implementations with
+matching literal styles (`{paddingHorizontal:8,paddingVertical:8}` and
+`{color:OaklandDusk.brand.gold,fontSize:17}`):
+- Module-level, inside `NO_SELECTION_HEADER_OPTIONS` (lines ~75-97): used by
+  the `!hasSelection` early-return branch's native header, navigates via the
+  `staticRouter` singleton, hardcoded `"‹ Back"` label.
+- In-component (lines ~1089-1103): used by the main render's custom nav bar,
+  navigates via the local `router` from `useRouter()`, dynamic `‹ {backLabel}`
+  (varies by `params.source` — "Favorites"/"Picks"/"Cocktails"/"Back").
+
+**Why they look mergeable but aren't:** identical current pixel values are
+coincidental, not structural — different router source (module singleton vs.
+hook instance) and different label logic (fixed vs. `backLabel`-driven) mean
+a shared style constant or shared component would create false coupling: a
+future edit to one (e.g. changing the fixed "Back" label, or adjusting
+`backLabel`'s branch logic) would have no reason to also apply to the other,
+but a shared abstraction would tempt exactly that.
+
+**Fix:** none needed — this entry exists so P1-7's later commits (or any
+future pass) don't "helpfully" deduplicate these into a shared style/component
+without realizing the branches are independent.

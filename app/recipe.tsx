@@ -2,7 +2,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGoldenPathStepReady, isGuideDismissed } from "@/components/GuideBubble";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter, router as staticRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Share, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Animated, Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -1070,22 +1070,14 @@ export default function TabTwoScreen() {
           : "Back";
 
   return (
-    <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
+    <View style={styles.screen}>
       <Stack.Screen options={RECIPE_HEADER_OPTIONS} />
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* C1: Nav bar */}
-        <View style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingHorizontal: 16,
-          paddingTop: insets.top + 8,
-          paddingBottom: 8,
-          backgroundColor: OaklandDusk.bg.void,
-        }}>
+        <View style={[styles.navBar, { paddingTop: insets.top + 8 }]}>
           <Pressable
             onPress={() => {
               if (router.canGoBack()) {
@@ -1095,13 +1087,13 @@ export default function TabTwoScreen() {
               }
             }}
             hitSlop={16}
-            style={{ paddingHorizontal: 8, paddingVertical: 8 }}
+            style={styles.backButton}
           >
-            <Text style={{ color: OaklandDusk.brand.gold, fontSize: 17 }}>
+            <Text style={styles.backButtonText}>
               ‹ {backLabel}
             </Text>
           </Pressable>
-          <View style={{ flexDirection: "row", gap: 12, alignItems: "center", paddingHorizontal: 10, paddingVertical: 4 }}>
+          <View style={styles.navBarActions}>
             {dbRecipe && (
               <HintBubble
                 storageKey={GUIDE_KEYS.RECIPE_SHARE}
@@ -1160,37 +1152,33 @@ export default function TabTwoScreen() {
         </View>
 
         {/* C1: Hero image */}
-        <View style={{ width: "100%", height: 150, backgroundColor: OaklandDusk.bg.void }}>
+        <View style={styles.heroImageContainer}>
           {dbRecipe?.image_url ? (
             <Image
               source={{ uri: dbRecipe.image_url }}
-              style={{ width: "100%", height: "100%" }}
+              style={styles.heroImage}
               contentFit="cover"
             />
           ) : null}
-          <View style={{
-            position: "absolute",
-            top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.3)",
-          }} />
+          <View style={styles.heroImageOverlay} />
           <LinearGradient
             colors={[OaklandDusk.bg.void, "transparent"]}
             start={{ x: 0, y: 1 }}
             end={{ x: 0, y: 0 }}
-            style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 50 }}
+            style={styles.heroImageGradient}
           />
         </View>
 
         {/* Main content */}
-        <View style={{ padding: 16, gap: 10 }}>
+        <View style={styles.mainContent}>
         {/* Type.display — recipe title */}
-        <Text style={[Type.display, { color: OaklandDusk.text.primary }]}>
+        <Text style={[Type.display, styles.primaryText]}>
           {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
         </Text>
 
         {tasteTags.length > 0 ? (
           <Pressable onLongPress={__DEV__ ? copyDebug : undefined} delayLongPress={450}>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            <View style={styles.tasteTagsRow}>
               {tasteTags.map((tag) => (
                 <View
                   key={tag}
@@ -1210,24 +1198,13 @@ export default function TabTwoScreen() {
 
         {/* C2: Confidence signal */}
         {confidenceSignal && (
-          <View style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 6,
-            paddingVertical: 8,
-            paddingHorizontal: 12,
-            backgroundColor: confidenceSignal.isReady ? "rgba(29,158,117,0.06)" : "rgba(200,120,40,0.06)",
-            borderWidth: 1,
-            borderColor: confidenceSignal.isReady ? "rgba(29,158,117,0.15)" : "rgba(200,120,40,0.15)",
-            borderRadius: 8,
-            marginBottom: 12,
-          }}>
+          <View style={confidenceSignal.isReady ? styles.confidenceBoxReady : styles.confidenceBoxNotReady}>
             {confidenceSignal.isReady ? (
-              <Text style={{ color: OaklandDusk.semantic.ready, fontSize: 14, fontWeight: "700" }}>✓</Text>
+              <Text style={styles.confidenceCheckmark}>✓</Text>
             ) : (
               <FontAwesome name="cart-plus" size={14} color={OaklandDusk.brand.gold} />
             )}
-            <Text style={{ color: confidenceSignal.isReady ? OaklandDusk.semantic.ready : OaklandDusk.brand.gold, fontSize: 12 }}>
+            <Text style={confidenceSignal.isReady ? styles.confidenceTextReady : styles.confidenceTextNotReady}>
               {confidenceSignal.isReady
                 ? confidenceSignal.allAvailable ? "You have everything" : "Ready to make"
                 : confidenceSignal.missingCount === 1
@@ -1238,11 +1215,11 @@ export default function TabTwoScreen() {
         )}
 
         {loading ? (
-          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, backgroundColor: OaklandDusk.bg.card }}>
+          <View style={styles.loadingCard}>
             {/* Type.heading — loading state title */}
-            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Loading…</Text>
+            <Text style={[Type.heading, styles.primaryText]}>Loading…</Text>
             {/* Type.body — loading state description */}
-            <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>
+            <Text style={[Type.body, styles.secondaryText]}>
               Fetching full recipe from backend using iba_code: {ibaCode || "(missing)"}
             </Text>
           </View>
@@ -1502,3 +1479,119 @@ export default function TabTwoScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: OaklandDusk.bg.void,
+  },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+  navBar: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: OaklandDusk.bg.void,
+  },
+  backButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  backButtonText: {
+    color: OaklandDusk.brand.gold,
+    fontSize: 17,
+  },
+  navBarActions: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heroImageContainer: {
+    width: "100%",
+    height: 150,
+    backgroundColor: OaklandDusk.bg.void,
+  },
+  heroImage: {
+    width: "100%",
+    height: "100%",
+  },
+  heroImageOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
+  },
+  heroImageGradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 50,
+  },
+  mainContent: {
+    padding: 16,
+    gap: 10,
+  },
+  primaryText: {
+    color: OaklandDusk.text.primary,
+  },
+  secondaryText: {
+    color: OaklandDusk.text.secondary,
+  },
+  tasteTagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  confidenceBoxReady: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(29,158,117,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(29,158,117,0.15)",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  confidenceBoxNotReady: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "rgba(200,120,40,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(200,120,40,0.15)",
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  confidenceCheckmark: {
+    color: OaklandDusk.semantic.ready,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  confidenceTextReady: {
+    color: OaklandDusk.semantic.ready,
+    fontSize: 12,
+  },
+  confidenceTextNotReady: {
+    color: OaklandDusk.brand.gold,
+    fontSize: 12,
+  },
+  loadingCard: {
+    padding: 12,
+    borderWidth: 1,
+    borderColor: OaklandDusk.bg.border,
+    borderRadius: 12,
+    backgroundColor: OaklandDusk.bg.card,
+  },
+});
