@@ -1348,14 +1348,7 @@ export default function TabTwoScreen() {
 
       {/* Sticky footer — primary CTA, non-overlapping (flex sibling of ScrollView) */}
       {session && dbRecipe && madeDrinkState !== 'hidden' && !isGuestSession ? (
-        <View style={{
-          paddingHorizontal: 16,
-          paddingTop: 10,
-          paddingBottom: insets.bottom + 12,
-          backgroundColor: OaklandDusk.bg.void,
-          borderTopWidth: 0.5,
-          borderTopColor: OaklandDusk.bg.border,
-        }}>
+        <View style={[styles.footerContainer, { paddingBottom: insets.bottom + 12 }]}>
           <HintBubble
             storageKey={GUIDE_KEYS.GP_STEP_6}
             visible={gpStep6Visible && madeDrinkState === 'idle'}
@@ -1386,23 +1379,17 @@ export default function TabTwoScreen() {
                 handleMadeDrink();
               }}
               disabled={madeDrinkLoading || madeDrinkState === 'done'}
-              style={{
-                borderRadius: 12,
-                paddingVertical: 16,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: madeDrinkState === 'done' ? '#6F8F7C' : '#D4A030',
-                flexDirection: 'row',
-                gap: 8,
-                marginTop: 8,
-                opacity: madeDrinkLoading ? 0.7 : 1,
-              }}
+              style={[
+                styles.ctaButtonBase,
+                madeDrinkState === 'done' ? styles.ctaButtonDone : styles.ctaButtonNotDone,
+                madeDrinkLoading && styles.ctaButtonLoading,
+              ]}
             >
               {madeDrinkLoading
                 ? <ActivityIndicator size="small" color={madeDrinkState === 'done' ? '#FFF' : '#1A1A2E'} />
                 : null}
               {/* Type.button — primary CTA */}
-              <Text style={[Type.button, { color: madeDrinkState === 'done' ? '#FFF' : '#1A1A2E' }]}>
+              <Text style={[Type.button, madeDrinkState === 'done' ? styles.ctaTextDone : styles.ctaTextNotDone]}>
                 {madeDrinkState === 'done' ? 'Logged!' : 'I made this'}
               </Text>
             </Pressable>
@@ -1414,20 +1401,9 @@ export default function TabTwoScreen() {
       {feedbackToast && (
         <Animated.View
           pointerEvents="none"
-          style={{
-            position: "absolute",
-            bottom: 90,
-            left: 24,
-            right: 24,
-            opacity: toastOpacity,
-            backgroundColor: "#1e293b",
-            borderRadius: 12,
-            paddingVertical: 12,
-            paddingHorizontal: 16,
-            alignItems: "center",
-          }}
+          style={[styles.toastContainer, { opacity: toastOpacity }]}
         >
-          <Text style={{ color: "white", fontSize: 14, fontWeight: "600", textAlign: "center" }}>
+          <Text style={styles.toastText}>
             {feedbackToast}
           </Text>
         </Animated.View>
@@ -1646,5 +1622,53 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: OaklandDusk.semantic.error,
+  },
+  footerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    backgroundColor: OaklandDusk.bg.void,
+    borderTopWidth: 0.5,
+    borderTopColor: OaklandDusk.bg.border,
+  },
+  ctaButtonBase: {
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  ctaButtonDone: {
+    backgroundColor: '#6F8F7C',
+  },
+  ctaButtonNotDone: {
+    backgroundColor: '#D4A030',
+  },
+  ctaButtonLoading: {
+    opacity: 0.7,
+  },
+  ctaTextDone: {
+    color: '#FFF',
+  },
+  ctaTextNotDone: {
+    color: '#1A1A2E',
+  },
+  toastContainer: {
+    position: "absolute",
+    bottom: 90,
+    left: 24,
+    right: 24,
+    backgroundColor: "#1e293b",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "center",
+  },
+  toastText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

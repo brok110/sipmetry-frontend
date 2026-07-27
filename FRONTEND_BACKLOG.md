@@ -329,9 +329,10 @@ workaround.
 
 **Status:** Logged 2026-07-26, not fixed. Toast instance found while scoping
 P1-7's commit boundaries; Like/Dislike instances found and consolidated here
-(not a new entry) while executing P1-7 commit 2. Both are design decisions,
-not mechanical relocations — deliberately not bundled into P1-7's mechanical
-commits.
+(not a new entry) while executing P1-7 commit 2; CTA button instance found
+and consolidated here while executing P1-7 commit 4. All three are design
+decisions, not mechanical relocations — deliberately not bundled into P1-7's
+mechanical commits.
 
 **Symptom — toast:** `app/recipe.tsx`'s "Stage 3: First-interaction feedback
 toast" block (currently ~line 1481-1500) uses `backgroundColor: "#1e293b"`
@@ -350,12 +351,24 @@ matching OaklandDusk token. Note `OaklandDusk.accent.crimson` (dislike's
 selected border/text/icon color) is already a real token — not a violation,
 not one of the 3 codes above.
 
+**Symptom — CTA button:** the footer's "I made this" button (now
+`styles.ctaButtonDone`/`ctaButtonNotDone`/`ctaTextDone`/`ctaTextNotDone` in
+the `StyleSheet.create` block P1-7 commit 4 added) uses `#6F8F7C` / `#D4A030`
+(done/not-done background) and `#FFF` / `#1A1A2E` (done/not-done text+icon
+color) — 4 more raw hex codes with no matching OaklandDusk token. Two are
+suspicious near-misses worth noting: `#D4A030` shares its last 4 hex digits
+with `brand.sundown` (`#E0A030`), differing only in the red channel; `#6F8F7C`
+is close to the already-logged Like-button green (`#6B8F6B`) but not
+identical.
+
 **Fix (deferred):** Needs a product/design call on which token(s) actually
 belong in each spot (`bg.card` + `text.primary` are the obvious toast
-candidates, but worth confirming intentionally; the Like/Dislike greens have
-no obvious existing OaklandDusk match and may need a new token) — not a
-P1-7-style pure relocation, so kept out of the mechanical
-inline-style-to-StyleSheet passes (commits 3 and 4 still ahead).
+candidates, but worth confirming intentionally; the Like/Dislike greens and
+the CTA's done/not-done colors have no obvious existing OaklandDusk match and
+may need new tokens) — not a P1-7-style pure relocation, so kept out of the
+mechanical inline-style-to-StyleSheet passes. P1-7 is now fully mechanically
+extracted as of commit 4 — this color-token decision is the only open thread
+left from that work.
 
 ---
 
