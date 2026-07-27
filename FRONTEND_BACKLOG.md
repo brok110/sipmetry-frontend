@@ -51,7 +51,13 @@ the default, so no behavior change). P1-6 shipped — commit `2e1b2b8`
 (2026-07-26): `renderDbIngredients()` extracted to a memoized
 `components/DbIngredientsList.tsx`, row/badge colors moved to named
 `StyleSheet` variants (no array merges), both SSoT/local-fallback
-availability paths preserved verbatim. Remaining, pending:
+availability paths preserved verbatim. P1-7 shipped — 4 commits
+(2026-07-26): `83bd99b` (1/4, nav bar/hero image/tags/loading card),
+`20d8b0d` (2/4, Like/Dislike buttons), `acc564e` (3/4, Servings stepper +
+Ingredients/Instructions card), `008baf8` (4/4, Footer CTA + toast) — all of
+`recipe.tsx`'s inline styles moved into a single `StyleSheet.create` block,
+byte-identical values, `insets.top`/`insets.bottom`/`toastOpacity` kept
+dynamic where required, no numeric drift. Remaining, pending:
 
 - **P0-1c** — needs a product decision from Brok: window the rail (derived
   visible-index range, medium risk) vs. drop `MAX_RAIL_CARDS` 12 → ~8
@@ -59,9 +65,6 @@ availability paths preserved verbatim. Remaining, pending:
 - **P0-2** — symptom (1) (search boundary mount/unmount) is a behavior
   change and needs sign-off before implementing. Symptom (2) (per-keystroke
   grid re-render) was already resolved by P0-1a/P1-5 in Batch 1.
-- **P1-7** — low risk but large surface (~100 inline styles) and touches
-  visuals; needs its own commit + a DESIGN.md/screenshot diff pass per
-  CLAUDE.md before it can ship.
 
 **Scope scanned:** `app/(tabs)/bartender.tsx`, `components/browse/RailRow.tsx`,
 `components/browse/LoopingRail.tsx`, `components/browse/RecipeCard.tsx`,
@@ -147,6 +150,8 @@ behavior change and needs sign-off.
   1652. Violates `ui-styling`. Mechanical rewrite, but big enough to deserve
   its own commit — and it touches visuals, so per CLAUDE.md read DESIGN.md
   first and diff screenshots to confirm no numeric drift.
+  **Shipped: commits `83bd99b`, `20d8b0d`, `acc564e`, `008baf8`** (2026-07-26,
+  4 commits — see the Status block above for what each one covered).
 
 ### P2
 
