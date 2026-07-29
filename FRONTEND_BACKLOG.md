@@ -4,6 +4,39 @@ Central tracker for frontend technical debt and deferred work.
 
 ---
 
+## NATIVE-GATE — OTA frozen until the 1.0.2 build ships (2026-07-27)
+
+**Status:** Active constraint. Lifts when the 1.0.2 binary is live.
+
+The rail-chain perf batch (`5ae7965`..`c68521d`, 9 commits, all on main)
+includes `54bb608` which adds `expo-image` — a **native module**. The
+production 1.0.1 binary (built 2026-07-19) does not contain it, and the
+runtime version string ("1.0.1") gives EAS no way to block a mismatched
+update. Publishing an OTA from the current main tip would crash every
+user on app open (JS requests a native module the binary doesn't have).
+Confirmed via `git log -S '"expo-image"' -- package.json` → `54bb608`.
+
+**Ruling (Brok, 2026-07-27, option C):** hold the whole batch on shore —
+no OTA, no revert. It ships inside the next store build (version +
+runtime bumped to 1.0.2) together with everything since. Production
+fleet stays on update group `80965803` (commit `3e5400b`) until then.
+
+**Discipline while frozen:**
+- Never run `eas update` from the tip of main.
+- Emergency production fix: branch from `3e5400b` (last OTA'd commit),
+  fix + verify + publish the OTA from that branch, then cherry-pick
+  back to main.
+- OTA pre-flight is now a FOUR-check gate; the new fourth check:
+  `git log --oneline <last-build-commit>..HEAD -- package.json app.json ios android`
+  must be EMPTY before any `eas update`. (This incident was invisible
+  to the old three checks.)
+
+Cross-repo ledger: `ROUND_4_BACKLOG.md` (backend repo) carries the
+matching NATIVE-GATE entry and remains the cross-repo source of truth;
+this file tracks frontend-local debt.
+
+---
+
 ## iOS 26 native back button disabled (RNS #3294)
 
 **Status:** Worked around (custom headerLeft); proper fix deferred.
