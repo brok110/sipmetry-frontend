@@ -1,5 +1,5 @@
 import React, { memo, useMemo } from "react";
-import { View, Text, StyleSheet, type ViewStyle } from "react-native";
+import { View, Text, StyleSheet, Pressable, type ViewStyle } from "react-native";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
 import type { DbRecipeIngredient, IngredientAvailability } from "@/app/recipe";
@@ -27,6 +27,8 @@ interface DbIngredientsListProps {
   servings: number;
   displayUnit: UnitPreference;
   confirmedStaplesSet: Set<string>;
+  onAddToList?: (ingredientKey: string, displayName: string) => void;
+  listedKeys: Set<string>;
 }
 
 type BandKey = "neutral" | "ready" | "substitute" | "missing";
@@ -40,6 +42,8 @@ export const DbIngredientsList = memo(function DbIngredientsList({
   servings,
   displayUnit,
   confirmedStaplesSet,
+  onAddToList,
+  listedKeys,
 }: DbIngredientsListProps) {
   const rows = useMemo(() => {
     const list = Array.isArray(ingredients) ? ingredients : [];
@@ -150,14 +154,30 @@ export const DbIngredientsList = memo(function DbIngredientsList({
             <Text style={styles.name}>
               {name}{isOptional ? <Text style={styles.optionalSuffix}> (optional)</Text> : ""}
             </Text>
-            <Text style={styles.amount}>{amountLabel}</Text>
             {bandHasData && (
-              <View style={bandIsInBar ? styles.badgeReady : bandIsSubstitute ? styles.badgeSubstitute : styles.badgeMissing}>
-                <Text style={bandIsInBar ? styles.badgeTextReady : bandIsSubstitute ? styles.badgeTextSubstitute : styles.badgeTextMissing}>
-                  {bandIsInBar ? "✓" : bandIsSubstitute ? "alt" : "need"}
-                </Text>
-              </View>
+              bandKey === "missing" && onAddToList ? (
+                listedKeys.has(key) ? (
+                  <Text style={styles.onListText}>✓ On list</Text>
+                ) : (
+                  <Pressable
+                    onPress={() => onAddToList(key, name)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${name} to shopping list`}
+                    style={styles.addToListButton}
+                  >
+                    <Text style={styles.addToListText}>＋ LIST</Text>
+                  </Pressable>
+                )
+              ) : (
+                <View style={bandIsInBar ? styles.badgeReady : bandIsSubstitute ? styles.badgeSubstitute : styles.badgeMissing}>
+                  <Text style={bandIsInBar ? styles.badgeTextReady : bandIsSubstitute ? styles.badgeTextSubstitute : styles.badgeTextMissing}>
+                    {bandIsInBar ? "✓" : bandIsSubstitute ? "alt" : "need"}
+                  </Text>
+                </View>
+              )
             )}
+            <Text style={styles.amount}>{amountLabel}</Text>
           </View>
           {isSubstitute && originalName ? (
             <Text style={styles.originallyText}>Originally: {originalName}</Text>
@@ -174,6 +194,8 @@ export const DbIngredientsList = memo(function DbIngredientsList({
     servings,
     displayUnit,
     confirmedStaplesSet,
+    onAddToList,
+    listedKeys,
   ]);
 
   if (rows.length === 0) {
@@ -208,9 +230,9 @@ const styles = StyleSheet.create({
     borderLeftColor: "#C87070",
   },
 
-  name: { flex: 1, fontSize: 12, color: OaklandDusk.text.primary },
+  name: { flexShrink: 1, fontSize: 12, color: OaklandDusk.text.primary, marginRight: 8 },
   optionalSuffix: { color: OaklandDusk.text.tertiary },
-  amount: { fontSize: 12, color: OaklandDusk.text.tertiary, marginRight: 8 },
+  amount: { fontSize: 12, color: OaklandDusk.text.tertiary, marginLeft: "auto" },
 
   badgeReady: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3, backgroundColor: "rgba(29,158,117,0.1)" },
   badgeSubstitute: { paddingHorizontal: 5, paddingVertical: 1, borderRadius: 3, backgroundColor: "rgba(212,160,48,0.1)" },
@@ -225,6 +247,10 @@ const styles = StyleSheet.create({
   availMissingText: { color: OaklandDusk.brand.sundown, fontSize: 13, fontWeight: "500" },
   availLowText: { color: "#D97706", fontSize: 12 },
   availOkText: { color: "#22C55E", fontSize: 12 },
+
+  addToListButton: { borderWidth: 1, borderColor: "#E0A030", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  addToListText: { fontSize: 10, color: "#E0A030" },
+  onListText: { fontSize: 10, color: "#22C55E", paddingVertical: 3 },
 });
 
 // Must come after `styles` — references styles.* values, not string names.

@@ -274,6 +274,7 @@ export default function TabTwoScreen() {
 
   const [ingredientAvailability, setIngredientAvailability] = useState<Record<string, IngredientAvailability> | null>(null);
   const [confirmedStaplesSet, setConfirmedStaplesSet] = useState<Set<string>>(new Set());
+  const [listedKeys, setListedKeys] = useState<Set<string>>(new Set());
 
   const { session } = useAuth();
   const { unit: displayUnit } = useUnitPreference();
@@ -505,6 +506,35 @@ export default function TabTwoScreen() {
 
     return () => { alive = false; };
   }, [ibaCode, session, isGuestSession]);
+
+  // SHOP-LIST 3c: sync open shopping-list keys on focus so "✓ On list"
+  // stays correct across visits (server-side dedup is the backstop)
+  useFocusEffect(
+    useCallback(() => {
+      if (!session || isGuestSession) {
+        setListedKeys(new Set());
+        return;
+      }
+      let alive = true;
+      (async () => {
+        try {
+          const res = await apiFetch("/shopping-list", { session });
+          if (!res.ok) throw new Error(`status ${res.status}`);
+          const data = await res.json();
+          if (!alive) return;
+          const keys = Array.isArray(data.items)
+            ? data.items.map((i: any) => String(i?.ingredient_key ?? "").trim()).filter(Boolean)
+            : [];
+          setListedKeys(new Set(keys));
+        } catch {
+          // keep last known state; POST-side dedup covers double taps
+        }
+      })();
+      return () => {
+        alive = false;
+      };
+    }, [session, isGuestSession])
+  );
 
   const recipe = dbRecipe ?? legacyRecipe;
 
@@ -1031,6 +1061,38 @@ export default function TabTwoScreen() {
     }
   }
 
+  // SHOP-LIST 3c: add a missing ingredient to the shopping list from its row.
+  // Optimistic flip to "✓ On list"; rolled back with an Alert on failure.
+  const handleAddToList = useCallback(async (ingredientKey: string, displayName: string) => {
+    if (!session?.access_token) {
+      Alert.alert("Sign in required", "Please sign in to use the shopping list.");
+      return;
+    }
+    const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
+    setListedKeys((prev) => new Set(prev).add(ingredientKey));
+    try {
+      const res = await apiFetch("/shopping-list", {
+        session,
+        method: "POST",
+        body: {
+          ingredient_key: ingredientKey,
+          display_name: displayName,
+          reason_iba_code: code || null,
+          reason_name: String(recipeTitle || "").trim() || null,
+          source: "recipe",
+        },
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+    } catch {
+      setListedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(ingredientKey);
+        return next;
+      });
+      Alert.alert("Error", "Could not add to your shopping list. Please try again.");
+    }
+  }, [session, ibaCode, dbRecipe, recipeTitle]);
+
   const hasSelection = Boolean(ibaCode) || Boolean(legacyRecipe);
 
   if (!hasSelection) {
@@ -1309,6 +1371,8 @@ export default function TabTwoScreen() {
                 servings={servings}
                 displayUnit={displayUnit}
                 confirmedStaplesSet={confirmedStaplesSet}
+                onAddToList={isGuestSession ? undefined : handleAddToList}
+                listedKeys={listedKeys}
               />
             ) : loading ? (
               <Text style={[Type.caption, styles.tertiaryText]}>(Loading full recipe…)</Text>
