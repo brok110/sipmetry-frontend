@@ -11,7 +11,7 @@ import {
 } from "react-native";
 
 import * as Sentry from "@sentry/react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/context/auth";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import Masthead from "@/components/Masthead";
@@ -21,7 +21,6 @@ import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
 import { track as analytics } from "@/lib/analytics/analytics";
 import { EVENTS } from "@/lib/analytics/events";
-import { openUrl } from "@/lib/openUrl";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
@@ -77,6 +76,10 @@ export default function CartScreen() {
   const [hasFetched, setHasFetched] = useState(false);
   const [meta, setMeta] = useState<{ reason?: string; message?: string } | null>(null);
 
+  // SHOP-LIST 3b: open-list badge count + per-key "already listed" feedback
+  const [listCount, setListCount] = useState(0);
+  const [listedKeys, setListedKeys] = useState<Set<string>>(new Set());
+
   // Staples — keys the user confirmed they already have; excluded from suggestions
   const [staplesKeys, setStaplesKeys] = useState<Set<string>>(new Set());
 
@@ -98,15 +101,11 @@ export default function CartScreen() {
 
   // Guide bubble state
   const [guideCartVisible, setGuideCartVisible] = useState(false);
-  const [guideRestockFindVisible, setGuideRestockFindVisible] = useState(false);
 
-  // Track which ingredients user has tapped "I Want This" for (this session)
-  const [notifiedKeys, setNotifiedKeys] = useState<Set<string>>(new Set());
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     isGuideDismissed(GUIDE_KEYS.CART).then((d) => setGuideCartVisible(!d));
-    isGuideDismissed(GUIDE_KEYS.RESTOCK_FIND).then((d) => setGuideRestockFindVisible(!d));
   }, []);
 
   // Auto-fetch when navigated from Recommendations with autoFetch=true
@@ -147,6 +146,28 @@ export default function CartScreen() {
     [filteredSuggestions]
   );
 
+  // SHOP-LIST 3b: refresh the badge whenever the tab regains focus (e.g.
+  // returning from the list page after checking items off).
+  const fetchListCount = useCallback(async () => {
+    if (!session) return;
+    try {
+      const res = await apiFetch("/shopping-list", { session });
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = Array.isArray(data.items) ? data.items : [];
+      setListCount(items.length);
+      setListedKeys(new Set(items.map((it: { ingredient_key: string }) => String(it.ingredient_key))));
+    } catch {
+      // badge is best-effort — never block the screen
+    }
+  }, [session]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchListCount();
+    }, [fetchListCount])
+  );
+
   const fetchSuggestions = useCallback(async () => {
     if (!session?.access_token) return;
     setLoading(true);
@@ -184,74 +205,29 @@ export default function CartScreen() {
     }
   }, [session, userInteractions]);
 
-  // Track affiliate click then open URL
-  const handleBuy = useCallback(
+  // SHOP-LIST 3b: add a suggestion to the shopping list (source: restock).
+  const handleAddToList = useCallback(
     async (suggestion: Suggestion) => {
-      // Fire-and-forget click tracking
-      apiFetch("/affiliate/click", {
-        session,
-        method: "POST",
-        body: { ingredient_key: suggestion.ingredient_key, source: "restock", buy_url: suggestion.buy_url },
-      }).catch(() => {});
-
-      // Open buy URL
-      if (suggestion.buy_url) {
-        try {
-          openUrl(suggestion.buy_url);
-        } catch {
-          // ignore
-        }
+      try {
+        const res = await apiFetch("/shopping-list", {
+          session,
+          method: "POST",
+          body: {
+            ingredient_key: suggestion.ingredient_key,
+            display_name: suggestion.display_name,
+            source: "restock",
+          },
+        });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json();
+        setListedKeys((prev) => new Set(prev).add(suggestion.ingredient_key));
+        if (!data.deduped) setListCount((c) => c + 1);
+        setToastMessage("Added to your shopping list.");
+      } catch {
+        setToastMessage("Could not add to list — try again.");
+      } finally {
+        setTimeout(() => setToastMessage(null), 3500);
       }
-    },
-    [session]
-  );
-
-  // Notify Me: record waitlist + show toast + open Google Shopping
-  const handleNotifyMe = useCallback(
-    async (suggestion: Suggestion) => {
-      analytics(EVENTS.RESTOCK_ITEM_CLICKED, { ingredient_key: suggestion.ingredient_key, source: "restock" });
-
-      // 1. Record waitlist (fire-and-forget)
-      apiFetch("/purchase-waitlist", {
-        session,
-        method: "POST",
-        body: {
-          ingredient_key: suggestion.ingredient_key,
-          display_name: suggestion.display_name,
-          source: "restock",
-        },
-      }).catch(() => {});
-
-      // 2. Also record affiliate click for backwards compatibility
-      apiFetch("/affiliate/click", {
-        session,
-        method: "POST",
-        body: {
-          ingredient_key: suggestion.ingredient_key,
-          source: "restock",
-          buy_url: suggestion.buy_url,
-        },
-      }).catch(() => {});
-
-      // 3. Mark as notified (for UI feedback)
-      setNotifiedKeys((prev) => new Set(prev).add(suggestion.ingredient_key));
-
-      // 4. Show toast
-      setToastMessage("Noted — we'll help you find it soon.");
-
-      // 5. Open Google Shopping after short delay
-      setTimeout(async () => {
-        if (suggestion.buy_url) {
-          try {
-            openUrl(suggestion.buy_url);
-          } catch {
-            // ignore
-          }
-        }
-      }, 1200);
-
-      // 6. Auto-dismiss toast
-      setTimeout(() => setToastMessage(null), 3500);
     },
     [session]
   );
@@ -276,7 +252,41 @@ export default function CartScreen() {
 
   return (
     <View style={{ flex: 1, position: "relative", backgroundColor: OaklandDusk.bg.void }}>
-    <Masthead />
+    <Masthead
+      actions={
+        <Pressable
+          onPress={() => router.push("/shopping-list")}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel="Shopping list"
+          style={{ alignItems: "center", gap: 4 }}
+        >
+          <View style={{
+            width: 32, height: 32, borderRadius: 8, borderWidth: 1,
+            borderColor: `${OaklandDusk.brand.gold}4D`,
+            alignItems: "center", justifyContent: "center",
+          }}>
+            <FontAwesome name="shopping-bag" size={14} color={OaklandDusk.brand.gold} />
+            {listCount > 0 && (
+              <View style={{
+                position: "absolute", top: -5, right: -5, minWidth: 15, height: 15,
+                borderRadius: 7.5, backgroundColor: OaklandDusk.brand.rust,
+                alignItems: "center", justifyContent: "center", paddingHorizontal: 3,
+              }}>
+                {/* LEAVE: 9px badge count — smaller than any Type token by design */}
+                <Text style={{ fontSize: 9, color: OaklandDusk.text.primary, fontFamily: "DMMono" }}>
+                  {listCount > 9 ? "9+" : listCount}
+                </Text>
+              </View>
+            )}
+          </View>
+          {/* LEAVE: 8px DMMono frame label — mirrors shelf sortLabel spec */}
+          <Text style={{ fontFamily: "DMMono", fontSize: 8, letterSpacing: 2, color: OaklandDusk.brand.gold }}>
+            LIST
+          </Text>
+        </Pressable>
+      }
+    />
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
@@ -553,84 +563,44 @@ export default function CartScreen() {
                 </View>
               )}
 
-              {/* Row 5: Buy CTA */}
-              {i === 0 ? (
-                <HintBubble
-                  storageKey={GUIDE_KEYS.RESTOCK_FIND}
-                  visible={guideRestockFindVisible}
-                  onDismiss={() => setGuideRestockFindVisible(false)}
-                  hintType="tap"
-                  hintColor="charcoal"
-                >
-                  <Pressable
-                    onPress={() => {
-                      dismissGuide(GUIDE_KEYS.RESTOCK_FIND);
-                      setGuideRestockFindVisible(false);
-                      handleNotifyMe(s);
-                    }}
-                    style={{
-                      flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                      backgroundColor: notifiedKeys.has(s.ingredient_key)
-                        ? "transparent"
-                        : isTop ? OaklandDusk.brand.gold : "transparent",
-                      borderWidth: 1,
-                      borderColor: notifiedKeys.has(s.ingredient_key)
-                        ? "rgba(74,222,128,0.3)"
-                        : isTop ? OaklandDusk.brand.gold : OaklandDusk.brand.gold,
-                      borderRadius: 10, paddingVertical: 12, marginTop: 2,
-                      opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
-                    }}
-                  >
-                    <FontAwesome
-                      name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
-                      size={13}
-                      color={notifiedKeys.has(s.ingredient_key)
-                        ? "#4ade80"
-                        : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
-                    />
-                    {/* Type.button — primary CTA */}
-                    <Text style={[Type.button, {
-                      color: notifiedKeys.has(s.ingredient_key)
-                        ? "#4ade80"
-                        : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
-                    }]}>
-                      {notifiedKeys.has(s.ingredient_key) ? "Noted ✓" : "I Want This"}
-                    </Text>
-                  </Pressable>
-                </HintBubble>
-              ) : (
-                <Pressable
-                  onPress={() => handleNotifyMe(s)}
-                  style={{
-                    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                    backgroundColor: notifiedKeys.has(s.ingredient_key)
-                      ? "transparent"
-                      : isTop ? OaklandDusk.brand.gold : "transparent",
-                    borderWidth: 1,
-                    borderColor: notifiedKeys.has(s.ingredient_key)
-                      ? "rgba(74,222,128,0.3)"
-                      : isTop ? OaklandDusk.brand.gold : OaklandDusk.brand.gold,
-                    borderRadius: 10, paddingVertical: 12, marginTop: 2,
-                    opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
-                  }}
-                >
-                  <FontAwesome
-                    name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
-                    size={13}
-                    color={notifiedKeys.has(s.ingredient_key)
-                      ? "#4ade80"
-                      : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
-                  />
-                  {/* Type.button — primary CTA */}
-                  <Text style={[Type.button, {
-                    color: notifiedKeys.has(s.ingredient_key)
-                      ? "#4ade80"
-                      : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
-                  }]}>
-                    {notifiedKeys.has(s.ingredient_key) ? "Noted ✓" : "I Want This"}
-                  </Text>
-                </Pressable>
-              )}
+              {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
+                  list. I Want This / notify / browser jump removed by
+                  ruling 2026-07-28; the intent stream is now the
+                  shopping_list table + check-off. */}
+              <Pressable
+                onPress={() => handleAddToList(s)}
+                disabled={listedKeys.has(s.ingredient_key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${s.display_name} to shopping list`}
+                style={{
+                  flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+                  backgroundColor: listedKeys.has(s.ingredient_key)
+                    ? "transparent"
+                    : isTop ? OaklandDusk.brand.gold : "transparent",
+                  borderWidth: 1,
+                  borderColor: listedKeys.has(s.ingredient_key)
+                    ? "rgba(74,222,128,0.3)"
+                    : OaklandDusk.brand.gold,
+                  borderRadius: 10, paddingVertical: 12, marginTop: 2,
+                  opacity: listedKeys.has(s.ingredient_key) ? 0.7 : 1,
+                }}
+              >
+                <FontAwesome
+                  name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
+                  size={13}
+                  color={listedKeys.has(s.ingredient_key)
+                    ? "#4ade80"
+                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
+                />
+                {/* Type.button — primary CTA */}
+                <Text style={[Type.button, {
+                  color: listedKeys.has(s.ingredient_key)
+                    ? "#4ade80"
+                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
+                }]}>
+                  {listedKeys.has(s.ingredient_key) ? "On your list ✓" : "Add to Shopping List"}
+                </Text>
+              </Pressable>
             </View>
           </View>
         );
@@ -753,31 +723,34 @@ export default function CartScreen() {
                       </View>
                     )}
 
-                    {/* CTA: outline style */}
+                    {/* CTA: outline style — add to shopping list (3b-fix) */}
                     <Pressable
-                      onPress={() => handleNotifyMe(s)}
+                      onPress={() => handleAddToList(s)}
+                      disabled={listedKeys.has(s.ingredient_key)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Add ${s.display_name} to shopping list`}
                       style={{
                         flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
                         borderWidth: 1,
-                        borderColor: notifiedKeys.has(s.ingredient_key)
+                        borderColor: listedKeys.has(s.ingredient_key)
                           ? "rgba(74,222,128,0.2)"
                           : "rgba(200,120,40,0.2)",
                         borderRadius: 10,
                         paddingVertical: 11,
                         marginTop: 2,
-                        opacity: notifiedKeys.has(s.ingredient_key) ? 0.7 : 1,
+                        opacity: listedKeys.has(s.ingredient_key) ? 0.7 : 1,
                       }}
                     >
                       <FontAwesome
-                        name={notifiedKeys.has(s.ingredient_key) ? "check" : "heart-o"}
+                        name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
                         size={12}
-                        color={notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
+                        color={listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
                       />
                       {/* Type.button — explore CTA */}
                       <Text style={[Type.button, {
-                        color: notifiedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
+                        color: listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
                       }]}>
-                        {notifiedKeys.has(s.ingredient_key) ? "Noted ✓" : "I Want This"}
+                        {listedKeys.has(s.ingredient_key) ? "On your list ✓" : "Add to Shopping List"}
                       </Text>
                     </Pressable>
                   </View>

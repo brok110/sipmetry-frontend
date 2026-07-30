@@ -136,7 +136,7 @@ function RootLayoutNav() {
     if (!hydrated) return;
 
     const firstSegment = segments[0];
-    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile';
+    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile' || firstSegment === 'shopping-list';
 
     if (!user && inAuthArea) {
       router.replace('/age-gate');
@@ -215,6 +215,10 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen name="shopping-list" options={{
+          title: 'Shopping List',
+          headerLeft: () => <HeaderBackButton label="Restock" />,
+        }} />
         <Stack.Screen name="profile/preferences" options={{
           title: 'Preferences',
           headerLeft: () => <HeaderBackButton label="Profile" />,
