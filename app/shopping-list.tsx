@@ -31,6 +31,7 @@ type ListItem = {
   reason_name: string | null;
   source: "recipe" | "restock" | "manual";
   created_at: string;
+  is_alcoholic: boolean;
 };
 
 export default function ShoppingListScreen() {
@@ -80,7 +81,20 @@ export default function ShoppingListScreen() {
 
   // 3b-fix: confirm before the check-off writes to My Bar (replaces the
   // old post-hoc undo toast — Brok ruling 2026-07-28).
+  // SHOP-LIST-4: non-alcoholic items get list-only copy — the backend gate
+  // skips the inventory write, so the dialog must not promise My Bar.
   const handleCheckPress = useCallback((item: ListItem) => {
+    if (item.is_alcoholic === false) {
+      Alert.alert(
+        `Check off ${itemName(item)}?`,
+        "This clears it from your list. Juices and mixers aren't tracked in My Bar.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Check Off", onPress: () => doCheck(item) },
+        ]
+      );
+      return;
+    }
     Alert.alert(
       "Add to My Bar?",
       `Checking this off adds a full bottle of ${itemName(item)} to your bar.`,
