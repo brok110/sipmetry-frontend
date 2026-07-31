@@ -502,6 +502,9 @@ function InventoryCard({
   onRestock,
   isFirstCard,
   onSwipeOpen,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   item: InventoryItem
   sortBy: SortBy
@@ -510,6 +513,9 @@ function InventoryCard({
   onRestock?: () => void
   isFirstCard?: boolean
   onSwipeOpen?: () => void
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: () => void
 }) {
   const { data: ingredientKeysData, resolve } = useIngredientKeys()
   // 盲點判定抽共用:lib/isBlindKey(CABINET-3A),邏輯與原卡片內判定一字不改
@@ -541,17 +547,9 @@ function InventoryCard({
   const bottleMl = Math.round(Number(bottle.remaining_volume))
   const isLow = bottlePct < 20
 
-  return (
-    <SwipeRow
-      onEdit={() => onEdit(item, bottle, safeIdx + 1)}
-      onDelete={() => onDelete(item.id, item.display_name, bottle, safeIdx + 1, bottles.length)}
-      onSwipeOpen={isFirstCard ? onSwipeOpen : undefined}
-    >
-      <Pressable
-        disabled={!multi}
-        onPress={() => setPageIdx((safeIdx + 1) % bottles.length)}
-        accessibilityLabel={multi ? `Bottle ${safeIdx + 1} of ${bottles.length}, tap for next bottle` : undefined}
-      >
+  // INV-MULTIDELETE:卡片內容抽 cardInner,選取態/一般態雙分支共用。
+  // 下方卡片 JSX 內容與縮排原樣保留(surgical diff,內容零改動)。
+  const cardInner = (
       <View style={[styles.card, isLow && { backgroundColor: 'rgba(192,72,88,0.08)' }]}>
         <View style={styles.cardHeader}>
           {/* Info */}
@@ -615,6 +613,41 @@ function InventoryCard({
           </View>
         )}
       </View>
+  )
+
+  // 選取態:整列單一 Pressable = toggle;透明覆蓋層吸收卡內全部
+  // Pressable(名稱連結/盲點/RESTOCK/翻瓶/頁點),swipe 不掛載。
+  if (selectMode) {
+    return (
+      <Pressable
+        onPress={onToggleSelect}
+        accessibilityLabel={selected ? `Deselect ${item.display_name}` : `Select ${item.display_name}`}
+        style={styles.selectRow}
+      >
+        <View style={[styles.selectCircle, selected && styles.selectCircleOn]}>
+          {selected ? <FontAwesome name="check" size={12} color={OaklandDusk.bg.void} /> : null}
+        </View>
+        <View style={{ flex: 1 }}>
+          {cardInner}
+          <View style={StyleSheet.absoluteFill} />
+        </View>
+      </Pressable>
+    )
+  }
+
+  // 一般態:SwipeRow 結構原樣,內容改引 cardInner
+  return (
+    <SwipeRow
+      onEdit={() => onEdit(item, bottle, safeIdx + 1)}
+      onDelete={() => onDelete(item.id, item.display_name, bottle, safeIdx + 1, bottles.length)}
+      onSwipeOpen={isFirstCard ? onSwipeOpen : undefined}
+    >
+      <Pressable
+        disabled={!multi}
+        onPress={() => setPageIdx((safeIdx + 1) % bottles.length)}
+        accessibilityLabel={multi ? `Bottle ${safeIdx + 1} of ${bottles.length}, tap for next bottle` : undefined}
+      >
+        {cardInner}
       </Pressable>
     </SwipeRow>
   )
@@ -700,6 +733,11 @@ export default function ShelfDetailScreen() {
   const [editBottle, setEditBottle] = useState<InventoryBottle | null>(null)
   const [editBottleIndex, setEditBottleIndex] = useState(1)
   const [guideSwipeDismissed, setGuideSwipeDismissed] = useState(true)
+
+  // INV-MULTIDELETE:選取態(iOS Photos 式 SELECT/CANCEL 多選批刪)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [batchDeleting, setBatchDeleting] = useState(false)
 
   // swipe 提示沿用原 My Bar 的 gating 鏈(CTA、GP_STEP_6 皆 dismissed 後才出現)
   useFocusEffect(
@@ -817,6 +855,71 @@ export default function ShelfDetailScreen() {
     )
   }
 
+  // ── INV-MULTIDELETE:選取態 handlers ─────────────────────────────
+  const enterSelectMode = () => {
+    dismissSwipeGuide()
+    setSelectMode(true)
+    setSelectedIds(new Set())
+  }
+
+  const exitSelectMode = () => {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // 批刪:前置確認 → 循序逐列 row DELETE(cascade 已證,零新端點)。
+  // 部分失敗:已刪不回魂,失敗列保持勾選可重試 + silent refresh 校正。
+  const handleBatchDelete = () => {
+    const count = selectedIds.size
+    if (count === 0 || batchDeleting) return
+    // 瓶數與 head 金色大數字同源:Math.max(1, bottles.length) 逐列加總
+    const bottleCount = shelfItems
+      .filter((it) => selectedIds.has(it.id))
+      .reduce((n, it) => n + Math.max(1, it.bottles.length), 0)
+    Alert.alert(
+      count === 1 ? 'Delete 1 item?' : `Delete ${count} items?`,
+      bottleCount === 1 ? 'This removes 1 bottle.' : `This removes ${bottleCount} bottles.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setBatchDeleting(true)
+            const failed: string[] = []
+            for (const id of Array.from(selectedIds)) {
+              try {
+                await deleteInventoryItem(id)
+              } catch {
+                failed.push(id)
+              }
+            }
+            setSelectedIds(new Set(failed))
+            setBatchDeleting(false)
+            if (failed.length > 0) {
+              refreshInventory({ silent: true }).catch(() => {})
+              Alert.alert(
+                'Error',
+                failed.length === 1
+                  ? 'Could not delete 1 item'
+                  : `Could not delete ${failed.length} items`
+              )
+            }
+          },
+        },
+      ]
+    )
+  }
+
   // 批 7(F4):本頁退出原生 header(_layout 設 headerShown false),
   // header 帶自繪——iOS 26 對 header 內按鈕強制圓形玻璃殼,方框 sort 鈕
   // 要與返回膠囊同列只能整條自繪。右滑返回為 stack 手勢,不受影響。
@@ -847,17 +950,32 @@ export default function ShelfDetailScreen() {
           <Text style={styles.backPillText}>My Bar</Text>
         </Pressable>
         {shelfItems.length > 0 && (
-          <Pressable
-            onPress={() => setShowSortDropdown(true)}
-            hitSlop={6}
-            accessibilityLabel="Sort bottles"
-            style={styles.sortBtn}
-          >
-            <View style={styles.sortFrame}>
-              <FilterIcon />
-            </View>
-            <Text style={styles.sortLabel}>SORT</Text>
-          </Pressable>
+          <View style={styles.bandRight}>
+            <Pressable
+              onPress={selectMode ? exitSelectMode : enterSelectMode}
+              hitSlop={6}
+              accessibilityLabel={selectMode ? 'Cancel selection' : 'Select bottles'}
+              style={styles.sortBtn}
+            >
+              <View style={styles.sortFrame}>
+                <FontAwesome name="check" size={13} color={OaklandDusk.brand.gold} />
+              </View>
+              <Text style={styles.sortLabel}>{selectMode ? 'CANCEL' : 'SELECT'}</Text>
+            </Pressable>
+            {!selectMode && (
+              <Pressable
+                onPress={() => setShowSortDropdown(true)}
+                hitSlop={6}
+                accessibilityLabel="Sort bottles"
+                style={styles.sortBtn}
+              >
+                <View style={styles.sortFrame}>
+                  <FilterIcon />
+                </View>
+                <Text style={styles.sortLabel}>SORT</Text>
+              </Pressable>
+            )}
+          </View>
         )}
       </View>
 
@@ -950,13 +1068,16 @@ export default function ShelfDetailScreen() {
                         displayName: item.display_name,
                         source: "my_bar",
                       })}
+                        selectMode={selectMode}
+                        selected={selectedIds.has(item.id)}
+                        onToggleSelect={() => toggleSelected(item.id)}
                       />
                     </React.Fragment>
                   )
                 })
               })()
             : sortedItems.map((item, idx) =>
-                idx === 0 ? (
+                idx === 0 && !selectMode ? (
                   <InventoryCardWithGuide
                     key={item.id}
                     item={item}
@@ -984,6 +1105,9 @@ export default function ShelfDetailScreen() {
                           displayName: item.display_name,
                           source: "my_bar",
                         })}
+                    selectMode={selectMode}
+                    selected={selectedIds.has(item.id)}
+                    onToggleSelect={() => toggleSelected(item.id)}
                   />
                 )
               )
@@ -995,6 +1119,22 @@ export default function ShelfDetailScreen() {
           </Text>
         )}
       </ScrollView>
+
+      {/* INV-MULTIDELETE:選取態底部固定 Delete bar */}
+      {selectMode && (
+        <View style={[styles.deleteBar, { paddingBottom: insets.bottom + 14 }]}>
+          <Pressable
+            onPress={handleBatchDelete}
+            disabled={selectedIds.size === 0 || batchDeleting}
+            accessibilityLabel="Delete selected bottles"
+            style={[styles.deleteBtn, (selectedIds.size === 0 || batchDeleting) && { opacity: 0.35 }]}
+          >
+            {batchDeleting
+              ? <ActivityIndicator size="small" color="#FFF" />
+              : <Text style={styles.deleteBtnText}>{`Delete (${selectedIds.size})`}</Text>}
+          </Pressable>
+        </View>
+      )}
     </View>
   )
 }
@@ -1217,6 +1357,51 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.7,
     color: 'rgb(214,110,124)',
+  },
+
+  // ── INV-MULTIDELETE:選取態 ──
+  bandRight: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  selectRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  selectCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: withAlpha(OaklandDusk.text.primary, 0.3),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectCircleOn: {
+    backgroundColor: OaklandDusk.brand.gold,
+    borderColor: OaklandDusk.brand.gold,
+  },
+  deleteBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: OaklandDusk.bg.void,
+  },
+  deleteBtn: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: 'rgb(192,72,88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteBtnText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#FFF',
   },
 })
 
