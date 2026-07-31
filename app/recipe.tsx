@@ -18,7 +18,6 @@ import { SoundService } from "@/lib/sounds";
 
 import * as Clipboard from "expo-clipboard";
 
-import { FeedbackRating, useFeedback } from "@/context/feedback";
 import { useInteractions } from "@/context/interactions";
 import { useInventory } from "@/context/inventory";
 import {
@@ -267,7 +266,6 @@ export default function TabTwoScreen() {
     return fromParam || fromLegacy || "";
   }, [params.iba_code, legacyRecipe]);
 
-  const { ratingsByKey, setRating } = useFeedback();
   const { favoritesByKey, toggleFavorite, isAtLimit: favoritesAtLimit } = useFavorites();
   const { inventory, initialized: inventoryInitialized, refreshInventory, recordInventoryUse } = useInventory();
   const { track } = useInteractions();
@@ -581,7 +579,6 @@ export default function TabTwoScreen() {
     }, [recipeKey, ingredientsFromScan.length, track])
   );
 
-  const currentRating: FeedbackRating | null = (ratingsByKey?.[recipeKey] as FeedbackRating) ?? null;
 
   const isFav = !!favoritesByKey?.[recipeKey];
 
@@ -780,36 +777,6 @@ export default function TabTwoScreen() {
     // Stage 4: mark positive action (suppress skip on leave)
     if (!wasFav) hadPositiveActionRef.current = true;
     doAddFavorite();
-  };
-
-  const sendFeedback = async (next: FeedbackRating) => {
-    setError(null);
-
-    track({
-      recipe_key: recipeKey,
-      interaction_type: next === "like" ? "like" : "dislike",
-      context: {
-        source: "detail",
-        has_ingredients: ingredientsFromScan.length > 0,
-        app_version: "RECIPES_V1",
-        recipe,
-        ingredients: ingredientsFromScan,
-      },
-    });
-
-    if (next === "like") maybeShowFirstInteractionToast("like");
-    if (next === "like") hadPositiveActionRef.current = true;
-
-    const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
-
-    setRating(recipeKey, next, {
-      recipe_key: recipeKey,
-      iba_code: code || undefined,
-      title: String(recipeTitle || "").trim() || undefined,
-      tags: subtitleTokensForFavorite,
-      recipe,
-      ingredients: ingredientsFromScan,
-    });
   };
 
   const createShareAndGo = async () => {
@@ -1286,46 +1253,6 @@ export default function TabTwoScreen() {
             </Text>
           </View>
         ) : null}
-
-        <View style={styles.ratingButtonsRow}>
-          <Pressable
-            onPress={() => sendFeedback("like")}
-            hitSlop={12}
-            style={[
-              styles.ratingButtonBase,
-              currentRating === "like" ? styles.ratingButtonLikeSelected : styles.ratingButtonUnselected,
-              currentRating === "dislike" && styles.dimmed,
-            ]}
-          >
-            <FontAwesome
-              name={currentRating === "like" ? "thumbs-up" : "thumbs-o-up"}
-              color={currentRating === "like" ? "#6B8F6B" : OaklandDusk.text.tertiary}
-              size={16}
-            />
-            <Text style={[styles.ratingText, currentRating === "like" ? styles.ratingTextLikeSelected : styles.ratingTextUnselected]}>
-              {currentRating === "like" ? "Liked" : "Like"}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => sendFeedback("dislike")}
-            hitSlop={12}
-            style={[
-              styles.ratingButtonBase,
-              currentRating === "dislike" ? styles.ratingButtonDislikeSelected : styles.ratingButtonUnselected,
-              currentRating === "like" && styles.dimmed,
-            ]}
-          >
-            <FontAwesome
-              name={currentRating === "dislike" ? "thumbs-down" : "thumbs-o-down"}
-              color={currentRating === "dislike" ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary}
-              size={16}
-            />
-            <Text style={[styles.ratingText, currentRating === "dislike" ? styles.ratingTextDislikeSelected : styles.ratingTextUnselected]}>
-              {currentRating === "dislike" ? "Disliked" : "Dislike"}
-            </Text>
-          </Pressable>
-        </View>
 
         {/* Servings selector */}
         {session && dbRecipe && madeDrinkState !== 'hidden' ? (
