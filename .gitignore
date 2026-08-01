@@ -54,3 +54,4 @@ BARTENDER_HERO_TRIM_*.md
 # Claude Code — installed/local content, not source of truth
 .claude/skills/
 .claude/settings.local.json
+skills-lock.json
