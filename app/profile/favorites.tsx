@@ -313,7 +313,7 @@ export default function TabThreeScreen() {
                 <Card>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                     {/* Thumbnail — tap opens lightbox */}
-                    <CocktailThumbnail imageUrl={fav.image_url} />
+                    <CocktailThumbnail imageUrl={fav.image_url} size={88} />
                     <Pressable style={{ flex: 1, marginLeft: 12 }} onPress={() => openFavorite(key)}>
                       <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                         {title}
