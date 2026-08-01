@@ -1,4 +1,4 @@
-import CabinetTokens, { withAlpha } from '@/constants/cabinetTokens'
+import CabinetTokens, { SIZE_TIER_SCALE, tierForMl, withAlpha } from '@/constants/cabinetTokens'
 import OaklandDusk from '@/constants/OaklandDusk'
 import type { ShelfId } from '@/lib/cabinet'
 import React, { useEffect, useState } from 'react'
@@ -107,9 +107,10 @@ export type BottleSpec = {
   liquid: string
 }
 
-export function bottleSpec(id: string, shelf: ShelfId): BottleSpec {
+export function bottleSpec(id: string, shelf: ShelfId, totalMl: number | null = null): BottleSpec {
   const hash = hashId(id)
-  const heightPx = HEIGHT_MIN + (hash % HEIGHT_SPAN)
+  const scale = SIZE_TIER_SCALE[tierForMl(totalMl)]
+  const heightPx = Math.round((HEIGHT_MIN + (hash % HEIGHT_SPAN)) * scale)
   return {
     fam: familyFor(shelf, hash),
     heightPx,
@@ -181,10 +182,11 @@ type BottleGlyphProps = {
   pct: number
   isLow: boolean
   isBlind: boolean
+  totalMl: number | null
 }
 
-export default function BottleGlyph({ id, shelf, pct, isLow, isBlind }: BottleGlyphProps) {
-  const spec = bottleSpec(id, shelf)
+export default function BottleGlyph({ id, shelf, pct, isLow, isBlind, totalMl }: BottleGlyphProps) {
+  const spec = bottleSpec(id, shelf, totalMl)
   const f = FAMILIES[spec.fam]
   const clamped = Math.max(0, Math.min(100, Number(pct)))
   // 液面 Y = base − (pct/100) × (base − top)
@@ -233,8 +235,8 @@ export default function BottleGlyph({ id, shelf, pct, isLow, isBlind }: BottleGl
 
 // ── 倒影(README:silhouette scaleY(-1) + 頂→底漸層遮罩,高 24;
 //    平色 tint:低量 crimson@0.16、其餘 gold@0.14)────────────────────────────
-export function BottleReflection({ id, shelf, isLow }: { id: string; shelf: ShelfId; isLow: boolean }) {
-  const spec = bottleSpec(id, shelf)
+export function BottleReflection({ id, shelf, isLow, totalMl }: { id: string; shelf: ShelfId; isLow: boolean; totalMl: number | null }) {
+  const spec = bottleSpec(id, shelf, totalMl)
   const f = FAMILIES[spec.fam]
   // 24px 高的條帶在 viewBox 座標裡的可視高度(等比縮放)
   const viewH = (REFLECTION_HEIGHT * 160) / spec.heightPx

@@ -87,6 +87,7 @@ export default function Shelf({ shelfId, units }: { shelfId: ShelfId; units: Bot
               pct={unit.pct}
               isLow={unit.isLow}
               isBlind={isBlindKey(unit.ingredientKey, ingredientKeysData, resolve)}
+              totalMl={unit.totalMl}
             />
           ))}
         </View>
@@ -98,6 +99,7 @@ export default function Shelf({ shelfId, units }: { shelfId: ShelfId; units: Bot
               id={unit.bottleId}
               shelf={shelfId}
               isLow={unit.isLow}
+              totalMl={unit.totalMl}
             />
           ))}
         </View>

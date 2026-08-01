@@ -44,6 +44,7 @@ export type BottleUnit = {
   ingredientKey: string
   pct: number
   isLow: boolean
+  totalMl: number | null
 }
 
 export function bottleUnitsFor(item: InventoryItem): BottleUnit[] {
@@ -58,6 +59,7 @@ export function bottleUnitsFor(item: InventoryItem): BottleUnit[] {
       ingredientKey: item.ingredient_key,
       pct,
       isLow: isLowStockPct(pct),
+      totalMl: Number.isFinite(Number(item.total_ml)) ? Number(item.total_ml) : null,
     }]
   }
   return bottles.map((b) => {
@@ -68,6 +70,7 @@ export function bottleUnitsFor(item: InventoryItem): BottleUnit[] {
       ingredientKey: item.ingredient_key,
       pct,
       isLow: isLowStockPct(pct),
+      totalMl: Number.isFinite(Number(b.total_ml)) ? Number(b.total_ml) : null,
     }
   })
 }

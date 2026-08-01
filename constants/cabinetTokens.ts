@@ -58,4 +58,24 @@ const CabinetTokens = {
   crimsonTint: '#D66E7C',
 } as const
 
+// ── CABINET-BOTTLE-SIZE(2026-08-01 A 案拍板):三階瓶身尺寸 ──
+// 階層制非連續:half ≤500 / std 501–999 / large ≥1000;缺值 → std。
+// 等比縮放(glyph 為 viewBox 等比 SVG,寬隨高走 — 偏離拍板項 2 的
+// 獨立寬比,技術約束入帳);hash 抖動保留(階內有機變化)。
+export type BottleSizeTier = 'half' | 'std' | 'large'
+
+export const SIZE_TIER_SCALE: Record<BottleSizeTier, number> = {
+  half: 0.77,
+  std: 1,
+  large: 1.18,
+}
+
+export function tierForMl(totalMl: number | null | undefined): BottleSizeTier {
+  const ml = Number(totalMl)
+  if (!Number.isFinite(ml) || ml <= 0) return 'std'
+  if (ml <= 500) return 'half'
+  if (ml >= 1000) return 'large'
+  return 'std'
+}
+
 export default CabinetTokens
