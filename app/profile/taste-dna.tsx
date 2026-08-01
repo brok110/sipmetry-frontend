@@ -241,7 +241,7 @@ export default function TasteDNAScreen() {
         <View style={{
           flexDirection: "row", alignItems: "center", gap: 8,
           paddingHorizontal: 16, paddingVertical: 10,
-          borderRadius: 20, backgroundColor: "#f3f4f6",
+          borderRadius: 999, backgroundColor: "#f3f4f6",
         }}>
           <Text style={{ fontWeight: "800", color: "#6b7280" }}>
             {meta?.interaction_count ?? 0} / {meta?.required ?? 5}
@@ -298,7 +298,7 @@ export default function TasteDNAScreen() {
       {/* Radar chart */}
       {radar.length > 0 ? (
         <View style={{
-          borderWidth: 1, borderRadius: 16, padding: 16,
+          borderWidth: 1, borderRadius: 14, padding: 16,
           borderColor: "#e5e7eb", backgroundColor: "#fafafa",
           alignItems: "center",
         }}>
@@ -308,7 +308,7 @@ export default function TasteDNAScreen() {
 
       {/* Top 3 strengths */}
       {strengths.length > 0 ? (
-        <View style={{ borderWidth: 1, borderRadius: 16, padding: 16, gap: 12, borderColor: "#e5e7eb" }}>
+        <View style={{ borderWidth: 1, borderRadius: 14, padding: 16, gap: 12, borderColor: "#e5e7eb" }}>
           <Text style={{ fontWeight: "900", fontSize: 15 }}>
             {isZh ? "🏆 你的強項" : "🏆 Your Strengths"}
           </Text>
@@ -338,7 +338,7 @@ export default function TasteDNAScreen() {
 
       {/* Unexplored areas */}
       {unexplored.length > 0 ? (
-        <View style={{ borderWidth: 1, borderRadius: 16, padding: 16, gap: 12, borderColor: "#e5e7eb" }}>
+        <View style={{ borderWidth: 1, borderRadius: 14, padding: 16, gap: 12, borderColor: "#e5e7eb" }}>
           <Text style={{ fontWeight: "900", fontSize: 15 }}>
             {isZh ? "🗺️ 未探索領域" : "🗺️ Unexplored Territory"}
           </Text>
@@ -370,7 +370,7 @@ export default function TasteDNAScreen() {
 
       {/* Spirit Affinity */}
       {spiritAffinity.length > 0 && (
-        <View style={{ borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, borderColor: "#e5e7eb" }}>
+        <View style={{ borderWidth: 1, borderRadius: 14, padding: 16, gap: 10, borderColor: "#e5e7eb" }}>
           <Text style={{ fontWeight: "900", fontSize: 15 }}>
             {isZh ? "🥃 烈酒偏好" : "🥃 Spirit Affinity"}
           </Text>
@@ -397,7 +397,7 @@ export default function TasteDNAScreen() {
 
       {/* Category Affinity */}
       {categoryAffinity.length > 0 && (
-        <View style={{ borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, borderColor: "#e5e7eb" }}>
+        <View style={{ borderWidth: 1, borderRadius: 14, padding: 16, gap: 10, borderColor: "#e5e7eb" }}>
           <Text style={{ fontWeight: "900", fontSize: 15 }}>
             {isZh ? "🍸 類別偏好" : "🍸 Category Affinity"}
           </Text>

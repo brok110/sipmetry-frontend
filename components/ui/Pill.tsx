@@ -36,7 +36,7 @@ export default function Pill({ label, variant = 'default' }: PillProps) {
 
 const styles = StyleSheet.create({
   pill: {
-    borderRadius: 10,
+    borderRadius: 999,
     paddingVertical: 3,
     paddingHorizontal: 8,
   },

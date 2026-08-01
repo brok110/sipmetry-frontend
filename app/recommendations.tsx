@@ -229,7 +229,7 @@ export default function RecommendationsScreen() {
         style={({ pressed }) => ({
           borderWidth: 0.5,
           borderLeftWidth: 3,
-          borderRadius: 12,
+          borderRadius: 14,
           borderColor: OaklandDusk.bg.border,
           borderLeftColor: color,
           backgroundColor: OaklandDusk.bg.card,
@@ -270,7 +270,7 @@ export default function RecommendationsScreen() {
               style={{
                 flexDirection: "row", alignItems: "center", gap: 4,
                 borderWidth: 1, borderColor: OaklandDusk.bg.border,
-                borderRadius: 7,
+                borderRadius: 8,
                 paddingHorizontal: 10, paddingVertical: 4,
                 alignSelf: "flex-start",
               }}
@@ -493,7 +493,7 @@ export default function RecommendationsScreen() {
                       backgroundColor: OaklandDusk.bg.card,
                       borderWidth: 0.5,
                       borderColor: i === 0 ? "rgba(200,120,40,0.25)" : "rgba(200,120,40,0.15)",
-                      borderRadius: 12,
+                      borderRadius: 14,
                       padding: 10,
                     }}
                   >

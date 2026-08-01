@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   art: {
     width: "100%",
     aspectRatio: 3 / 4,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: `${OaklandDusk.text.primary}0F`, // ~6% ivory hairline
     overflow: "hidden",

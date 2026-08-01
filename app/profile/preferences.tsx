@@ -90,7 +90,7 @@ function StyleChip({
       disabled={disabled}
       style={{
         borderWidth: 1,
-        borderRadius: 16,
+        borderRadius: 999,
         paddingHorizontal: 10,
         paddingVertical: 5,
         borderColor: active ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
@@ -394,7 +394,7 @@ export default function TabZeroPreferencesScreen() {
               padding: 10,
               borderWidth: 1,
               borderColor: OaklandDusk.bg.border,
-              borderRadius: 12,
+              borderRadius: 14,
               backgroundColor: OaklandDusk.bg.card,
               gap: 6,
               opacity: disabled ? 0.7 : 1,
@@ -427,7 +427,7 @@ export default function TabZeroPreferencesScreen() {
             padding: 10,
             borderWidth: 1,
             borderColor: OaklandDusk.bg.border,
-            borderRadius: 12,
+            borderRadius: 14,
             backgroundColor: OaklandDusk.bg.card,
             gap: 6,
             opacity: disabled ? 0.7 : 1,
@@ -454,6 +454,7 @@ export default function TabZeroPreferencesScreen() {
                 disabled={disabled}
                 minimumTrackTintColor={OaklandDusk.brand.gold}
                 maximumTrackTintColor={OaklandDusk.bg.border}
+                thumbTintColor={OaklandDusk.text.primary}
                 onValueChange={(v) => setDraftAlcohol(toLevel3(v))}
               />
             </View>
@@ -475,6 +476,7 @@ export default function TabZeroPreferencesScreen() {
                 disabled={disabled}
                 minimumTrackTintColor={OaklandDusk.brand.gold}
                 maximumTrackTintColor={OaklandDusk.bg.border}
+                thumbTintColor={OaklandDusk.text.primary}
                 onValueChange={(v) => setDraftSweetness(toLevel3(v))}
               />
             </View>
@@ -496,6 +498,7 @@ export default function TabZeroPreferencesScreen() {
                 disabled={disabled}
                 minimumTrackTintColor={OaklandDusk.brand.gold}
                 maximumTrackTintColor={OaklandDusk.bg.border}
+                thumbTintColor={OaklandDusk.text.primary}
                 onValueChange={(v) => setDraftBitterness(toLevel3(v))}
               />
             </View>
@@ -508,7 +511,7 @@ export default function TabZeroPreferencesScreen() {
             padding: 10,
             borderWidth: 1,
             borderColor: OaklandDusk.bg.border,
-            borderRadius: 12,
+            borderRadius: 14,
             backgroundColor: OaklandDusk.bg.card,
             gap: 6,
             opacity: disabled ? 0.7 : 1,
@@ -552,7 +555,7 @@ export default function TabZeroPreferencesScreen() {
               onPress={save}
               disabled={disabled || !hasChanges || saving}
               style={{
-                borderRadius: 10,
+                borderRadius: 14,
                 paddingVertical: 10,
                 alignItems: "center",
                 backgroundColor: OaklandDusk.brand.gold,
@@ -571,7 +574,7 @@ export default function TabZeroPreferencesScreen() {
             style={{
               borderWidth: 1,
               borderColor: OaklandDusk.bg.border,
-              borderRadius: 10,
+              borderRadius: 12,
               paddingVertical: 10,
               paddingHorizontal: 14,
               alignItems: "center",
@@ -593,7 +596,7 @@ export default function TabZeroPreferencesScreen() {
               padding: 12,
               borderWidth: 1,
               borderColor: OaklandDusk.bg.border,
-              borderRadius: 12,
+              borderRadius: 14,
               backgroundColor: OaklandDusk.bg.card,
               gap: 12,
             }}
