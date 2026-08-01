@@ -69,7 +69,7 @@ export default function StaplesModal({ visible, loading, onConfirm, onCancel }: 
         <Pressable
           style={{
             backgroundColor: OaklandDusk.bg.card,
-            borderRadius: 16, padding: 24, marginHorizontal: 32,
+            borderRadius: 14, padding: 24, marginHorizontal: 32,
             width: "85%", maxWidth: 360, gap: 16,
           }}
           onPress={(e) => e.stopPropagation()}
@@ -90,14 +90,14 @@ export default function StaplesModal({ visible, loading, onConfirm, onCancel }: 
                   onPress={() => toggle(item.ingredient_key)}
                   style={{
                     flexDirection: "row", alignItems: "center", gap: 12,
-                    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10,
+                    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12,
                     borderWidth: 1,
                     borderColor: isSelected ? "#6B8F6B" : OaklandDusk.bg.border,
                     backgroundColor: isSelected ? "rgba(107,143,107,0.08)" : "transparent",
                   }}
                 >
                   <View style={{
-                    width: 22, height: 22, borderRadius: 6, borderWidth: 1.5,
+                    width: 22, height: 22, borderRadius: 8, borderWidth: 1.5,
                     borderColor: isSelected ? "#6B8F6B" : OaklandDusk.text.tertiary,
                     backgroundColor: isSelected ? "rgba(107,143,107,0.15)" : "transparent",
                     alignItems: "center", justifyContent: "center",

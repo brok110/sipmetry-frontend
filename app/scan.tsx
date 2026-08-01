@@ -2041,7 +2041,7 @@ export default function TabOneScreen() {
             justifyContent: "center",
             gap: 8,
             height: 56,
-            borderRadius: 16,
+            borderRadius: 14,
             backgroundColor: OaklandDusk.brand.gold,
           }}
         >
@@ -2058,7 +2058,7 @@ export default function TabOneScreen() {
           <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Preview</Text>
           <Image
             source={{ uri: imageUri }}
-            style={{ width: "100%", height: 260, borderRadius: 12 }}
+            style={{ width: "100%", height: 260, borderRadius: 14 }}
             resizeMode="cover"
           />
 
@@ -2066,7 +2066,7 @@ export default function TabOneScreen() {
             <View style={{
               alignSelf: "stretch",
               padding: 20,
-              borderRadius: 12,
+              borderRadius: 14,
               backgroundColor: OaklandDusk.bg.card,
               borderWidth: 1,
               borderColor: "rgba(200,120,40,.2)",
@@ -2101,7 +2101,7 @@ export default function TabOneScreen() {
               alignItems: "flex-start",
               gap: 10,
               padding: 12,
-              borderRadius: 10,
+              borderRadius: 14,
               backgroundColor: "#2A2518",
               borderWidth: 0.5,
               borderColor: "#5A4820",
@@ -2120,14 +2120,14 @@ export default function TabOneScreen() {
       )}
 
       {error ? (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 14, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
           <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>One moment</Text>
           <Text style={{ color: OaklandDusk.text.secondary }}>{error}</Text>
         </View>
       ) : null}
 
       {safety && (safety.risk_level !== "none" || safety.non_consumable_items.length > 0) ? (
-        <View style={{ padding: 12, borderWidth: 2, borderRadius: 12, borderColor: OaklandDusk.brand.rust, backgroundColor: OaklandDusk.brand.tagBg }}>
+        <View style={{ padding: 12, borderWidth: 2, borderRadius: 14, borderColor: OaklandDusk.brand.rust, backgroundColor: OaklandDusk.brand.tagBg }}>
           {/* Type.heading — safety warning title */}
           <Text style={[Type.heading, { color: OaklandDusk.brand.sundown, marginBottom: 6 }]}>
             Heads up
@@ -2155,7 +2155,7 @@ export default function TabOneScreen() {
         </View>
       ) : null}
 
-      <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
+      <View style={{ padding: 12, borderWidth: 1, borderRadius: 14, borderColor: OaklandDusk.bg.border, backgroundColor: OaklandDusk.bg.card }}>
         {/* Type.heading — section title */}
         <Text style={[Type.heading, { color: OaklandDusk.text.primary, marginBottom: 8 }]}>Ingredients (editable)</Text>
 
@@ -2181,7 +2181,7 @@ export default function TabOneScreen() {
                       paddingVertical: 8,
                       paddingHorizontal: 4,
                       backgroundColor: OaklandDusk.bg.card,
-                      borderRadius: 10,
+                      borderRadius: 12,
                       marginBottom: 4,
                     }}
                   >
@@ -2204,7 +2204,7 @@ export default function TabOneScreen() {
                           style={{
                             flex: 1,
                             borderWidth: 1,
-                            borderRadius: 10,
+                            borderRadius: 12,
                             paddingHorizontal: 12,
                             paddingVertical: 8,
                             borderColor: OaklandDusk.brand.gold,
@@ -2214,13 +2214,13 @@ export default function TabOneScreen() {
                         />
                         <Pressable
                           onPress={() => { setEditingId(null); setEditingValue(""); }}
-                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderRadius: 10, borderColor: OaklandDusk.bg.border }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.bg.border }}
                         >
                           <Text style={{ fontWeight: "800", color: OaklandDusk.text.secondary }}>Cancel</Text>
                         </Pressable>
                         <Pressable
                           onPress={saveEditIngredient}
-                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: OaklandDusk.brand.gold }}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: OaklandDusk.brand.gold }}
                         >
                           <Text style={{ fontWeight: "800", color: OaklandDusk.bg.void }}>Save</Text>
                         </Pressable>
@@ -2340,7 +2340,7 @@ const sessionBottles = sessionBottlesRef.current.get(snakeKey(ing.canonical));
             maxLength={80}
             style={{
               borderWidth: 1,
-              borderRadius: 10,
+              borderRadius: 12,
               paddingHorizontal: 12,
               paddingVertical: 8,
               borderColor: OaklandDusk.bg.border,
@@ -2357,7 +2357,7 @@ const sessionBottles = sessionBottlesRef.current.get(snakeKey(ing.canonical));
                 backgroundColor: OaklandDusk.bg.card,
                 borderWidth: 1,
                 borderColor: OaklandDusk.bg.border,
-                borderRadius: 10,
+                borderRadius: 14,
                 overflow: "hidden",
                 marginTop: 2,
               }}
@@ -2397,7 +2397,7 @@ const sessionBottles = sessionBottlesRef.current.get(snakeKey(ing.canonical));
               backgroundColor: OaklandDusk.brand.gold,
               paddingHorizontal: 16,
               paddingVertical: 8,
-              borderRadius: 8,
+              borderRadius: 12,
               alignItems: "center",
               opacity: loading || !pickedCanonical ? 0.4 : 1,
             }}
@@ -2453,7 +2453,7 @@ const sessionBottles = sessionBottlesRef.current.get(snakeKey(ing.canonical));
               setGpStep4Visible(false);
               setShowStaplesModal(true);
             }}
-            style={{ backgroundColor: OaklandDusk.brand.gold, paddingVertical: 14, borderRadius: 12, alignItems: "center" }}
+            style={{ backgroundColor: OaklandDusk.brand.gold, paddingVertical: 14, borderRadius: 14, alignItems: "center" }}
           >
             <Text style={{ fontSize: 15, fontWeight: "700", color: OaklandDusk.bg.void }}>
               {isZh ? "看我能做什麼食譜" : "Show me recipes"}
