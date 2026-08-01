@@ -785,7 +785,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: `${OaklandDusk.text.primary}12`, // ~7% ivory hairline
-    borderRadius: 22,
+    borderRadius: 999,
     backgroundColor: OaklandDusk.bg.card,
     flexDirection: "row",
     alignItems: "center",

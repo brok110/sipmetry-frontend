@@ -323,7 +323,7 @@ export default function CartScreen() {
               }}
               style={{
                 backgroundColor: OaklandDusk.brand.gold,
-                borderRadius: 12,
+                borderRadius: 14,
                 paddingVertical: 14,
                 alignItems: "center",
               }}
@@ -348,7 +348,7 @@ export default function CartScreen() {
 
       {/* Error */}
       {error && (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 12, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
+        <View style={{ padding: 12, borderWidth: 1, borderRadius: 14, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
           {/* Type.caption — error message */}
           <Text style={[Type.caption, { color: OaklandDusk.semantic.error }]}>{error}</Text>
         </View>
@@ -382,7 +382,7 @@ export default function CartScreen() {
               onPress={() => router.push("/(tabs)/inventory")}
               style={{
                 backgroundColor: OaklandDusk.brand.gold,
-                borderRadius: 10,
+                borderRadius: 12,
                 paddingVertical: 12,
                 paddingHorizontal: 24,
                 marginTop: 8,
@@ -420,7 +420,7 @@ export default function CartScreen() {
           <View
             key={s.ingredient_key}
             style={{
-              borderRadius: 12,
+              borderRadius: 14,
               borderWidth: 0.5,
               borderLeftWidth: isTop ? 3 : 0.5,
               borderColor: OaklandDusk.bg.border,
@@ -517,7 +517,7 @@ export default function CartScreen() {
                             backgroundColor: "rgba(240,228,200,0.08)",
                             paddingHorizontal: 8,
                             paddingVertical: 3,
-                            borderRadius: 6,
+                            borderRadius: 8,
                             borderWidth: 0.5,
                             borderColor: "rgba(240,228,200,0.12)",
                           }}>
@@ -581,7 +581,7 @@ export default function CartScreen() {
                   borderColor: listedKeys.has(s.ingredient_key)
                     ? "rgba(74,222,128,0.3)"
                     : OaklandDusk.brand.gold,
-                  borderRadius: 10, paddingVertical: 12, marginTop: 2,
+                  borderRadius: 12, paddingVertical: 12, marginTop: 2,
                   opacity: listedKeys.has(s.ingredient_key) ? 0.7 : 1,
                 }}
               >
@@ -619,7 +619,7 @@ export default function CartScreen() {
               <Text style={{ fontSize: 15, fontWeight: "700", color: exploreExpanded ? OaklandDusk.brand.gold : OaklandDusk.text.secondary }}>
                 Explore
               </Text>
-              <View style={{ backgroundColor: "rgba(200,120,40,0.1)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 }}>
+              <View style={{ backgroundColor: "rgba(200,120,40,0.1)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 }}>
                 {/* LEAVE: 11px pill count — label textTransform would uppercase "3 upgrades" */}
                 <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>
                   {exploreSuggestions.length} upgrade{exploreSuggestions.length > 1 ? "s" : ""}
@@ -653,7 +653,7 @@ export default function CartScreen() {
                   <View
                     key={s.ingredient_key}
                     style={{
-                      borderRadius: 12,
+                      borderRadius: 14,
                       borderWidth: 0.5,
                       borderColor: "rgba(200,120,40,0.12)",
                       backgroundColor: OaklandDusk.bg.card,
@@ -713,7 +713,7 @@ export default function CartScreen() {
                           {showRecipes.map((name: string) => (
                             <View key={name} style={{
                               backgroundColor: "rgba(200,120,40,0.08)",
-                              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+                              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
                             }}>
                               {/* LEAVE: 11px recipe names — label would uppercase proper nouns */}
                               <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{name}</Text>
@@ -735,7 +735,7 @@ export default function CartScreen() {
                         borderColor: listedKeys.has(s.ingredient_key)
                           ? "rgba(74,222,128,0.2)"
                           : "rgba(200,120,40,0.2)",
-                        borderRadius: 10,
+                        borderRadius: 12,
                         paddingVertical: 11,
                         marginTop: 2,
                         opacity: listedKeys.has(s.ingredient_key) ? 0.7 : 1,
@@ -777,7 +777,7 @@ export default function CartScreen() {
           position: "absolute", bottom: 40, left: 20, right: 20,
           backgroundColor: "#0E0B1A",
           borderWidth: 1, borderColor: "rgba(74,222,128,0.3)",
-          borderRadius: 12, paddingVertical: 14, paddingHorizontal: 18,
+          borderRadius: 14, paddingVertical: 14, paddingHorizontal: 18,
           flexDirection: "row", alignItems: "center", gap: 10,
           shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,

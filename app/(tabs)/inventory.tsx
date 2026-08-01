@@ -437,7 +437,7 @@ export default function MyBarScreen() {
               style={{
                 backgroundColor: OaklandDusk.brand.gold,
                 paddingVertical: 14,
-                borderRadius: 12,
+                borderRadius: 14,
                 alignItems: 'center',
                 opacity: recommendLoading ? 0.7 : 1,
               }}
@@ -657,7 +657,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: OaklandDusk.semantic.error,
-    borderRadius: 10,
+    borderRadius: 14,
     marginBottom: 8,
   },
   errorText: {
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     padding: 24,
     borderWidth: 1,
     borderColor: OaklandDusk.bg.border,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     gap: 8,
   },
