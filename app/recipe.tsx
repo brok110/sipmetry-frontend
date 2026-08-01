@@ -33,6 +33,7 @@ import { useFavorites } from "@/context/favorites";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
 import { useUnitPreference } from "@/hooks/useUnitPreference";
+import { formatOz } from "@/lib/formatOz";
 
 export type DbRecipeIngredient = {
   sort_order: number;
@@ -830,8 +831,7 @@ export default function TabTwoScreen() {
           if (Number.isFinite(ml)) {
             const scaled = ml! * servings;
             if (displayUnit === "oz") {
-              const oz = scaled * 0.033814;
-              amount = `${oz < 0.1 ? oz.toFixed(2) : oz.toFixed(1)} oz`;
+              amount = formatOz(scaled);
             } else {
               amount = `${scaled} ml`;
             }

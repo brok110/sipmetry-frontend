@@ -5,6 +5,7 @@ import Type from "@/constants/typography";
 import type { DbRecipeIngredient, IngredientAvailability } from "@/app/recipe";
 import type { InventoryItem } from "@/context/inventory";
 import type { UnitPreference } from "@/hooks/useUnitPreference";
+import { formatOz } from "@/lib/formatOz";
 
 // NOTE: intentionally NOT the same as rowEngine.ts:104's humanizeKey (that
 // one does not capitalize) — keep this a separate, local helper.
@@ -83,8 +84,7 @@ export const DbIngredientsList = memo(function DbIngredientsList({
       if (Number.isFinite(ml)) {
         const scaledMl = ml! * servings;
         if (displayUnit === "oz") {
-          const oz = scaledMl * 0.033814;
-          amountLabel = `${oz < 0.1 ? oz.toFixed(2) : oz.toFixed(1)} oz`;
+          amountLabel = formatOz(scaledMl);
         } else {
           amountLabel = `${scaledMl} ml`;
         }
