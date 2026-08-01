@@ -235,6 +235,9 @@ function RootLayoutNav() {
           title: 'Feedback',
           headerLeft: () => <HeaderBackButton label="Profile" />,
         }} />
+        {/* ACTIVITY-HISTORY S2:照 shelf 前例自繪 header(SORT 方框鈕
+            需在 band 內,迴避 iOS 26 header 鈕玻璃殼) */}
+        <Stack.Screen name="profile/activity" options={{ headerShown: false }} />
         {/* CABINET-3A 批 7(F4):退出原生 header——iOS 26 對 header 內按鈕
             強制圓形玻璃殼(RNS 4.16.0 無開關),header 帶改由 screen 自繪 */}
         <Stack.Screen name="shelf/[shelf]" options={{ headerShown: false }} />
