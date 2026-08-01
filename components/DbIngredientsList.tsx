@@ -211,22 +211,22 @@ const styles = StyleSheet.create({
 
   rowNeutral: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 10,
-    borderRadius: 6, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
+    borderRadius: 8, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
     borderLeftColor: OaklandDusk.bg.border,
   },
   rowReady: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 10,
-    borderRadius: 6, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
+    borderRadius: 8, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
     borderLeftColor: OaklandDusk.semantic.ready,
   },
   rowSubstitute: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 10,
-    borderRadius: 6, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
+    borderRadius: 8, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
     borderLeftColor: "#D4A030",
   },
   rowMissing: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8, paddingHorizontal: 10,
-    borderRadius: 6, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
+    borderRadius: 8, backgroundColor: "rgba(255,255,255,0.02)", borderLeftWidth: 3,
     borderLeftColor: "#C87070",
   },
 

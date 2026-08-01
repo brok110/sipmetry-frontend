@@ -16,7 +16,7 @@ export default function CocktailThumbnail({ imageUrl, size = 56 }: CocktailThumb
         style={{
           width: size,
           height: size,
-          borderRadius: 10,
+          borderRadius: 12,
           backgroundColor: OaklandDusk.bg.surface,
           alignItems: "center",
           justifyContent: "center",
@@ -40,7 +40,7 @@ export default function CocktailThumbnail({ imageUrl, size = 56 }: CocktailThumb
           style={{
             width: size,
             height: size,
-            borderRadius: 10,
+            borderRadius: 12,
             backgroundColor: OaklandDusk.bg.surface,
           }}
           resizeMode="cover"

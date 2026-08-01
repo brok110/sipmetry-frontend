@@ -330,7 +330,7 @@ export default function TabThreeScreen() {
                                     backgroundColor: OaklandDusk.brand.tagBg,
                                     paddingHorizontal: 8,
                                     paddingVertical: 3,
-                                    borderRadius: 6,
+                                    borderRadius: 8,
                                   }}
                                 >
                                   <Text style={{ fontSize: 11, fontWeight: "700", color: OaklandDusk.brand.gold }}>{tag}</Text>

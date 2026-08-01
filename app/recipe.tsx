@@ -1075,7 +1075,7 @@ export default function TabTwoScreen() {
           <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>No recipe selected. Go back to Scan and tap "View".</Text>
 
           {__DEV__ ? (
-            <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 12, gap: 6, backgroundColor: OaklandDusk.bg.card }}>
+            <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.bg.border, borderRadius: 14, gap: 6, backgroundColor: OaklandDusk.bg.card }}>
               <Text style={{ fontWeight: "800", color: OaklandDusk.text.primary }}>Debug</Text>
               <Text style={{ color: OaklandDusk.text.tertiary }}>ibaCode: {ibaCode || "(empty)"}</Text>
               <Text style={{ color: OaklandDusk.text.tertiary }}>recipe_key: {String((params as any)?.recipe_key ?? "") || "(empty)"}</Text>
@@ -1326,7 +1326,7 @@ export default function TabTwoScreen() {
         </View>
 
         {error ? (
-          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.accent.crimson, borderRadius: 12, backgroundColor: OaklandDusk.accent.roseBg }}>
+          <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.accent.crimson, borderRadius: 14, backgroundColor: OaklandDusk.accent.roseBg }}>
             {/* Type.heading — error state title */}
             <Text style={[Type.heading, { color: OaklandDusk.accent.crimson }]}>Error</Text>
             {/* Type.body — error description */}
@@ -1482,7 +1482,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(29,158,117,0.06)",
     borderWidth: 1,
     borderColor: "rgba(29,158,117,0.15)",
-    borderRadius: 8,
+    borderRadius: 14,
     marginBottom: 12,
   },
   confidenceBoxNotReady: {
@@ -1494,7 +1494,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(200,120,40,0.06)",
     borderWidth: 1,
     borderColor: "rgba(200,120,40,0.15)",
-    borderRadius: 8,
+    borderRadius: 14,
     marginBottom: 12,
   },
   confidenceCheckmark: {
@@ -1514,50 +1514,8 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: OaklandDusk.bg.border,
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: OaklandDusk.bg.card,
-  },
-  ratingButtonsRow: {
-    flexDirection: "row",
-    gap: 10,
-    alignItems: "center",
-  },
-  ratingButtonBase: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 0.5,
-  },
-  ratingButtonUnselected: {
-    backgroundColor: OaklandDusk.bg.card,
-    borderColor: OaklandDusk.bg.border,
-  },
-  ratingButtonLikeSelected: {
-    backgroundColor: "#1A2A1A",
-    borderColor: "#6B8F6B",
-  },
-  ratingButtonDislikeSelected: {
-    backgroundColor: "#3A2A2A",
-    borderColor: OaklandDusk.accent.crimson,
-  },
-  dimmed: {
-    opacity: 0.4,
-  },
-  ratingText: {
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  ratingTextUnselected: {
-    color: OaklandDusk.text.tertiary,
-  },
-  ratingTextLikeSelected: {
-    color: "#6B8F6B",
-  },
-  ratingTextDislikeSelected: {
-    color: OaklandDusk.accent.crimson,
   },
   servingsRow: {
     flexDirection: 'row',
@@ -1598,7 +1556,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: OaklandDusk.bg.border,
-    borderRadius: 12,
+    borderRadius: 14,
     gap: 12,
     backgroundColor: OaklandDusk.bg.card,
   },
@@ -1622,7 +1580,7 @@ const styles = StyleSheet.create({
     borderTopColor: OaklandDusk.bg.border,
   },
   ctaButtonBase: {
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1651,7 +1609,7 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     backgroundColor: "#1e293b",
-    borderRadius: 12,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 16,
     alignItems: "center",
