@@ -34,6 +34,7 @@ import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
 import { useUnitPreference } from "@/hooks/useUnitPreference";
 import { formatOz } from "@/lib/formatOz";
+import { R } from "@/constants/radius";
 
 export type DbRecipeIngredient = {
   sort_order: number;
@@ -97,6 +98,27 @@ const NO_SELECTION_HEADER_OPTIONS = {
 };
 
 const RECIPE_HEADER_OPTIONS = { title: "", headerShown: false };
+
+// UNITS-TOGGLE(2026-08-01 拍板):mini 膠囊 segmented,搬移非複製
+// (Profile 的 Recipe Units 列同批移除)。同一 useUnitPreference 全域
+// 偏好;oz 態經 formatOz snap 刻度,分享文字跟著走。
+function UnitToggle({ unit, onChange }: { unit: "oz" | "ml"; onChange: (u: "oz" | "ml") => void }) {
+  return (
+    <View style={styles.unitSeg}>
+      {(["oz", "ml"] as const).map((u) => (
+        <Pressable
+          key={u}
+          onPress={() => onChange(u)}
+          hitSlop={6}
+          accessibilityLabel={`Show amounts in ${u}`}
+          style={[styles.unitSegBtn, unit === u && styles.unitSegBtnOn]}
+        >
+          <Text style={[styles.unitSegText, unit === u && styles.unitSegTextOn]}>{u.toUpperCase()}</Text>
+        </Pressable>
+      ))}
+    </View>
+  )
+}
 
 export default function TabTwoScreen() {
 
@@ -276,7 +298,7 @@ export default function TabTwoScreen() {
   const [listedKeys, setListedKeys] = useState<Set<string>>(new Set());
 
   const { session } = useAuth();
-  const { unit: displayUnit } = useUnitPreference();
+  const { unit: displayUnit, setUnit } = useUnitPreference();
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -1283,10 +1305,14 @@ export default function TabTwoScreen() {
 
         <View style={styles.recipeContentCard}>
           <View>
-            <View style={styles.sectionHeaderRow}>
-              <FontAwesome name="flask" size={14} color={OaklandDusk.brand.gold} />
-              {/* Type.title — section header */}
-              <Text style={[Type.title, styles.primaryText]}>Ingredients</Text>
+            <View style={[styles.sectionHeaderRow, { justifyContent: "space-between" }]}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <FontAwesome name="flask" size={14} color={OaklandDusk.brand.gold} />
+                {/* Type.title — section header */}
+                <Text style={[Type.title, styles.primaryText]}>Ingredients</Text>
+              </View>
+              {/* UNITS-TOGGLE:切換住效果旁(mockup 拍板) */}
+              <UnitToggle unit={displayUnit} onChange={setUnit} />
             </View>
             {dbRecipe ? (
               <DbIngredientsList
@@ -1565,6 +1591,30 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginBottom: 6,
+  },
+  unitSeg: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: "rgba(200,120,40,0.35)",
+    borderRadius: R.pill,
+    overflow: "hidden",
+  },
+  unitSegBtn: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+  },
+  unitSegBtnOn: {
+    backgroundColor: OaklandDusk.brand.gold,
+  },
+  unitSegText: {
+    fontFamily: "DMMono",
+    fontSize: 10,
+    letterSpacing: 1,
+    color: OaklandDusk.text.tertiary,
+  },
+  unitSegTextOn: {
+    color: OaklandDusk.bg.void,
+    fontWeight: "700",
   },
   tertiaryText: {
     color: OaklandDusk.text.tertiary,

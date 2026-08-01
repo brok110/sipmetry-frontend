@@ -11,7 +11,6 @@ import { apiFetch } from "@/lib/api";
 import { useAuth } from "@/context/auth";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
-import { useUnitPreference } from "@/hooks/useUnitPreference";
 import { SoundService } from '@/lib/sounds';
 
 function ProfileRow({
@@ -45,7 +44,6 @@ function ProfileRow({
 export default function ProfileScreen() {
   const router = useRouter();
   const { session, signOut, isAnonymous } = useAuth();
-  const { unit: displayUnit, setUnit: setDisplayUnit } = useUnitPreference();
   const [soundsEnabled, setSoundsEnabled] = useState(true);
   const userEmail = session?.user?.email;
   const isZh = useMemo(() => {
@@ -248,60 +246,6 @@ export default function ProfileScreen() {
             label="Activity"
             onPress={() => router.push("/profile/activity")}
           />
-
-          {/* Recipe unit toggle */}
-          <View style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            paddingVertical: 12,
-            paddingHorizontal: 14,
-            borderRadius: 12,
-            backgroundColor: OaklandDusk.bg.card,
-          }}>
-            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
-              Recipe Units
-            </Text>
-            <View style={{ flexDirection: "row", gap: 0 }}>
-              <Pressable
-                onPress={() => setDisplayUnit("oz")}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderTopLeftRadius: 10,
-                  borderBottomLeftRadius: 10,
-                  borderWidth: 1,
-                  borderColor: OaklandDusk.bg.border,
-                  backgroundColor: displayUnit === "oz" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
-                }}
-              >
-                <Text style={{
-                  fontWeight: "700",
-                  fontSize: 13,
-                  color: displayUnit === "oz" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
-                }}>oz</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => setDisplayUnit("ml")}
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 8,
-                  borderTopRightRadius: 10,
-                  borderBottomRightRadius: 10,
-                  borderWidth: 1,
-                  borderLeftWidth: 0,
-                  borderColor: OaklandDusk.bg.border,
-                  backgroundColor: displayUnit === "ml" ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
-                }}
-              >
-                <Text style={{
-                  fontWeight: "700",
-                  fontSize: 13,
-                  color: displayUnit === "ml" ? OaklandDusk.bg.void : OaklandDusk.text.tertiary,
-                }}>ml</Text>
-              </Pressable>
-            </View>
-          </View>
 
           {/* Sound Effects toggle */}
           <View style={{
