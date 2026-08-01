@@ -958,7 +958,7 @@ export default function ShelfDetailScreen() {
               style={styles.sortBtn}
             >
               <View style={styles.sortFrame}>
-                <FontAwesome name="check" size={13} color={OaklandDusk.brand.gold} />
+                <FontAwesome name={selectMode ? 'times' : 'check'} size={13} color={OaklandDusk.brand.gold} />
               </View>
               <Text style={styles.sortLabel}>{selectMode ? 'CANCEL' : 'SELECT'}</Text>
             </Pressable>
