@@ -417,13 +417,12 @@ export default function CartScreen() {
             {isTop && (
               <View style={{
                 position: "absolute",
-                top: -1,
-                right: 12,
+                top: -9,
+                left: 14,
                 backgroundColor: OaklandDusk.brand.gold,
-                paddingHorizontal: 10,
+                paddingHorizontal: 9,
                 paddingVertical: 3,
-                borderBottomLeftRadius: 8,
-                borderBottomRightRadius: 8,
+                borderRadius: R.control,
                 zIndex: 1,
               }}>
                 {/* Type.label — badge kicker */}
@@ -431,14 +430,47 @@ export default function CartScreen() {
               </View>
             )}
 
-            <View style={{ padding: 16, gap: 14 }}>
-              {/* Row 1: Bottle name + category + big unlock number */}
+            <View style={{ padding: 16, gap: 10 }}>
+              {/* Row 1(Z 案):左 = 名字 + Add 膠囊直排;右 = +N 獨佔 */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
+                <View style={{ flex: 1, paddingRight: 12, gap: 12, alignItems: "flex-start" }}>
                   {/* Type.heading — ingredient name;S3 批接 tap → 說明頁 */}
                   <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                     {s.display_name}
                   </Text>
+                  {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
+                      list. I Want This / notify / browser jump removed by
+                      ruling 2026-07-28; the intent stream is now the
+                      shopping_list table + check-off. */}
+                  {/* B v4 + Z 案:Add 膠囊移入名字下方(卡高收斂);已加 = 綠描邊 */}
+                  <Pressable
+                    onPress={() => handleAddToList(s)}
+                    disabled={listedKeys.has(s.ingredient_key)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Add ${s.display_name} to shopping list`}
+                    style={{
+                      flexDirection: "row", alignItems: "center", gap: 7,
+                      backgroundColor: "transparent",
+                      borderWidth: 1,
+                      borderColor: listedKeys.has(s.ingredient_key)
+                        ? "rgba(74,222,128,0.4)"
+                        : "rgba(200,120,40,0.45)",
+                      borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
+                    }}
+                  >
+                    <FontAwesome
+                      name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
+                      size={12}
+                      color={listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
+                    />
+                    {/* Type.caption — 小膠囊標籤 */}
+                    <Text style={[Type.caption, {
+                      fontWeight: "700",
+                      color: listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
+                    }]}>
+                      {listedKeys.has(s.ingredient_key) ? "On list" : "Add"}
+                    </Text>
+                  </Pressable>
                 </View>
                 <Pressable
                   onPress={() => openUnlocks(`${s.display_name} unlocks`, s.recipes)}
@@ -454,41 +486,6 @@ export default function CartScreen() {
                 </Pressable>
               </View>
 
-              {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
-                  list. I Want This / notify / browser jump removed by
-                  ruling 2026-07-28; the intent stream is now the
-                  shopping_list table + check-off. */}
-              {/* B v4 拍板:滿版金鈕 → 右下小膠囊(減壓);已加 = 綠描邊 */}
-              <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
-                <Pressable
-                  onPress={() => handleAddToList(s)}
-                  disabled={listedKeys.has(s.ingredient_key)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Add ${s.display_name} to shopping list`}
-                  style={{
-                    flexDirection: "row", alignItems: "center", gap: 7,
-                    backgroundColor: "transparent",
-                    borderWidth: 1,
-                    borderColor: listedKeys.has(s.ingredient_key)
-                      ? "rgba(74,222,128,0.4)"
-                      : "rgba(200,120,40,0.45)",
-                    borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
-                  }}
-                >
-                  <FontAwesome
-                    name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
-                    size={12}
-                    color={listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
-                  />
-                  {/* Type.caption — 小膠囊標籤 */}
-                  <Text style={[Type.caption, {
-                    fontWeight: "700",
-                    color: listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
-                  }]}>
-                    {listedKeys.has(s.ingredient_key) ? "On list" : "Add"}
-                  </Text>
-                </Pressable>
-              </View>
             </View>
           </View>
         );
