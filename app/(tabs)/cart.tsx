@@ -21,6 +21,7 @@ import { track as analytics } from "@/lib/analytics/analytics";
 import { EVENTS } from "@/lib/analytics/events";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
+import { R } from "@/constants/radius";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
@@ -47,12 +48,24 @@ type Suggestion = {
   versatility_categories?: string[];
   reason: string;
   buy_url: string;
-  recipes: { iba_code: string; name: string; iba_category: string }[];
+  recipes: { iba_code: string; name: string; iba_category: string; image_url?: string | null }[];
   is_alternative_upgrade?: boolean;
   covering_alternative?: { user_has: string; user_has_display: string } | null;
   alt_description?: string | null;
 };
 
+// S2:+N / hero → 明細頁(呼叫端已有 recipes,免二次請求)
+function openUnlocks(title: string, recipes: Suggestion["recipes"]) {
+  router.push({
+    pathname: "/restock-unlocks",
+    params: {
+      title,
+      recipes_json: encodeURIComponent(JSON.stringify(
+        (recipes ?? []).map((r) => ({ iba_code: r.iba_code, name: r.name, image_url: r.image_url ?? null }))
+      )),
+    },
+  });
+}
 
 export default function CartScreen() {
   const { session } = useAuth();
@@ -88,8 +101,6 @@ export default function CartScreen() {
 
   // Explore accordion
   const [exploreExpanded, setExploreExpanded] = useState(false);
-
-  // Guide bubble state
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -321,16 +332,28 @@ export default function CartScreen() {
 
       {/* Hero number — top PRIMARY suggestion's unlock count */}
       {hasFetched && primarySuggestions.length > 0 && !loading && (
-        <View style={{ alignItems: "center", paddingVertical: 16 }}>
+        <Pressable
+          onPress={() => openUnlocks(
+            "All new cocktails",
+            Array.from(
+              new Map(
+                primarySuggestions.flatMap((s) => s.recipes ?? []).map((r) => [r.iba_code, r])
+              ).values()
+            )
+          )}
+          accessibilityRole="button"
+          accessibilityLabel="See all new cocktails"
+          style={{ alignItems: "center", paddingVertical: 16 }}
+        >
           {/* LEAVE: 14px hero support text — no matching role */}
           <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>Add one bottle, make</Text>
           {/* LEAVE: 48px hero number — outside type scale */}
           <Text style={{ fontSize: 48, fontWeight: "800", color: OaklandDusk.brand.gold, lineHeight: 56 }}>
-            {primarySuggestions[0].unlocks_count} more
+            {primarySuggestions[0].unlocks_count} more ›
           </Text>
           {/* LEAVE: 16px "cocktails" companion — no matching role */}
           <Text style={{ fontSize: 16, fontWeight: "700", color: OaklandDusk.brand.gold }}>cocktails</Text>
-        </View>
+        </Pressable>
       )}
 
       {hasFetched && filteredSuggestions.length === 0 && !loading && (
@@ -417,52 +440,55 @@ export default function CartScreen() {
                     {s.display_name}
                   </Text>
                 </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  {/* +N 裸字(mockup v6 拍板):Bebas 金,無框無副標;S2 批接 tap → 明細頁 */}
+                <Pressable
+                  onPress={() => openUnlocks(`${s.display_name} unlocks`, s.recipes)}
+                  hitSlop={10}
+                  accessibilityRole="button"
+                  accessibilityLabel={`See the ${s.unlocks_count} cocktails ${s.display_name} unlocks`}
+                  style={{ alignItems: "flex-end" }}
+                >
+                  {/* +N 裸字(mockup v6 拍板):Bebas 金,無框無副標;tap → 明細頁 */}
                   <Text style={[Type.title, { fontSize: 32, lineHeight: 34, color: OaklandDusk.brand.gold }]}>
                     +{s.unlocks_count}
                   </Text>
-                </View>
+                </Pressable>
               </View>
 
               {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
                   list. I Want This / notify / browser jump removed by
                   ruling 2026-07-28; the intent stream is now the
                   shopping_list table + check-off. */}
-              <Pressable
-                onPress={() => handleAddToList(s)}
-                disabled={listedKeys.has(s.ingredient_key)}
-                accessibilityRole="button"
-                accessibilityLabel={`Add ${s.display_name} to shopping list`}
-                style={{
-                  flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                  backgroundColor: listedKeys.has(s.ingredient_key)
-                    ? "transparent"
-                    : OaklandDusk.brand.gold,
-                  borderWidth: 1,
-                  borderColor: listedKeys.has(s.ingredient_key)
-                    ? "rgba(74,222,128,0.3)"
-                    : OaklandDusk.brand.gold,
-                  borderRadius: 12, paddingVertical: 12, marginTop: 2,
-                  opacity: listedKeys.has(s.ingredient_key) ? 0.7 : 1,
-                }}
-              >
-                <FontAwesome
-                  name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
-                  size={13}
-                  color={listedKeys.has(s.ingredient_key)
-                    ? "#4ade80"
-                    : OaklandDusk.bg.void}
-                />
-                {/* Type.button — primary CTA */}
-                <Text style={[Type.button, {
-                  color: listedKeys.has(s.ingredient_key)
-                    ? "#4ade80"
-                    : OaklandDusk.bg.void,
-                }]}>
-                  {listedKeys.has(s.ingredient_key) ? "On your list ✓" : "Add to Shopping List"}
-                </Text>
-              </Pressable>
+              {/* B v4 拍板:滿版金鈕 → 右下小膠囊(減壓);已加 = 綠描邊 */}
+              <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+                <Pressable
+                  onPress={() => handleAddToList(s)}
+                  disabled={listedKeys.has(s.ingredient_key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add ${s.display_name} to shopping list`}
+                  style={{
+                    flexDirection: "row", alignItems: "center", gap: 7,
+                    backgroundColor: "transparent",
+                    borderWidth: 1,
+                    borderColor: listedKeys.has(s.ingredient_key)
+                      ? "rgba(74,222,128,0.4)"
+                      : "rgba(200,120,40,0.45)",
+                    borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
+                  }}
+                >
+                  <FontAwesome
+                    name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
+                    size={12}
+                    color={listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
+                  />
+                  {/* Type.caption — 小膠囊標籤 */}
+                  <Text style={[Type.caption, {
+                    fontWeight: "700",
+                    color: listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
+                  }]}>
+                    {listedKeys.has(s.ingredient_key) ? "On list" : "Add"}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         );
@@ -612,7 +638,7 @@ export default function CartScreen() {
                       <Text style={[Type.button, {
                         color: listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
                       }]}>
-                        {listedKeys.has(s.ingredient_key) ? "On your list ✓" : "Add to Shopping List"}
+                        {listedKeys.has(s.ingredient_key) ? "On list" : "Add"}
                       </Text>
                     </Pressable>
                   </View>

@@ -136,7 +136,7 @@ function RootLayoutNav() {
     if (!hydrated) return;
 
     const firstSegment = segments[0];
-    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile' || firstSegment === 'shopping-list';
+    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile' || firstSegment === 'shopping-list' || firstSegment === 'restock-unlocks';
 
     if (!user && inAuthArea) {
       router.replace('/age-gate');
@@ -238,6 +238,8 @@ function RootLayoutNav() {
         {/* ACTIVITY-HISTORY S2:照 shelf 前例自繪 header(SORT 方框鈕
             需在 band 內,迴避 iOS 26 header 鈕玻璃殼) */}
         <Stack.Screen name="profile/activity" options={{ headerShown: false }} />
+        {/* RESTOCK-REDESIGN S2:自繪 header(同 activity 前例) */}
+        <Stack.Screen name="restock-unlocks" options={{ headerShown: false }} />
         {/* CABINET-3A 批 7(F4):退出原生 header——iOS 26 對 header 內按鈕
             強制圓形玻璃殼(RNS 4.16.0 無開關),header 帶改由 screen 自繪 */}
         <Stack.Screen name="shelf/[shelf]" options={{ headerShown: false }} />
