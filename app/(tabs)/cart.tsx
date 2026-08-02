@@ -13,10 +13,8 @@ import {
 import * as Sentry from "@sentry/react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/context/auth";
-import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import Masthead from "@/components/Masthead";
 import { useFavorites } from "@/context/favorites";
-import { useInventory } from "@/context/inventory";
 import { useFeedback } from "@/context/feedback";
 import { apiFetch } from "@/lib/api";
 import { track as analytics } from "@/lib/analytics/analytics";
@@ -55,19 +53,11 @@ type Suggestion = {
   alt_description?: string | null;
 };
 
-function formatFamilyKey(key: string | null | undefined): string {
-  if (!key) return "";
-  return key
-    .split("_")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
 
 export default function CartScreen() {
   const { session } = useAuth();
   const { favoritesByKey } = useFavorites();
   const feedback = useFeedback() as any;
-  const { inventory } = useInventory();
   const params = useLocalSearchParams<{ autoFetch?: string }>();
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -100,12 +90,13 @@ export default function CartScreen() {
   const [exploreExpanded, setExploreExpanded] = useState(false);
 
   // Guide bubble state
-  const [guideCartVisible, setGuideCartVisible] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // S1 直入:tab 進頁即載入(入口鈕頁移除;RESTOCK-REDESIGN 拍板)
   useEffect(() => {
-    isGuideDismissed(GUIDE_KEYS.CART).then((d) => setGuideCartVisible(!d));
+    if (!hasFetched && !loading) fetchSuggestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-fetch when navigated from Recommendations with autoFetch=true
@@ -305,38 +296,6 @@ export default function CartScreen() {
         </Text>
       </View>
 
-      {/* Load button (first time) — guide #8 */}
-      {!hasFetched && !loading && (
-        <View style={{ zIndex: 20, overflow: "visible" }}>
-          <HintBubble
-            storageKey={GUIDE_KEYS.CART}
-            visible={guideCartVisible}
-            onDismiss={() => setGuideCartVisible(false)}
-            hintType="tap"
-            hintColor="charcoal"
-          >
-            <Pressable
-              onPress={() => {
-                dismissGuide(GUIDE_KEYS.CART);
-                setGuideCartVisible(false);
-                fetchSuggestions();
-              }}
-              style={{
-                backgroundColor: OaklandDusk.brand.gold,
-                borderRadius: 14,
-                paddingVertical: 14,
-                alignItems: "center",
-              }}
-            >
-              {/* Type.button — primary CTA */}
-              <Text style={[Type.button, { color: OaklandDusk.bg.void }]}>
-                Get Recommendations
-              </Text>
-            </Pressable>
-          </HintBubble>
-        </View>
-      )}
-
       {/* Loading */}
       {loading && !hasFetched && (
         <View style={{ padding: 40, alignItems: "center" }}>
@@ -346,17 +305,23 @@ export default function CartScreen() {
         </View>
       )}
 
-      {/* Error */}
+      {/* Error — S1:tap 重試 */}
       {error && (
-        <View style={{ padding: 12, borderWidth: 1, borderRadius: 14, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg }}>
+        <Pressable
+          onPress={fetchSuggestions}
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading recommendations"
+          style={{ padding: 12, borderWidth: 1, borderRadius: 14, borderColor: OaklandDusk.accent.crimson, backgroundColor: OaklandDusk.accent.roseBg, gap: 4 }}
+        >
           {/* Type.caption — error message */}
           <Text style={[Type.caption, { color: OaklandDusk.semantic.error }]}>{error}</Text>
-        </View>
+          <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>Tap to retry</Text>
+        </Pressable>
       )}
 
       {/* Hero number — top PRIMARY suggestion's unlock count */}
       {hasFetched && primarySuggestions.length > 0 && !loading && (
-        <View style={{ alignItems: "center", paddingVertical: 8 }}>
+        <View style={{ alignItems: "center", paddingVertical: 16 }}>
           {/* LEAVE: 14px hero support text — no matching role */}
           <Text style={{ fontSize: 14, color: OaklandDusk.text.tertiary }}>Add one bottle, make</Text>
           {/* LEAVE: 48px hero number — outside type scale */}
@@ -410,11 +375,6 @@ export default function CartScreen() {
       {/* Primary suggestion cards — true must-buys */}
       {primarySuggestions.map((s, i) => {
         const isTop = i === 0;
-        const recipeNames = (s.recipes ?? []).map((r) => r.name).filter(Boolean);
-        const showRecipes = recipeNames.slice(0, 4);
-        const moreCount = recipeNames.length - showRecipes.length;
-        const prefPercent = Math.round((s.avg_pref_match ?? 0) * 100);
-        const categoryLabel = formatFamilyKey(s.family_key);
 
         return (
           <View
@@ -448,120 +408,22 @@ export default function CartScreen() {
               </View>
             )}
 
-            <View style={{ padding: 14, gap: 10 }}>
+            <View style={{ padding: 16, gap: 14 }}>
               {/* Row 1: Bottle name + category + big unlock number */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  {/* Type.heading — ingredient name / card title */}
+                  {/* Type.heading — ingredient name;S3 批接 tap → 說明頁 */}
                   <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                     {s.display_name}
                   </Text>
-                  {categoryLabel ? (
-                    // Type.caption — category sub-label
-                    <Text style={[Type.caption, { color: OaklandDusk.text.tertiary, marginTop: 2 }]}>
-                      {categoryLabel}
-                    </Text>
-                  ) : null}
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  {/* Type.title — +N unlock badge (BebasNeue 22, gold if isTop) */}
-                  <Text style={[Type.title, {
-                    color: isTop ? OaklandDusk.brand.gold : "#6B8F6B",
-                  }]}>
+                  {/* +N 裸字(mockup v6 拍板):Bebas 金,無框無副標;S2 批接 tap → 明細頁 */}
+                  <Text style={[Type.title, { fontSize: 32, lineHeight: 34, color: OaklandDusk.brand.gold }]}>
                     +{s.unlocks_count}
-                  </Text>
-                  {/* LEAVE: 10px sub-label — below caption floor (12px) */}
-                  <Text style={{
-                    fontSize: 10,
-                    color: OaklandDusk.text.tertiary,
-                  }}>
-                    {s.unlocks_count === 1 ? "cocktail" : "cocktails"}
                   </Text>
                 </View>
               </View>
-
-              {/* Row 3: Unlocked recipes — tappable */}
-              {showRecipes.length > 0 && (
-                <View style={{ gap: 4 }}>
-                  {/* Type.label — section kicker */}
-                  <Text style={[Type.label, { color: OaklandDusk.text.tertiary }]}>
-                    YOU COULD MAKE
-                  </Text>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {showRecipes.map((name) => {
-                      const recipe = (s.recipes ?? []).find((r) => r.name === name);
-                      const ibaCode = recipe?.iba_code ?? "";
-                      return (
-                        <Pressable
-                          key={name}
-                          onPress={() => {
-                            if (ibaCode) {
-                              router.push({
-                                pathname: "/recipe",
-                                params: {
-                                  iba_code: ibaCode,
-                                  from: "restock",
-                                  scan_items_json: encodeURIComponent(JSON.stringify(
-                                    inventory.map(item => ({
-                                      canonical: item.ingredient_key,
-                                      display: item.display_name,
-                                    }))
-                                  )),
-                                },
-                              });
-                            }
-                          }}
-                          disabled={!ibaCode}
-                        >
-                          <View style={{
-                            backgroundColor: "rgba(240,228,200,0.08)",
-                            paddingHorizontal: 8,
-                            paddingVertical: 3,
-                            borderRadius: 8,
-                            borderWidth: 0.5,
-                            borderColor: "rgba(240,228,200,0.12)",
-                          }}>
-                            {/* Type.caption — recipe name pill */}
-                            <Text style={[Type.caption, {
-                              color: ibaCode ? OaklandDusk.brand.gold : OaklandDusk.text.secondary,
-                              textDecorationLine: ibaCode ? "underline" : "none",
-                              textDecorationColor: "rgba(200,152,88,0.3)",
-                            }]}>
-                              {name}
-                            </Text>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                    {moreCount > 0 && (
-                      <View style={{ paddingHorizontal: 8, paddingVertical: 3 }}>
-                        {/* Type.caption — overflow count */}
-                        <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>+{moreCount} more</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
-              )}
-
-              {/* Row 4: Taste match */}
-              {prefPercent > 0 && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <View style={{
-                    height: 4, flex: 1, backgroundColor: "rgba(240,228,200,0.08)",
-                    borderRadius: 2, overflow: "hidden",
-                  }}>
-                    <View style={{
-                      height: 4, width: `${Math.min(prefPercent, 100)}%`,
-                      backgroundColor: prefPercent >= 70 ? "#6B8F6B" : OaklandDusk.brand.gold,
-                      borderRadius: 2,
-                    }} />
-                  </View>
-                  {/* LEAVE: 11px metadata — DMMono+uppercase would distort "73% match" */}
-                  <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary, minWidth: 65 }}>
-                    {prefPercent}% match
-                  </Text>
-                </View>
-              )}
 
               {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
                   list. I Want This / notify / browser jump removed by
@@ -576,7 +438,7 @@ export default function CartScreen() {
                   flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
                   backgroundColor: listedKeys.has(s.ingredient_key)
                     ? "transparent"
-                    : isTop ? OaklandDusk.brand.gold : "transparent",
+                    : OaklandDusk.brand.gold,
                   borderWidth: 1,
                   borderColor: listedKeys.has(s.ingredient_key)
                     ? "rgba(74,222,128,0.3)"
@@ -590,13 +452,13 @@ export default function CartScreen() {
                   size={13}
                   color={listedKeys.has(s.ingredient_key)
                     ? "#4ade80"
-                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold}
+                    : OaklandDusk.bg.void}
                 />
                 {/* Type.button — primary CTA */}
                 <Text style={[Type.button, {
                   color: listedKeys.has(s.ingredient_key)
                     ? "#4ade80"
-                    : isTop ? OaklandDusk.bg.void : OaklandDusk.brand.gold,
+                    : OaklandDusk.bg.void,
                 }]}>
                   {listedKeys.has(s.ingredient_key) ? "On your list ✓" : "Add to Shopping List"}
                 </Text>
