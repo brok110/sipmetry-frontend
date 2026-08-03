@@ -7,8 +7,10 @@ import {
   RefreshControl,
   ScrollView,
   Text,
+  TextInput,
   View,
 } from "react-native";
+import { useInventory } from "@/context/inventory";
 
 import * as Sentry from "@sentry/react-native";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
@@ -34,6 +36,18 @@ type ScoreBreakdown = {
   preference: number;
   interaction: number;
   similar_penalty: number;
+};
+
+// RESTOCK-REDESIGN S4:WHATIF 搜尋的單一結果(後端 target 欄)
+type TargetResult = {
+  ingredient_key: string;
+  display_name: string;
+  owned: boolean;
+  remaining_pct: number | null;
+  unlocks_count: number;
+  recipes: { iba_code: string; name: string; iba_category: string; image_url?: string | null }[];
+  category_key?: string | null;
+  family_key?: string | null;
 };
 
 type Suggestion = {
@@ -76,7 +90,8 @@ function SuggestionCard({
   onAdd,
   onOpenUnlocks,
 }: {
-  s: Suggestion;
+  // 收窄:卡片實際只讀這三個欄位,WHATIF target 骨架即可複用
+  s: Pick<Suggestion, "ingredient_key" | "display_name" | "unlocks_count">;
   isTop: boolean;
   listed: boolean;
   onAdd: () => void;
@@ -224,6 +239,19 @@ export default function CartScreen() {
   const [exploreExpanded, setExploreExpanded] = useState(false);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const { inventory } = useInventory();
+
+  // ── WHATIF 搜尋(S4)──────────────────────────────────────────────
+  const [searchText, setSearchText] = useState("");
+  const [typeahead, setTypeahead] = useState<string[]>([]);
+  const [target, setTarget] = useState<TargetResult | null>(null);
+  const [targetLoading, setTargetLoading] = useState(false);
+
+  // WHATIF typeahead 的「IN MY BAR」判定來源(S1 曾移除 useInventory,S4 重新需要)
+  const ownedKeys = useMemo(
+    () => new Set((inventory ?? []).map((it) => String(it.ingredient_key || "").trim()).filter(Boolean)),
+    [inventory]
+  );
 
   // S1 直入:tab 進頁即載入(入口鈕頁移除;RESTOCK-REDESIGN 拍板)
   useEffect(() => {
@@ -328,9 +356,74 @@ export default function CartScreen() {
     }
   }, [session, userInteractions]);
 
+  // ── WHATIF(S4):typeahead 串既有 /search-suggestions,只取 ingredient ──
+  useEffect(() => {
+    const q = searchText.trim();
+    if (!session?.access_token || q.length < 2 || target) {
+      setTypeahead([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiFetch(`/search-suggestions?q=${encodeURIComponent(q)}&limit=8`, { session });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        const labels = (Array.isArray(data.suggestions) ? data.suggestions : [])
+          .filter((it: { type?: string }) => it?.type === "ingredient")
+          .map((it: { label: string }) => String(it.label || "").trim())
+          .filter(Boolean)
+          .slice(0, 6);
+        setTypeahead(labels);
+      } catch {
+        // typeahead is best-effort — never block typing
+      }
+    }, 220);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [searchText, session, target]);
+
+  // 選定一支原料 → 對單一 key 問後端(已擁有 / 邊際解鎖)
+  const selectTarget = useCallback(
+    async (label: string) => {
+      if (!session?.access_token) return;
+      const key = label.trim().toLowerCase().replace(/\s+/g, "_");
+      if (!key) return;
+      setSearchText(label);
+      setTypeahead([]);
+      setTargetLoading(true);
+      try {
+        const res = await apiFetch("/restock-suggestions", {
+          session,
+          method: "POST",
+          body: { user_interactions: userInteractions, target_key: key },
+        });
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json();
+        setTarget(data.target ?? null);
+      } catch {
+        setToastMessage("Could not look that up — try again.");
+        setTimeout(() => setToastMessage(null), 3500);
+      } finally {
+        setTargetLoading(false);
+      }
+    },
+    [session, userInteractions]
+  );
+
+  const clearSearch = useCallback(() => {
+    setSearchText("");
+    setTypeahead([]);
+    setTarget(null);
+  }, []);
+
   // SHOP-LIST 3b: add a suggestion to the shopping list (source: restock).
   const handleAddToList = useCallback(
-    async (suggestion: Suggestion) => {
+    // 收窄:實際只讀這兩欄;WHATIF target 可直接傳入,免斷言(S4-FE-b 修訂)
+    async (suggestion: Pick<Suggestion, "ingredient_key" | "display_name">) => {
       try {
         const res = await apiFetch("/shopping-list", {
           session,
@@ -428,6 +521,71 @@ export default function CartScreen() {
         </Text>
       </View>
 
+      {/* WHATIF 搜尋列(S4) */}
+      {hasFetched && !loading && (
+        <View style={{ gap: 10 }}>
+          <View style={{
+            flexDirection: "row", alignItems: "center", gap: 9,
+            backgroundColor: OaklandDusk.bg.surface,
+            borderWidth: 1,
+            borderColor: searchText ? "rgba(200,120,40,0.45)" : OaklandDusk.bg.border,
+            borderRadius: R.pill, paddingVertical: 11, paddingHorizontal: 15,
+          }}>
+            <FontAwesome name="search" size={13} color={OaklandDusk.text.tertiary} />
+            <TextInput
+              value={searchText}
+              onChangeText={(t) => {
+                setSearchText(t);
+                if (target) setTarget(null);
+              }}
+              placeholder="What if I add…"
+              placeholderTextColor={OaklandDusk.text.tertiary}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="search"
+              onSubmitEditing={() => searchText.trim() && selectTarget(searchText)}
+              style={{ flex: 1, fontFamily: "DMMono", fontSize: 13, color: OaklandDusk.text.primary, padding: 0 }}
+            />
+            {searchText.length > 0 && (
+              <Pressable onPress={clearSearch} hitSlop={10} accessibilityLabel="Clear search">
+                <FontAwesome name="times-circle" size={15} color={OaklandDusk.text.tertiary} />
+              </Pressable>
+            )}
+          </View>
+
+          {typeahead.length > 0 && (
+            <View style={{
+              backgroundColor: OaklandDusk.bg.surface,
+              borderWidth: 1, borderColor: OaklandDusk.bg.border,
+              borderRadius: R.panel, padding: 5,
+            }}>
+              {typeahead.map((label) => {
+                const owned = ownedKeys.has(label.trim().toLowerCase().replace(/\s+/g, "_"));
+                return (
+                  <Pressable
+                    key={label}
+                    onPress={() => selectTarget(label)}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    style={{
+                      flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                      paddingVertical: 10, paddingHorizontal: 11, borderRadius: R.control,
+                    }}
+                  >
+                    <Text style={[Type.body, { color: OaklandDusk.text.primary }]}>{label}</Text>
+                    {owned && (
+                      <Text style={{ fontFamily: "DMMono", fontSize: 9, letterSpacing: 1, color: "#4ade80" }}>
+                        IN MY BAR
+                      </Text>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
+
       {/* Loading */}
       {loading && !hasFetched && (
         <View style={{ padding: 40, alignItems: "center" }}>
@@ -452,7 +610,7 @@ export default function CartScreen() {
       )}
 
       {/* Hero number — top PRIMARY suggestion's unlock count */}
-      {hasFetched && primarySuggestions.length > 0 && !loading && (
+      {hasFetched && primarySuggestions.length > 0 && !loading && !target && (
         <Pressable
           onPress={() => openUnlocks(
             "All new cocktails",
@@ -517,16 +675,99 @@ export default function CartScreen() {
       )}
 
       {/* Primary suggestion cards — true must-buys */}
-      {primarySuggestions.map((s, i) => (
-        <SuggestionCard
-          key={s.ingredient_key}
-          s={s}
-          isTop={i === 0}
-          listed={listedKeys.has(s.ingredient_key)}
-          onAdd={() => handleAddToList(s)}
-          onOpenUnlocks={() => openUnlocks(`${s.display_name} unlocks`, s.recipes)}
-        />
-      ))}
+      {/* WHATIF 結果(S4):未擁有 = 標準卡原封;已擁有 = 庫存剩量 + 補貨鈕 */}
+      {targetLoading && (
+        <ActivityIndicator color={OaklandDusk.brand.gold} style={{ marginVertical: 8 }} />
+      )}
+
+      {target && !targetLoading && (
+        <View style={{ gap: 10 }}>
+          <Text style={{ fontFamily: "DMMono", fontSize: 10, letterSpacing: 2.5, color: OaklandDusk.text.tertiary }}>YOUR SEARCH</Text>
+          {target.owned ? (
+            <View style={{
+              borderRadius: R.panel, borderWidth: 1,
+              borderColor: "rgba(200,120,40,0.45)",
+              backgroundColor: OaklandDusk.bg.card, padding: 16,
+            }}>
+              <Pressable
+                onPress={() => router.push({
+                  pathname: "/ingredient-info",
+                  params: {
+                    key: target.ingredient_key,
+                    name: target.display_name,
+                    listed: listedKeys.has(target.ingredient_key) ? "1" : "0",
+                  },
+                })}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`About ${target.display_name}`}
+              >
+                <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>{target.display_name}</Text>
+              </Pressable>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 7, marginTop: 5 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#4ade80" }} />
+                <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
+                  {target.remaining_pct === null
+                    ? "In My Bar"
+                    : `In My Bar · ${target.remaining_pct}% left`}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => handleAddToList(target)}
+                disabled={listedKeys.has(target.ingredient_key)}
+                accessibilityRole="button"
+                accessibilityLabel={`Add ${target.display_name} to shopping list`}
+                style={{
+                  alignSelf: "flex-start", marginTop: 14,
+                  flexDirection: "row", alignItems: "center", gap: 7,
+                  borderWidth: 1,
+                  borderColor: listedKeys.has(target.ingredient_key)
+                    ? "rgba(74,222,128,0.4)"
+                    : "rgba(200,120,40,0.45)",
+                  borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
+                }}
+              >
+                <FontAwesome
+                  name={listedKeys.has(target.ingredient_key) ? "check" : "shopping-bag"}
+                  size={12}
+                  color={listedKeys.has(target.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
+                />
+                <Text style={[Type.caption, {
+                  fontWeight: "700",
+                  color: listedKeys.has(target.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
+                }]}>
+                  {listedKeys.has(target.ingredient_key) ? "On list" : "Add"}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <SuggestionCard
+              s={target}
+              isTop={false}
+              listed={listedKeys.has(target.ingredient_key)}
+              onAdd={() => handleAddToList(target)}
+              onOpenUnlocks={() => openUnlocks(`${target.display_name} unlocks`, target.recipes)}
+            />
+          )}
+        </View>
+      )}
+
+      {target && primarySuggestions.length > 0 && (
+        <Text style={{ fontFamily: "DMMono", fontSize: 10, letterSpacing: 2.5, color: OaklandDusk.text.tertiary }}>SUGGESTED</Text>
+      )}
+
+      <View style={target ? { opacity: 0.45, gap: 16 } : { gap: 16 }}>
+        {primarySuggestions.map((s, i) => (
+          <SuggestionCard
+            key={s.ingredient_key}
+            s={s}
+            isTop={i === 0 && !target}
+            listed={listedKeys.has(s.ingredient_key)}
+            onAdd={() => handleAddToList(s)}
+            onOpenUnlocks={() => openUnlocks(`${s.display_name} unlocks`, s.recipes)}
+          />
+        ))}
+      </View>
 
       {/* Explore section — items where user already has a substitute (collapsible) */}
       {hasFetched && exploreSuggestions.length > 0 && (
