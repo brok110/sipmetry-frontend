@@ -67,6 +67,127 @@ function openUnlocks(title: string, recipes: Suggestion["recipes"]) {
   });
 }
 
+// RESTOCK-REDESIGN S4-FE-a:卡片抽成元件(純重構,零行為改變)。
+// S4-FE-b 的 WHATIF 搜尋結果卡會複用同一顆,避免兩處維護。
+function SuggestionCard({
+  s,
+  isTop,
+  listed,
+  onAdd,
+  onOpenUnlocks,
+}: {
+  s: Suggestion;
+  isTop: boolean;
+  listed: boolean;
+  onAdd: () => void;
+  onOpenUnlocks: () => void;
+}) {
+  return (
+        <View
+          key={s.ingredient_key}
+          style={{
+            borderRadius: 14,
+            borderWidth: 0.5,
+            borderLeftWidth: isTop ? 3 : 0.5,
+            borderColor: OaklandDusk.bg.border,
+            borderLeftColor: isTop ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
+            backgroundColor: OaklandDusk.bg.card,
+            overflow: "visible",
+            position: "relative",
+          }}
+        >
+          {/* #1 pick badge */}
+          {isTop && (
+            <View style={{
+              position: "absolute",
+              top: -9,
+              left: 14,
+              backgroundColor: OaklandDusk.brand.gold,
+              paddingHorizontal: 9,
+              paddingVertical: 3,
+              borderRadius: R.control,
+              zIndex: 1,
+            }}>
+              {/* Type.label — badge kicker */}
+              <Text style={[Type.label, { color: OaklandDusk.bg.void }]}>#1 pick</Text>
+            </View>
+          )}
+
+          <View style={{ padding: 16, gap: 10 }}>
+            {/* Row 1(Z 案):左 = 名字 + Add 膠囊直排;右 = +N 獨佔 */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <View style={{ flex: 1, paddingRight: 12, gap: 12, alignItems: "flex-start" }}>
+                {/* Type.heading — ingredient name;tap → 說明頁(S3) */}
+                <Pressable
+                  onPress={() => router.push({
+                    pathname: "/ingredient-info",
+                    params: {
+                      key: s.ingredient_key,
+                      name: s.display_name,
+                      listed: listed ? "1" : "0",
+                    },
+                  })}
+                  hitSlop={8}
+                  accessibilityRole="button"
+                  accessibilityLabel={`About ${s.display_name}`}
+                >
+                  <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
+                    {s.display_name}
+                  </Text>
+                </Pressable>
+                {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
+                    list. I Want This / notify / browser jump removed by
+                    ruling 2026-07-28; the intent stream is now the
+                    shopping_list table + check-off. */}
+                {/* B v4 + Z 案:Add 膠囊移入名字下方(卡高收斂);已加 = 綠描邊 */}
+                <Pressable
+                  onPress={onAdd}
+                  disabled={listed}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Add ${s.display_name} to shopping list`}
+                  style={{
+                    flexDirection: "row", alignItems: "center", gap: 7,
+                    backgroundColor: "transparent",
+                    borderWidth: 1,
+                    borderColor: listed
+                      ? "rgba(74,222,128,0.4)"
+                      : "rgba(200,120,40,0.45)",
+                    borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
+                  }}
+                >
+                  <FontAwesome
+                    name={listed ? "check" : "shopping-bag"}
+                    size={12}
+                    color={listed ? "#4ade80" : OaklandDusk.brand.gold}
+                  />
+                  {/* Type.caption — 小膠囊標籤 */}
+                  <Text style={[Type.caption, {
+                    fontWeight: "700",
+                    color: listed ? "#4ade80" : OaklandDusk.brand.gold,
+                  }]}>
+                    {listed ? "On list" : "Add"}
+                  </Text>
+                </Pressable>
+              </View>
+              <Pressable
+                onPress={onOpenUnlocks}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`See the ${s.unlocks_count} cocktails ${s.display_name} unlocks`}
+                style={{ alignItems: "flex-end" }}
+              >
+                {/* +N 裸字(mockup v6 拍板):Bebas 金,無框無副標;tap → 明細頁 */}
+                <Text style={[Type.title, { fontSize: 32, lineHeight: 34, color: OaklandDusk.brand.gold }]}>
+                  +{s.unlocks_count}
+                </Text>
+              </Pressable>
+            </View>
+
+          </View>
+        </View>
+  );
+}
+
 export default function CartScreen() {
   const { session } = useAuth();
   const { favoritesByKey } = useFavorites();
@@ -396,114 +517,16 @@ export default function CartScreen() {
       )}
 
       {/* Primary suggestion cards — true must-buys */}
-      {primarySuggestions.map((s, i) => {
-        const isTop = i === 0;
-
-        return (
-          <View
-            key={s.ingredient_key}
-            style={{
-              borderRadius: 14,
-              borderWidth: 0.5,
-              borderLeftWidth: isTop ? 3 : 0.5,
-              borderColor: OaklandDusk.bg.border,
-              borderLeftColor: isTop ? OaklandDusk.brand.gold : OaklandDusk.bg.border,
-              backgroundColor: OaklandDusk.bg.card,
-              overflow: "visible",
-              position: "relative",
-            }}
-          >
-            {/* #1 pick badge */}
-            {isTop && (
-              <View style={{
-                position: "absolute",
-                top: -9,
-                left: 14,
-                backgroundColor: OaklandDusk.brand.gold,
-                paddingHorizontal: 9,
-                paddingVertical: 3,
-                borderRadius: R.control,
-                zIndex: 1,
-              }}>
-                {/* Type.label — badge kicker */}
-                <Text style={[Type.label, { color: OaklandDusk.bg.void }]}>#1 pick</Text>
-              </View>
-            )}
-
-            <View style={{ padding: 16, gap: 10 }}>
-              {/* Row 1(Z 案):左 = 名字 + Add 膠囊直排;右 = +N 獨佔 */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                <View style={{ flex: 1, paddingRight: 12, gap: 12, alignItems: "flex-start" }}>
-                  {/* Type.heading — ingredient name;tap → 說明頁(S3) */}
-                  <Pressable
-                    onPress={() => router.push({
-                      pathname: "/ingredient-info",
-                      params: {
-                        key: s.ingredient_key,
-                        name: s.display_name,
-                        listed: listedKeys.has(s.ingredient_key) ? "1" : "0",
-                      },
-                    })}
-                    hitSlop={8}
-                    accessibilityRole="button"
-                    accessibilityLabel={`About ${s.display_name}`}
-                  >
-                    <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
-                      {s.display_name}
-                    </Text>
-                  </Pressable>
-                  {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
-                      list. I Want This / notify / browser jump removed by
-                      ruling 2026-07-28; the intent stream is now the
-                      shopping_list table + check-off. */}
-                  {/* B v4 + Z 案:Add 膠囊移入名字下方(卡高收斂);已加 = 綠描邊 */}
-                  <Pressable
-                    onPress={() => handleAddToList(s)}
-                    disabled={listedKeys.has(s.ingredient_key)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Add ${s.display_name} to shopping list`}
-                    style={{
-                      flexDirection: "row", alignItems: "center", gap: 7,
-                      backgroundColor: "transparent",
-                      borderWidth: 1,
-                      borderColor: listedKeys.has(s.ingredient_key)
-                        ? "rgba(74,222,128,0.4)"
-                        : "rgba(200,120,40,0.45)",
-                      borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
-                    }}
-                  >
-                    <FontAwesome
-                      name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
-                      size={12}
-                      color={listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
-                    />
-                    {/* Type.caption — 小膠囊標籤 */}
-                    <Text style={[Type.caption, {
-                      fontWeight: "700",
-                      color: listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
-                    }]}>
-                      {listedKeys.has(s.ingredient_key) ? "On list" : "Add"}
-                    </Text>
-                  </Pressable>
-                </View>
-                <Pressable
-                  onPress={() => openUnlocks(`${s.display_name} unlocks`, s.recipes)}
-                  hitSlop={10}
-                  accessibilityRole="button"
-                  accessibilityLabel={`See the ${s.unlocks_count} cocktails ${s.display_name} unlocks`}
-                  style={{ alignItems: "flex-end" }}
-                >
-                  {/* +N 裸字(mockup v6 拍板):Bebas 金,無框無副標;tap → 明細頁 */}
-                  <Text style={[Type.title, { fontSize: 32, lineHeight: 34, color: OaklandDusk.brand.gold }]}>
-                    +{s.unlocks_count}
-                  </Text>
-                </Pressable>
-              </View>
-
-            </View>
-          </View>
-        );
-      })}
+      {primarySuggestions.map((s, i) => (
+        <SuggestionCard
+          key={s.ingredient_key}
+          s={s}
+          isTop={i === 0}
+          listed={listedKeys.has(s.ingredient_key)}
+          onAdd={() => handleAddToList(s)}
+          onOpenUnlocks={() => openUnlocks(`${s.display_name} unlocks`, s.recipes)}
+        />
+      ))}
 
       {/* Explore section — items where user already has a substitute (collapsible) */}
       {hasFetched && exploreSuggestions.length > 0 && (
