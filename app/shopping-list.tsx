@@ -9,19 +9,22 @@ import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
 import { apiFetch } from "@/lib/api";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
+import { R } from "@/constants/radius";
 
 type ListItem = {
   id: string;
@@ -36,11 +39,16 @@ type ListItem = {
 
 export default function ShoppingListScreen() {
   const { session } = useAuth();
-  const { refreshInventory } = useInventory();
+  const { inventory, refreshInventory } = useInventory();
 
   const [items, setItems] = useState<ListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // RESTOCK-REDESIGN S5(補名步):酒類勾銷時問實際買的瓶名。
+  const [namingItem, setNamingItem] = useState<ListItem | null>(null);
+  const [nameInput, setNameInput] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const fetchList = useCallback(async () => {
     if (!session) return;
@@ -67,15 +75,24 @@ export default function ShoppingListScreen() {
   const itemName = (item: ListItem): string =>
     item.display_name || item.ingredient_key.replace(/_/g, " ");
 
-  const doCheck = useCallback(async (item: ListItem) => {
-    if (!session) return;
+  const doCheck = useCallback(async (item: ListItem, displayName?: string, listOnly?: boolean): Promise<boolean> => {
+    if (!session) return false;
     try {
-      const res = await apiFetch(`/shopping-list/${item.id}/check`, { session, method: "POST" });
+      const payload: { display_name?: string; list_only?: boolean } = {};
+      if (displayName?.trim()) payload.display_name = displayName.trim();
+      if (listOnly) payload.list_only = true;
+      const res = await apiFetch(`/shopping-list/${item.id}/check`, {
+        session,
+        method: "POST",
+        ...(Object.keys(payload).length > 0 ? { body: payload } : {}),
+      });
       if (!res.ok) throw new Error(`status ${res.status}`);
       setItems((prev) => prev.filter((i) => i.id !== item.id));
       refreshInventory({ silent: true }).catch(() => {});
+      return true;
     } catch {
       Alert.alert("Error", "Could not check this off. Please try again.");
+      return false;
     }
   }, [session, refreshInventory]);
 
@@ -95,15 +112,45 @@ export default function ShoppingListScreen() {
       );
       return;
     }
-    Alert.alert(
-      "Add to My Bar?",
-      `Checking this off adds a full bottle of ${itemName(item)} to your bar.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Add to Bar", onPress: () => doCheck(item) },
-      ]
+    // 酒類:先問買了哪支(酒櫃只管具名瓶 — Brok 拍板 2026-08-02)
+    const owned = (inventory ?? []).find(
+      (it) => String(it.ingredient_key || "").trim() === item.ingredient_key
     );
-  }, [doCheck]);
+    const prefill = String(owned?.display_name || "").trim() || itemName(item);
+    setNameInput(prefill);
+    setNamingItem(item);
+  }, [doCheck, inventory]);
+
+  const confirmNaming = useCallback(async () => {
+    if (!namingItem || saving) return;
+    setSaving(true);
+    const target = namingItem;
+    const name = nameInput;
+    try {
+      await doCheck(target, name);
+    } finally {
+      setSaving(false);
+      setNamingItem(null);
+      setNameInput("");
+    }
+  }, [namingItem, nameInput, saving, doCheck]);
+
+  // S5「Scan instead」:清單項以 list_only 記為已買(不入櫃),
+  // 具名瓶交給掃描流寫進 My Bar —— 零重複、購買意圖訊號保留。
+  const scanInstead = useCallback(async () => {
+    if (!namingItem || saving) return;
+    setSaving(true);
+    const target = namingItem;
+    try {
+      const ok = await doCheck(target, undefined, true);
+      if (!ok) return;
+      setNamingItem(null);
+      setNameInput("");
+      router.push("/scan?autoScan=1");
+    } finally {
+      setSaving(false);
+    }
+  }, [namingItem, saving, doCheck]);
 
   const handleRemove = useCallback(async (item: ListItem) => {
     if (!session) return;
@@ -178,6 +225,64 @@ export default function ShoppingListScreen() {
           </View>
         ))}
       </ScrollView>
+
+      {/* S5 補名步:酒類勾銷確認 + 實際買的瓶名 */}
+      <Modal
+        visible={namingItem !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setNamingItem(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setNamingItem(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>What did you buy?</Text>
+            <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
+              This bottle lands in My Bar under the name you give it.
+            </Text>
+
+            <TextInput
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder={namingItem ? itemName(namingItem) : ""}
+              placeholderTextColor={OaklandDusk.text.tertiary}
+              autoCapitalize="words"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={confirmNaming}
+              style={styles.modalInput}
+            />
+
+            <Pressable
+              onPress={confirmNaming}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel="Add to My Bar"
+              style={[styles.modalPrimary, saving && { opacity: 0.7 }]}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color={OaklandDusk.bg.void} />
+              ) : (
+                <Text style={[Type.button, { color: OaklandDusk.bg.void }]}>Add to My Bar</Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={scanInstead}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel="Scan the bottle instead"
+              style={styles.modalSecondary}
+            >
+              <FontAwesome name="camera" size={13} color={OaklandDusk.brand.gold} />
+              <Text style={[Type.button, { color: OaklandDusk.brand.gold }]}>Scan</Text>
+            </Pressable>
+
+            <Pressable onPress={() => setNamingItem(null)} accessibilityRole="button" accessibilityLabel="Cancel">
+              <Text style={[Type.caption, { color: OaklandDusk.text.tertiary, textAlign: "center" }]}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -207,4 +312,46 @@ const styles = StyleSheet.create({
     borderColor: OaklandDusk.brand.gold,
   },
   rowText: { flex: 1, gap: 2 },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalCard: {
+    backgroundColor: OaklandDusk.bg.card,
+    borderRadius: R.panel,
+    padding: 22,
+    width: "85%",
+    maxWidth: 360,
+    gap: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: OaklandDusk.bg.border,
+    borderRadius: R.action,
+    backgroundColor: OaklandDusk.bg.surface,
+    paddingVertical: 11,
+    paddingHorizontal: 13,
+    fontSize: 15,
+    color: OaklandDusk.text.primary,
+    marginTop: 4,
+  },
+  modalSecondary: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(200,120,40,0.45)",
+    borderRadius: R.action,
+    paddingVertical: 12,
+  },
+  modalPrimary: {
+    backgroundColor: OaklandDusk.brand.gold,
+    borderRadius: R.action,
+    paddingVertical: 13,
+    alignItems: "center",
+    marginTop: 4,
+  },
 });

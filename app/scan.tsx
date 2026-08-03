@@ -507,7 +507,7 @@ function buildActiveIngredientsFromAnalyze(data: AnalyzeImageResponse): ActiveIn
 }
 
 export default function TabOneScreen() {
-  const searchParams = useLocalSearchParams<{ photoUri?: string; photoUris?: string; intent?: string }>();
+  const searchParams = useLocalSearchParams<{ photoUri?: string; photoUris?: string; intent?: string; autoScan?: string }>();
   const [activeIngredients, setActiveIngredients] = useState<ActiveIngredient[]>([]);
 
   const activeCanonical = useMemo(() => {
@@ -1772,13 +1772,25 @@ export default function TabOneScreen() {
   };
 
   // ── Guide: Scan bottles action sheet ─────────────────────────────────────
-  const handleScanBottles = async () => {
+  const handleScanBottles = async (cameraDirect = false) => {
     dismissGuide(GUIDE_KEYS.SCAN);
     setGuideScanVisible(false);
     dismissGuide(GUIDE_KEYS.GP_STEP_3);
     setGpStep3Visible(false);
 
-    const picked = await showBottlePhotoActionSheet();
+    // RESTOCK S5:從購物清單補名窗按 Scan 進來時直接開相機,
+    // 跳過 action sheet(使用者手上就有那瓶酒)。其餘入口不變。
+    // 相機不可用(simulator、權限被拒)時退回選單,不讓 app 崩。
+    let picked: Awaited<ReturnType<typeof showBottlePhotoActionSheet>> = null;
+    if (cameraDirect) {
+      try {
+        picked = await pickBottlePhotoFromCamera();
+      } catch {
+        picked = await showBottlePhotoActionSheet();
+      }
+    } else {
+      picked = await showBottlePhotoActionSheet();
+    }
     if (!picked) return;
 
     resetScan();
@@ -1797,6 +1809,16 @@ export default function TabOneScreen() {
     setAutoAnalyze(true);
     setStage("idle");
   };
+
+  // RESTOCK S5「Scan」:從購物清單補名窗導入時直接進拍照環節,
+  // 免使用者在掃描頁再點一次。僅觸發一次(ref 鎖)。
+  const autoScanFiredRef = useRef(false);
+  useEffect(() => {
+    if (searchParams.autoScan !== "1" || autoScanFiredRef.current) return;
+    autoScanFiredRef.current = true;
+    handleScanBottles(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams.autoScan]);
 
   // Scan More mid-session: pick photos and queue them onto the existing scan.
   // Does NOT call resetScan — continues the current session's mode.
@@ -2034,7 +2056,7 @@ export default function TabOneScreen() {
         hintColor="charcoal"
       >
         <Pressable
-          onPress={handleScanBottles}
+          onPress={() => handleScanBottles()}
           style={{
             flexDirection: "row",
             alignItems: "center",
