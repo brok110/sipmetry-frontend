@@ -434,10 +434,24 @@ export default function CartScreen() {
               {/* Row 1(Z 案):左 = 名字 + Add 膠囊直排;右 = +N 獨佔 */}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <View style={{ flex: 1, paddingRight: 12, gap: 12, alignItems: "flex-start" }}>
-                  {/* Type.heading — ingredient name;S3 批接 tap → 說明頁 */}
-                  <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
-                    {s.display_name}
-                  </Text>
+                  {/* Type.heading — ingredient name;tap → 說明頁(S3) */}
+                  <Pressable
+                    onPress={() => router.push({
+                      pathname: "/ingredient-info",
+                      params: {
+                        key: s.ingredient_key,
+                        name: s.display_name,
+                        listed: listedKeys.has(s.ingredient_key) ? "1" : "0",
+                      },
+                    })}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                    accessibilityLabel={`About ${s.display_name}`}
+                  >
+                    <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
+                      {s.display_name}
+                    </Text>
+                  </Pressable>
                   {/* SHOP-LIST 3b-fix: single primary CTA — add to shopping
                       list. I Want This / notify / browser jump removed by
                       ruling 2026-07-28; the intent stream is now the
