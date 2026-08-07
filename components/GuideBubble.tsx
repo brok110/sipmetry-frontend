@@ -294,7 +294,11 @@ function SpotlightHintBubble({
  * SpotlightOverlay lives in the root layout (different native window on iOS)
  * so coordinates won't match.
  */
+// Kill switch: set to true to re-enable all guide bubbles.
+const GUIDES_ENABLED = false;
+
 export default function HintBubble(props: HintBubbleProps) {
+  if (!GUIDES_ENABLED) props = { ...props, visible: false };
   if (LOCAL_ONLY_HINTS.has(props.storageKey)) {
     return <LocalOnlyHint {...props} />;
   }
