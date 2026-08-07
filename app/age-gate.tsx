@@ -53,7 +53,7 @@ const MONTHS = [
 // ---------------------------------------------------------------------------
 export default function AgeGateScreen() {
   const router = useRouter();
-  const { user, signOut, signInAnonymously } = useAuth();
+  const { user, signInAnonymously } = useAuth();
 
   // Extract region code from locale string (e.g. "en-US" → "US")
   const locale = Intl.DateTimeFormat().resolvedOptions().locale ?? '';
@@ -115,10 +115,8 @@ export default function AgeGateScreen() {
     }
   };
 
-  const handleSignOut = async () => {
-    await signOut();
-    // user becomes null but age-gate is not in inAuthArea,
-    // so the user stays here and can re-enter or tap Sign In
+  const handleGoBack = () => {
+    setBlocked(false);
   };
 
   // -------------------------------------------------------------------------
@@ -168,7 +166,7 @@ export default function AgeGateScreen() {
             See you then!
           </Text>
           <Pressable
-            onPress={handleSignOut}
+            onPress={handleGoBack}
             style={{
               backgroundColor: OaklandDusk.bg.surface,
               borderRadius: 12,
@@ -180,7 +178,7 @@ export default function AgeGateScreen() {
             }}
           >
             <Text style={{ color: OaklandDusk.text.secondary, fontWeight: '700' }}>
-              Sign out
+              Go back
             </Text>
           </Pressable>
         </View>
