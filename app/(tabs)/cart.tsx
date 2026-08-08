@@ -392,6 +392,7 @@ export default function CartScreen() {
       if (!session?.access_token) return;
       const key = label.trim().toLowerCase().replace(/\s+/g, "_");
       if (!key) return;
+      analytics(EVENTS.WHATIF_SELECTED, { target_key: key });
       setSearchText(label);
       setTypeahead([]);
       setTargetLoading(true);
