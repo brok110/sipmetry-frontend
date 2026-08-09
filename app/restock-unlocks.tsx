@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     backgroundColor: OaklandDusk.bg.surface,
   },
-  artFallback: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  artFallback: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   name: {
     fontFamily: V3.fonts.mono,
     fontSize: 11,

@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   ddBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   dd: {

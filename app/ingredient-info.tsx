@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     backgroundColor: OaklandDusk.bg.surface,
   },
-  usedFallback: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
+  usedFallback: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
   usedName: {
     fontFamily: V3.fonts.mono,
     fontSize: 10,

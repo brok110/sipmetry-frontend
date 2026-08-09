@@ -2,7 +2,7 @@ import FontAwesome from "@expo/vector-icons/FontAwesome";
 import Slider from "@react-native-community/slider";
 import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation } from "expo-router/react-navigation";
 import React, { useEffect, useMemo, useState } from "react";
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from "@/components/GuideBubble";
 import { ActivityIndicator, Animated, Pressable, ScrollView, Text, View } from "react-native";

@@ -10,11 +10,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "sipmetry",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#07060E"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.sipmetry.app",
@@ -87,7 +82,16 @@
       "expo-web-browser",
       "expo-asset",
       "@sentry/react-native",
-      "expo-image"
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#07060E"
+        }
+      ],
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true

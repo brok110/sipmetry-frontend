@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   plankInner: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     overflow: 'hidden',
   },
   plankHighlight: {

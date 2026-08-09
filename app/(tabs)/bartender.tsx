@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: OaklandDusk.bg.void, // opaque — fully occludes the rails beneath
     zIndex: 5, // above the rail ScrollView (unset), below suggestScrim/refreshOverlay (10) and searchArea (20)
   },
@@ -777,7 +777,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   suggestScrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 10, // over page content, under searchArea
   },
   searchBar: {

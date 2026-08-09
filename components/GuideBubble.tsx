@@ -273,7 +273,7 @@ function SpotlightHintBubble({
       ref={ref}
       collapsable={false}
       onLayout={() => { hasLayoutRef.current = true; if (visible) measureAndShow(); }}
-      style={RNSheet.absoluteFillObject}
+      style={RNSheet.absoluteFill}
       pointerEvents="none"
     />
   );
@@ -328,7 +328,7 @@ function LocalOnlyHint({ visible, children }: HintBubbleProps) {
           <Animated.View
             pointerEvents="none"
             style={{
-              ...RNSheet.absoluteFillObject,
+              ...RNSheet.absoluteFill,
               borderWidth: 2,
               borderColor: "rgba(120,180,255,0.6)",
               borderRadius: 12,
@@ -346,7 +346,7 @@ function LocalOnlyHint({ visible, children }: HintBubbleProps) {
     <Animated.View
       pointerEvents="none"
       style={{
-        ...RNSheet.absoluteFillObject,
+        ...RNSheet.absoluteFill,
         borderWidth: 2,
         borderColor: "rgba(120,180,255,0.6)",
         borderRadius: 12,

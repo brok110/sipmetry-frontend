@@ -92,7 +92,7 @@ const styles = StyleSheet.create({
     backgroundColor: OaklandDusk.bg.surface,
   },
   artFallback: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: "center",
     justifyContent: "center",
   },

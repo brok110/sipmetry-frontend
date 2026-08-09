@@ -576,7 +576,7 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   grainClip: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     borderRadius: 6,
     overflow: 'hidden',
   },
