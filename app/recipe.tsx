@@ -14,6 +14,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/context/auth";
 import { apiFetch } from "@/lib/api";
 import { getTasteTags } from "@/lib/tasteTags";
+import { BadgeRow } from "@/components/browse/Badges";
 import { SoundService } from "@/lib/sounds";
 
 import * as Clipboard from "expo-clipboard";
@@ -56,6 +57,9 @@ type DbRecipe = {
   image_url?: string | null;
   ingredients: DbRecipeIngredient[];
   recipe_vec?: Record<string, any> | null;
+  // SAFETY-BADGE (2026-08-14): server-sorted facts; normalization 白名單必須帶上,
+  // 否則 API 有、state 沒有(本欄補洞的成因)。
+  badges?: string[];
 };
 
 // Server-driven ingredient availability (SSoT)
@@ -444,6 +448,7 @@ export default function TabTwoScreen() {
               })
             : [],
           recipe_vec: (r as any)?.recipe_vec ?? (r as any)?.recipeVec ?? null,
+          badges: Array.isArray((r as any)?.badges) ? (r as any).badges : [],
         };
 
         setDbRecipe(normalized);
@@ -1226,6 +1231,9 @@ export default function TabTwoScreen() {
         <Text style={[Type.display, styles.primaryText]}>
           {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
         </Text>
+
+        {/* SAFETY-BADGE (2026-08-13): 成分事實列 — 全展、後端序 */}
+        <BadgeRow badges={(dbRecipe as any)?.badges} />
 
         {tasteTags.length > 0 ? (
           <Pressable onLongPress={__DEV__ ? copyDebug : undefined} delayLongPress={450}>

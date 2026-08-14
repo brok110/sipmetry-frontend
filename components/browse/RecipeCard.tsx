@@ -10,6 +10,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import OaklandDusk from "@/constants/OaklandDusk";
 import { V3 } from "@/constants/v3DesignTokens";
 import { humanizeKey, type BrowseItem } from "@/lib/browse/rowEngine";
+import { BadgeStack } from "./Badges";
 
 export const CARD_WIDTH = 128;
 
@@ -80,6 +81,10 @@ function RecipeCard({ item, width = CARD_WIDTH, dimmed, onPress }: RecipeCardPro
           style={StyleSheet.absoluteFill}
           pointerEvents="none"
         />
+        {/* SAFETY-BADGE (2026-08-13): 右上堆疊,一顯餘攤 */}
+        <View style={styles.badgeAnchor}>
+          <BadgeStack badges={item.badges} />
+        </View>
       </View>
       <Text style={styles.name} numberOfLines={1}>
         {item.name.toLowerCase()}
@@ -106,6 +111,12 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 8,
     backgroundColor: OaklandDusk.bg.surface,
+  },
+  badgeAnchor: {
+    position: "absolute",
+    bottom: 6,
+    right: 6,
+    zIndex: 2,
   },
   artFallback: {
     ...StyleSheet.absoluteFill,

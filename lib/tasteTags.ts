@@ -5,7 +5,6 @@
  * Threshold design (re-tuned for 0-3 scale):
  *   - Core flavors (sweet/sour/bitter/fruity/herbal/fizz): >= 2.0 (top third)
  *   - Strong character notes (smoky/floral/spicy): >= 1.5 (lower because they stand out)
- *   - High-impact dims (alcoholStrength): >= 2.5 (only truly strong drinks)
  *   - Structural dims (body/aromaIntensity): >= 2.0 (need to be dominant)
  */
 
@@ -15,7 +14,8 @@ const TAG_CONFIG: Array<{
   threshold: number;
   priority: number;
 }> = [
-  { key: "alcoholStrength", label: "Strong",      threshold: 2.5, priority: 1 },
+  // SAFETY-BADGE 裁決點 1 (2026-08-13): Strong 退出 chip 列 — band-3 事實由
+  // HIGH PROOF badge 承接(同資訊單一視覺)。alcoholStrength 不再產 chip。
   { key: "sweetness",       label: "Sweet",       threshold: 2.0, priority: 2 },
   { key: "sourness",        label: "Sour",        threshold: 2.0, priority: 3 },
   { key: "bitterness",      label: "Bitter",      threshold: 2.0, priority: 4 },

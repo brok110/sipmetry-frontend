@@ -16,6 +16,9 @@ export type BrowseItem = {
   bucket: BrowseBucket;
   missing_count: number;
   missing: string[]; // ingredient keys, capped at 3 by the backend
+  // SAFETY-BADGE (2026-08-13): server-sorted facts (egg > nuts > dairy >
+  // caffeine > high_proof); optional so pre-badge cached payloads stay valid.
+  badges?: string[];
   total_score: number;
 };
 
