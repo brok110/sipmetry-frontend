@@ -17,6 +17,7 @@ import { useFavorites } from "@/context/favorites";
 import { useInventory } from "@/context/inventory";
 import { apiFetchJson } from "@/lib/api";
 import { getTasteTags } from "@/lib/tasteTags";
+import { BadgeInlineRow } from "@/components/browse/Badges";
 
 function asStringList(v: any): string[] {
   if (!Array.isArray(v)) return [];
@@ -318,6 +319,11 @@ export default function TabThreeScreen() {
                       <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
                         {title}
                       </Text>
+                      {/* SAFETY-BADGE 3b (2026-08-14): 舊收藏無 badges 欄 → 優雅空;
+                          Stage 3a 後的新收藏自帶(dbRecipe normalization 已補)。 */}
+                      <View style={{ marginTop: 6 }}>
+                        <BadgeInlineRow badges={(fav as any)?.recipe?.badges} />
+                      </View>
                       {(() => {
                         const recipeTasteTags = getTasteTags((fav as any)?.recipe?.recipe_vec);
                         if (recipeTasteTags.length > 0) {

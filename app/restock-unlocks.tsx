@@ -15,11 +15,14 @@ import { router, useLocalSearchParams } from 'expo-router'
 import React, { useMemo } from 'react'
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { BadgeStack } from '@/components/browse/Badges'
 
 type UnlockRecipe = {
   iba_code: string
   name: string
   image_url?: string | null
+  // SAFETY-BADGE 3b (2026-08-14): 呼叫端(cart openUnlocks)已補傳
+  badges?: string[]
 }
 
 const GUTTER = 16
@@ -36,7 +39,7 @@ export default function RestockUnlocksScreen() {
       if (!Array.isArray(parsed)) return []
       return parsed
         .filter((r) => r && typeof r.iba_code === 'string' && r.iba_code.trim())
-        .map((r) => ({ iba_code: String(r.iba_code), name: String(r.name ?? ''), image_url: r.image_url ?? null }))
+        .map((r) => ({ iba_code: String(r.iba_code), name: String(r.name ?? ''), image_url: r.image_url ?? null, badges: Array.isArray(r.badges) ? r.badges : [] }))
     } catch {
       return []
     }
@@ -89,6 +92,10 @@ export default function RestockUnlocksScreen() {
                     style={StyleSheet.absoluteFill}
                     pointerEvents="none"
                   />
+                  {/* SAFETY-BADGE 3b (2026-08-14): 同 RecipeCard 右下堆疊 */}
+                  <View style={styles.badgeAnchor}>
+                    <BadgeStack badges={r.badges} />
+                  </View>
                 </View>
                 <Text style={styles.name} numberOfLines={1}>
                   {r.name.toLowerCase()}
@@ -134,6 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: OaklandDusk.bg.surface,
   },
   artFallback: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  badgeAnchor: { position: 'absolute', bottom: 6, right: 6, zIndex: 2 },
   name: {
     fontFamily: V3.fonts.mono,
     fontSize: 11,

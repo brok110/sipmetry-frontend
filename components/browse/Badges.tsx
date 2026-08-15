@@ -115,6 +115,26 @@ export function BadgeStack({ badges }: { badges?: unknown }) {
   );
 }
 
+// ── List-row level(3b): all badges expanded at micro size, no stacking ──
+// 列表型卡(favorites / recommendations)有橫向空間,堆疊是照片角落的
+// 擁擠解法,列上不需要;全展、後端序。
+export function BadgeInlineRow({ badges }: { badges?: unknown }) {
+  const list = sanitizeBadges(badges);
+  if (list.length === 0) return null;
+  return (
+    <View style={styles.inlineRow}>
+      {list.map((k) => (
+        <View key={k} style={styles.micro}>
+          <Icon k={k} size={11} />
+          <Text style={styles.microText} numberOfLines={1}>
+            {LABELS[k]}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── Detail level: all badges expanded, server order preserved ──
 export function BadgeRow({ badges }: { badges?: unknown }) {
   const list = sanitizeBadges(badges);
@@ -159,6 +179,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.96, // 0.12em @ 8px
     color: INK,
     textTransform: "uppercase",
+  },
+  // 列表列(3b):micro 全展
+  inlineRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
   },
   // 詳情頁全展列
   row: {

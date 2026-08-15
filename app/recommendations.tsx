@@ -12,6 +12,7 @@ import { apiFetch } from "@/lib/api";
 import { track as analytics } from "@/lib/analytics/analytics";
 import { EVENTS } from "@/lib/analytics/events";
 import { getTasteTags } from "@/lib/tasteTags";
+import { BadgeInlineRow } from "@/components/browse/Badges";
 import { useAuth } from "@/context/auth";
 import { useInventory } from "@/context/inventory";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
@@ -31,6 +32,8 @@ type RecipeItem = {
   overlap_hits?: string[];
   recipe_vec?: Record<string, any> | null;
   image_url?: string | null;
+  // SAFETY-BADGE 3b (2026-08-14): scan flattened 為 spread 直通,classics 已出
+  badges?: string[];
   [key: string]: any;
 };
 
@@ -249,6 +252,9 @@ export default function RecommendationsScreen() {
             <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
               {name}
             </Text>
+
+            {/* SAFETY-BADGE 3b (2026-08-14): 事實先於味覺 */}
+            <BadgeInlineRow badges={r.badges} />
 
             {tags.length > 0 && (
               <View style={{ flexDirection: "row", gap: 4, flexWrap: "wrap" }}>

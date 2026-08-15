@@ -45,7 +45,7 @@ type TargetResult = {
   owned: boolean;
   remaining_pct: number | null;
   unlocks_count: number;
-  recipes: { iba_code: string; name: string; iba_category: string; image_url?: string | null }[];
+  recipes: { iba_code: string; name: string; iba_category: string; image_url?: string | null; badges?: string[] }[];
   category_key?: string | null;
   family_key?: string | null;
 };
@@ -62,7 +62,7 @@ type Suggestion = {
   versatility_categories?: string[];
   reason: string;
   buy_url: string;
-  recipes: { iba_code: string; name: string; iba_category: string; image_url?: string | null }[];
+  recipes: { iba_code: string; name: string; iba_category: string; image_url?: string | null; badges?: string[] }[];
   is_alternative_upgrade?: boolean;
   covering_alternative?: { user_has: string; user_has_display: string } | null;
   alt_description?: string | null;
@@ -75,7 +75,7 @@ function openUnlocks(title: string, recipes: Suggestion["recipes"]) {
     params: {
       title,
       recipes_json: encodeURIComponent(JSON.stringify(
-        (recipes ?? []).map((r) => ({ iba_code: r.iba_code, name: r.name, image_url: r.image_url ?? null }))
+        (recipes ?? []).map((r) => ({ iba_code: r.iba_code, name: r.name, image_url: r.image_url ?? null, badges: Array.isArray(r.badges) ? r.badges : [] }))
       )),
     },
   });
