@@ -75,14 +75,6 @@ type ClassicItem = {
     preference_delta?: number;
     total_score?: number;
   };
-  alcohol_safety_warning?: boolean;
-  alcohol_safety_message?: string;
-  alcohol_strength_score?: number | null;
-  alcohol_warning?: boolean;
-  allergen_warning?: boolean;
-  allergen_types?: string[];
-  caffeine_warning?: boolean;
-  caffeine_sources?: string[];
 };
 
 type AnalyzeImageResponse = {
@@ -218,169 +210,6 @@ function clamp(n: number, lo: number, hi: number) {
 
 function canonicalizeForRecommendation(value: string): string {
   return String(normalizeIngredientKey(String(value ?? "").trim()) || "").trim();
-}
-
-function getAlcoholStrengthScoreForRecipe(result: any): number | null {
-  const recipeVec =
-    result?.recipe_vec && typeof result.recipe_vec === "object"
-      ? result.recipe_vec
-      : result?.recipeVec && typeof result.recipeVec === "object"
-      ? result.recipeVec
-      : null;
-
-  const alcoholFromVec = recipeVec ? Number((recipeVec as any).alcoholStrength) : NaN;
-  if (Number.isFinite(alcoholFromVec)) {
-    return alcoholFromVec;
-  }
-
-  const ingredientKeys = getCanonicalIngredientKeysForResult(result);
-
-  if (ingredientKeys.length === 0) {
-    return null;
-  }
-
-  const fallbackVec = aggregateIngredientVectors(ingredientKeys);
-  const fallbackAlcohol = Number((fallbackVec as any)?.alcoholStrength);
-  return Number.isFinite(fallbackAlcohol) ? fallbackAlcohol : null;
-}
-
-function getAlcoholSafetyForRecipe(result: any): {
-  alcohol_safety_warning: boolean;
-  alcohol_safety_message?: string;
-  alcohol_strength_score: number | null;
-} {
-  const score = getAlcoholStrengthScoreForRecipe(result);
-
-  return {
-    alcohol_safety_warning: score !== null && score >= 4.5,
-    alcohol_safety_message: score !== null && score >= 4.5 ? "Very high alcohol strength." : undefined,
-    alcohol_strength_score: score,
-  };
-}
-
-function getCanonicalIngredientKeysForResult(result: any): string[] {
-  return Array.isArray(result?.ingredient_keys)
-    ? dedupeCaseInsensitive(
-        result.ingredient_keys
-          .map((x: any) => canonicalizeForRecommendation(String(x ?? "")))
-          .filter(Boolean)
-      )
-    : [];
-}
-
-function getAllergenSafetyForRecipe(result: any): {
-  allergen_warning: boolean;
-  allergen_types: string[];
-} {
-  const ingredientKeys = getCanonicalIngredientKeysForResult(result);
-  const allergens = new Set<string>();
-
-  for (const key of ingredientKeys) {
-    const normalized = String(key ?? "").trim().toLowerCase();
-    if (!normalized) continue;
-
-    if (normalized === "egg_white" || normalized === "egg" || normalized.includes("egg_")) {
-      allergens.add("egg");
-    }
-
-    if (
-      normalized === "milk" ||
-      normalized === "cream" ||
-      normalized.includes("cream") ||
-      normalized.includes("milk")
-    ) {
-      allergens.add("milk");
-    }
-
-    if (
-      normalized === "orgeat" ||
-      normalized === "almond" ||
-      normalized.includes("almond") ||
-      normalized.includes("orgeat")
-    ) {
-      allergens.add("almond");
-    }
-
-    if (
-      normalized === "beer" ||
-      normalized.includes("beer") ||
-      normalized.includes("ale") ||
-      normalized.includes("lager") ||
-      normalized.includes("stout") ||
-      normalized.includes("porter") ||
-      normalized.includes("wheat_beer") ||
-      normalized.includes("malt")
-    ) {
-      allergens.add("gluten");
-    }
-  }
-
-  const allergen_types = [...allergens].sort((a, b) => a.localeCompare(b));
-  return {
-    allergen_warning: allergen_types.length > 0,
-    allergen_types,
-  };
-}
-
-function getCaffeineSafetyForRecipe(result: any): {
-  caffeine_warning: boolean;
-  caffeine_sources: string[];
-} {
-  const ingredientKeys = getCanonicalIngredientKeysForResult(result);
-  const alcoholStrengthScore = getAlcoholStrengthScoreForRecipe(result);
-  const caffeineSources = new Set<string>();
-
-  for (const key of ingredientKeys) {
-    const normalized = String(key ?? "").trim().toLowerCase();
-    if (!normalized) continue;
-
-    if (normalized === "coffee" || normalized.includes("coffee")) {
-      caffeineSources.add("coffee");
-    }
-    if (normalized === "espresso" || normalized.includes("espresso")) {
-      caffeineSources.add("espresso");
-    }
-    if (normalized === "cold_brew" || normalized.includes("cold_brew")) {
-      caffeineSources.add("cold_brew");
-    }
-    if (normalized === "caffeine" || normalized.includes("caffeine")) {
-      caffeineSources.add("caffeine");
-    }
-    if (normalized === "energy_drink" || normalized.includes("energy_drink")) {
-      caffeineSources.add("energy_drink");
-    }
-    if (normalized === "cola" || normalized.includes("cola")) {
-      caffeineSources.add("cola");
-    }
-  }
-
-  const caffeine_sources = [...caffeineSources].sort((a, b) => a.localeCompare(b));
-  return {
-    caffeine_warning: caffeine_sources.length > 0 && alcoholStrengthScore !== null && alcoholStrengthScore > 0,
-    caffeine_sources,
-  };
-}
-
-function evaluateRecipeSafety(result: any): {
-  alcohol_warning: boolean;
-  alcohol_strength_score: number | null;
-  allergen_warning: boolean;
-  allergen_types: string[];
-  caffeine_warning: boolean;
-  caffeine_sources: string[];
-} {
-  const alcoholSafety = getAlcoholSafetyForRecipe(result);
-  const allergenSafety = getAllergenSafetyForRecipe(result);
-  const caffeineSafety = getCaffeineSafetyForRecipe(result);
-
-  return {
-    alcohol_warning: alcoholSafety.alcohol_safety_warning,
-    alcohol_strength_score: alcoholSafety.alcohol_strength_score,
-    allergen_warning: allergenSafety.allergen_warning,
-    allergen_types: allergenSafety.allergen_types,
-    caffeine_warning: caffeineSafety.caffeine_warning,
-    caffeine_sources: caffeineSafety.caffeine_sources,
-  };
 }
 
 function normalizeVector(vec: any): Record<string, number | null> | null {
@@ -958,12 +787,11 @@ export default function TabOneScreen() {
     try {
       return JSON.stringify({
         resolvedVector: resolvedVector ?? {},
-        safetyMode: preferences?.safetyMode ?? {},
       });
     } catch {
       return "{}";
     }
-  }, [resolvedVector, preferences?.safetyMode]);
+  }, [resolvedVector]);
 
   const interactionSets = useMemo(() => {
     const favoriteCodes = new Set<string>();
@@ -1236,39 +1064,14 @@ export default function TabOneScreen() {
       const oneAway = Array.isArray(data.one_away) ? data.one_away : [];
       const twoAway = Array.isArray(data.two_away) ? data.two_away : [];
 
-      const flattenedWithSafety: ClassicItem[] = [
-        ...canMake.map((x) => ({
-          ...x,
-          bucket: "ready" as const,
-          ...getAlcoholSafetyForRecipe(x),
-          ...getAllergenSafetyForRecipe(x),
-          ...getCaffeineSafetyForRecipe(x),
-          ...evaluateRecipeSafety(x),
-        })),
-        ...oneAway.map((x) => ({
-          ...x,
-          bucket: "one_missing" as const,
-          ...getAlcoholSafetyForRecipe(x),
-          ...getAllergenSafetyForRecipe(x),
-          ...getCaffeineSafetyForRecipe(x),
-          ...evaluateRecipeSafety(x),
-        })),
-        ...twoAway.map((x) => ({
-          ...x,
-          bucket: "two_missing" as const,
-          ...getAlcoholSafetyForRecipe(x),
-          ...getAllergenSafetyForRecipe(x),
-          ...getCaffeineSafetyForRecipe(x),
-          ...evaluateRecipeSafety(x),
-        })),
+      // SAFETY-BADGE Stage 4 (2026-08-15): client 安檢過濾整組拆除
+      //(alcohol 門檻 4.5 打在 0–3 band 永不觸發、substring 誤傷 coconut_cream)
+      // 事實標示由 badges 承接。
+      const flattened: ClassicItem[] = [
+        ...canMake.map((x) => ({ ...x, bucket: "ready" as const })),
+        ...oneAway.map((x) => ({ ...x, bucket: "one_missing" as const })),
+        ...twoAway.map((x) => ({ ...x, bucket: "two_missing" as const })),
       ];
-
-      const flattened = flattenedWithSafety.filter((recipe) => {
-        if (preferences.safetyMode.avoidHighProof && recipe.alcohol_warning) return false;
-        if (preferences.safetyMode.avoidAllergens && recipe.allergen_warning) return false;
-        if (preferences.safetyMode.avoidCaffeineAlcohol && recipe.caffeine_warning) return false;
-        return true;
-      });
 
       if (flattened.length === 0) {
         setRecipes([]);

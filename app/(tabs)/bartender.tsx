@@ -164,13 +164,7 @@ export default function BartenderScreen() {
       if (!res.ok) throw new Error(data?.error || "Request failed");
       setExplorationMode(data?.meta?.exploration_mode === true);
 
-      let recs: Pick[] = data.recommendations || [];
-      if (preferences.safetyMode?.avoidHighProof) {
-        // recipe_vec values are 0..3 scale; ≥2.5 = top sixth = "high proof".
-        recs = recs.filter(
-          (r) => Number(r.recipe_vec?.alcoholStrength ?? 0) < 2.5
-        );
-      }
+      const recs: Pick[] = data.recommendations || [];
       setHeroRecs(recs.slice(0, 5));
     } catch {
       // Spotlight is best-effort: on failure the row simply hides and the
@@ -213,7 +207,6 @@ export default function BartenderScreen() {
     const signature = JSON.stringify({
       stylePreset: preferences.stylePreset,
       dims: preferences.dims,
-      safetyMode: preferences.safetyMode,
       inventoryEmpty: inventory.length === 0,
     });
     if (signature === lastFetchSignatureRef.current) return;

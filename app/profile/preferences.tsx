@@ -139,59 +139,6 @@ function TasteChip({
   );
 }
 
-function SafetyToggleRow({
-  label,
-  value,
-  onPress,
-  disabled,
-}: {
-  label: string;
-  value: boolean;
-  onPress: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        borderWidth: 1,
-        borderRadius: 12,
-        paddingHorizontal: 12,
-        paddingVertical: 12,
-        borderColor: OaklandDusk.bg.border,
-        backgroundColor: OaklandDusk.bg.card,
-        opacity: disabled ? 0.5 : 1,
-      }}
-    >
-      <Text style={{ fontWeight: "600", color: OaklandDusk.text.primary, flex: 1 }}>{label}</Text>
-      <View
-        style={{
-          width: 44,
-          height: 26,
-          borderRadius: 999,
-          padding: 3,
-          backgroundColor: value ? OaklandDusk.brand.gold : OaklandDusk.bg.surface,
-          justifyContent: "center",
-        }}
-      >
-        <View
-          style={{
-            width: 20,
-            height: 20,
-            borderRadius: 999,
-            backgroundColor: OaklandDusk.text.primary,
-            alignSelf: value ? "flex-end" : "flex-start",
-          }}
-        />
-      </View>
-    </Pressable>
-  );
-}
-
 export default function TabZeroPreferencesScreen() {
   const navigation = useNavigation<any>();
 
@@ -208,15 +155,8 @@ export default function TabZeroPreferencesScreen() {
   const [draftAlcohol, setDraftAlcohol] = useState<FlavorLevel>(preferences.dims.alcoholStrength);
   const [draftSweetness, setDraftSweetness] = useState<FlavorLevel>(preferences.dims.sweetness);
   const [draftBitterness, setDraftBitterness] = useState<FlavorLevel>(preferences.dims.bitterness);
-  const [draftAvoidHighProof, setDraftAvoidHighProof] = useState<boolean>(preferences.safetyMode.avoidHighProof);
-  const [draftAvoidAllergens, setDraftAvoidAllergens] = useState<boolean>(preferences.safetyMode.avoidAllergens);
   const [saving, setSaving] = useState(false);
   const saveButtonOpacity = React.useRef(new Animated.Value(1)).current;
-  const [draftAvoidCaffeineAlcohol, setDraftAvoidCaffeineAlcohol] = useState<boolean>(
-    preferences.safetyMode.avoidCaffeineAlcohol
-  );
-  const [draftAvoidEgg, setDraftAvoidEgg] = useState<boolean>(preferences.safetyMode.avoidEgg);
-  const [draftAvoidDairy, setDraftAvoidDairy] = useState<boolean>(preferences.safetyMode.avoidDairy);
 
   // Guide bubble state (Stage 7 — guide #11)
   const [guidePrefsStyleVisible, setGuidePrefsStyleVisible] = useState(false);
@@ -231,22 +171,12 @@ export default function TabZeroPreferencesScreen() {
     setDraftAlcohol(preferences.dims.alcoholStrength);
     setDraftSweetness(preferences.dims.sweetness);
     setDraftBitterness(preferences.dims.bitterness);
-    setDraftAvoidHighProof(preferences.safetyMode.avoidHighProof);
-    setDraftAvoidAllergens(preferences.safetyMode.avoidAllergens);
-    setDraftAvoidCaffeineAlcohol(preferences.safetyMode.avoidCaffeineAlcohol);
-    setDraftAvoidEgg(preferences.safetyMode.avoidEgg);
-    setDraftAvoidDairy(preferences.safetyMode.avoidDairy);
   }, [
     hydrated,
     preferences.stylePreset,
     preferences.dims.alcoholStrength,
     preferences.dims.sweetness,
     preferences.dims.bitterness,
-    preferences.safetyMode.avoidHighProof,
-    preferences.safetyMode.avoidAllergens,
-    preferences.safetyMode.avoidCaffeineAlcohol,
-    preferences.safetyMode.avoidEgg,
-    preferences.safetyMode.avoidDairy,
   ]);
 
   const alcoholWord = useMemo(() => levelWordAlcohol(draftAlcohol), [draftAlcohol]);
@@ -259,12 +189,7 @@ export default function TabZeroPreferencesScreen() {
       draftStyle !== preferences.stylePreset ||
       draftAlcohol !== preferences.dims.alcoholStrength ||
       draftSweetness !== preferences.dims.sweetness ||
-      draftBitterness !== preferences.dims.bitterness ||
-      draftAvoidHighProof !== preferences.safetyMode.avoidHighProof ||
-      draftAvoidAllergens !== preferences.safetyMode.avoidAllergens ||
-      draftAvoidCaffeineAlcohol !== preferences.safetyMode.avoidCaffeineAlcohol ||
-      draftAvoidEgg !== preferences.safetyMode.avoidEgg ||
-      draftAvoidDairy !== preferences.safetyMode.avoidDairy
+      draftBitterness !== preferences.dims.bitterness
     );
   }, [
     hydrated,
@@ -276,16 +201,6 @@ export default function TabZeroPreferencesScreen() {
     preferences.dims.alcoholStrength,
     preferences.dims.sweetness,
     preferences.dims.bitterness,
-    draftAvoidHighProof,
-    draftAvoidAllergens,
-    draftAvoidCaffeineAlcohol,
-    draftAvoidEgg,
-    draftAvoidDairy,
-    preferences.safetyMode.avoidHighProof,
-    preferences.safetyMode.avoidAllergens,
-    preferences.safetyMode.avoidCaffeineAlcohol,
-    preferences.safetyMode.avoidEgg,
-    preferences.safetyMode.avoidDairy,
   ]);
 
   const draftSliderValues: Record<string, number> = useMemo(
@@ -342,13 +257,6 @@ export default function TabZeroPreferencesScreen() {
         sweetness: draftSweetness,
         bitterness: draftBitterness,
       },
-      safetyMode: {
-        avoidHighProof: draftAvoidHighProof,
-        avoidAllergens: draftAvoidAllergens,
-        avoidCaffeineAlcohol: draftAvoidCaffeineAlcohol,
-        avoidEgg: draftAvoidEgg,
-        avoidDairy: draftAvoidDairy,
-      },
     };
 
     setPreferences(newPrefs);
@@ -363,7 +271,6 @@ export default function TabZeroPreferencesScreen() {
             bitterness: Number(draftBitterness),
             alcoholStrength: Number(draftAlcohol),
           },
-          safety_mode: newPrefs.safetyMode,
         },
       }).catch((e) => console.warn("[preferences/save] sync failed:", e?.message));
     }
@@ -502,49 +409,6 @@ export default function TabZeroPreferencesScreen() {
                 onValueChange={(v) => setDraftBitterness(toLevel3(v))}
               />
             </View>
-          </View>
-        </View>
-
-        {/* Safety Mode card */}
-        <View
-          style={{
-            padding: 10,
-            borderWidth: 1,
-            borderColor: OaklandDusk.bg.border,
-            borderRadius: 14,
-            backgroundColor: OaklandDusk.bg.card,
-            gap: 6,
-            opacity: disabled ? 0.7 : 1,
-          }}
-        >
-          <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Safety Mode</Text>
-          <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>Filter out recommendations based on safety preferences.</Text>
-
-          <View style={{ gap: 4 }}>
-            <SafetyToggleRow
-              label="Avoid Strong Drinks"
-              value={draftAvoidHighProof}
-              onPress={() => setDraftAvoidHighProof((v) => !v)}
-              disabled={disabled}
-            />
-            <SafetyToggleRow
-              label="Avoid Caffeine"
-              value={draftAvoidCaffeineAlcohol}
-              onPress={() => setDraftAvoidCaffeineAlcohol((v) => !v)}
-              disabled={disabled}
-            />
-            <SafetyToggleRow
-              label="Avoid Eggs"
-              value={draftAvoidEgg}
-              onPress={() => setDraftAvoidEgg((v) => !v)}
-              disabled={disabled}
-            />
-            <SafetyToggleRow
-              label="Avoid Dairy"
-              value={draftAvoidDairy}
-              onPress={() => setDraftAvoidDairy((v) => !v)}
-              disabled={disabled}
-            />
           </View>
         </View>
 
