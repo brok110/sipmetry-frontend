@@ -1087,6 +1087,20 @@ export default function TabTwoScreen() {
     }
   }, [session, ibaCode, dbRecipe, recipeTitle]);
 
+  // INGREDIENT-INFO Phase 1 (A): tap an ingredient name → its info page.
+  // Guest sessions get undefined (no tap affordance), same gating as onAddToList.
+  const handleIngredientInfoPress = useCallback((ingredientKey: string, displayName: string) => {
+    router.push({
+      pathname: "/ingredient-info",
+      params: {
+        key: ingredientKey,
+        name: displayName,
+        listed: listedKeys.has(ingredientKey) ? "1" : "0",
+        from: "recipe",
+      },
+    });
+  }, [router, listedKeys]);
+
   const hasSelection = Boolean(ibaCode) || Boolean(legacyRecipe);
 
   if (!hasSelection) {
@@ -1204,6 +1218,21 @@ export default function TabTwoScreen() {
                 <FontAwesome name={isFav ? "heart" : "heart-o"} color={isFav ? OaklandDusk.accent.crimson : OaklandDusk.text.tertiary} size={20} />
               </Pressable>
             </HintBubble>
+            <Pressable
+              onPress={() => {
+                if (router.canDismiss()) {
+                  router.dismissAll();
+                } else {
+                  router.replace("/(tabs)/bartender" as any);
+                }
+              }}
+              hitSlop={6}
+              accessibilityRole="button"
+              accessibilityLabel="Close and return to tabs"
+              style={styles.closeButton}
+            >
+              <FontAwesome name="close" size={14} color={OaklandDusk.brand.gold} />
+            </Pressable>
           </View>
         </View>
 
@@ -1334,6 +1363,7 @@ export default function TabTwoScreen() {
                 confirmedStaplesSet={confirmedStaplesSet}
                 onAddToList={isGuestSession ? undefined : handleAddToList}
                 listedKeys={listedKeys}
+                onIngredientPress={isGuestSession ? undefined : handleIngredientInfoPress}
               />
             ) : loading ? (
               <Text style={[Type.caption, styles.tertiaryText]}>(Loading full recipe…)</Text>
@@ -1467,6 +1497,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 10,
     paddingVertical: 4,
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: R.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(237,230,214,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(237,230,214,0.14)",
   },
   heroImageContainer: {
     width: "100%",

@@ -30,6 +30,7 @@ interface DbIngredientsListProps {
   confirmedStaplesSet: Set<string>;
   onAddToList?: (ingredientKey: string, displayName: string) => void;
   listedKeys: Set<string>;
+  onIngredientPress?: (ingredientKey: string, displayName: string) => void;
 }
 
 type BandKey = "neutral" | "ready" | "substitute" | "missing";
@@ -45,6 +46,7 @@ export const DbIngredientsList = memo(function DbIngredientsList({
   confirmedStaplesSet,
   onAddToList,
   listedKeys,
+  onIngredientPress,
 }: DbIngredientsListProps) {
   const rows = useMemo(() => {
     const list = Array.isArray(ingredients) ? ingredients : [];
@@ -72,6 +74,12 @@ export const DbIngredientsList = memo(function DbIngredientsList({
           : resolved.display || humanizeKey(key) || "unknown"
       ).trim();
       const isOptional = Boolean(it?.is_optional);
+      // Tap target: substitute rows route to the matched bottle's page
+      // (server matched_by, may be null on a type-match edge -> not tappable);
+      // plain rows route to the ingredient itself.
+      const matchedByKey =
+        serverInfo?.status === "substitute" ? String(serverInfo.matched_by ?? "").trim() : "";
+      const tapKey = isSubstitute ? matchedByKey : key;
 
       const ml =
         it?.amount_ml === null || it?.amount_ml === undefined || it?.amount_ml === ""
@@ -151,9 +159,25 @@ export const DbIngredientsList = memo(function DbIngredientsList({
       return (
         <View key={i} style={styles.row}>
           <View style={ROW_STYLE_BY_BAND[bandKey]}>
-            <Text style={styles.name}>
-              {name}{isOptional ? <Text style={styles.optionalSuffix}> (optional)</Text> : ""}
-            </Text>
+            {onIngredientPress && tapKey ? (
+              <Pressable
+                onPress={() => onIngredientPress(tapKey, name)}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel={`About ${name}`}
+                style={styles.nameTap}
+              >
+                <Text style={styles.nameTapLine}>
+                  {name}
+                  <Text style={styles.infoGlyph}> ⓘ</Text>
+                  {isOptional ? <Text style={styles.optionalSuffix}> (optional)</Text> : null}
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.name}>
+                {name}{isOptional ? <Text style={styles.optionalSuffix}> (optional)</Text> : ""}
+              </Text>
+            )}
             {bandHasData && (
               bandKey === "missing" && onAddToList ? (
                 listedKeys.has(key) ? (
@@ -180,7 +204,22 @@ export const DbIngredientsList = memo(function DbIngredientsList({
             <Text style={styles.amount}>{amountLabel}</Text>
           </View>
           {isSubstitute && originalName ? (
-            <Text style={styles.originallyText}>Originally: {originalName}</Text>
+            onIngredientPress && key ? (
+              <Pressable
+                onPress={() => onIngredientPress(key, originalName)}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={`About ${originalName}`}
+                style={styles.originallyTap}
+              >
+                <Text style={styles.originallyTapText}>
+                  Originally: {originalName}
+                  <Text style={styles.infoGlyph}> ⓘ</Text>
+                </Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.originallyText}>Originally: {originalName}</Text>
+            )
           ) : null}
         </View>
       );
@@ -196,6 +235,7 @@ export const DbIngredientsList = memo(function DbIngredientsList({
     confirmedStaplesSet,
     onAddToList,
     listedKeys,
+    onIngredientPress,
   ]);
 
   if (rows.length === 0) {
@@ -231,6 +271,9 @@ const styles = StyleSheet.create({
   },
 
   name: { flexShrink: 1, fontSize: 12, color: OaklandDusk.text.primary, marginRight: 8 },
+  nameTap: { flexShrink: 1, marginRight: 8 },
+  nameTapLine: { fontSize: 12, color: OaklandDusk.text.primary },
+  infoGlyph: { fontSize: 9, color: OaklandDusk.brand.gold },
   optionalSuffix: { color: OaklandDusk.text.tertiary },
   amount: { fontSize: 12, color: OaklandDusk.text.tertiary, marginLeft: "auto" },
 
@@ -243,6 +286,8 @@ const styles = StyleSheet.create({
   badgeTextMissing: { fontSize: 9, color: "#C87070" },
 
   originallyText: { fontSize: 10, color: "#D4A030", marginLeft: 14, marginBottom: 4 },
+  originallyTap: { alignSelf: "flex-start", marginLeft: 14, marginBottom: 4 },
+  originallyTapText: { fontSize: 10, color: "#D4A030" },
 
   availMissingText: { color: OaklandDusk.brand.sundown, fontSize: 13, fontWeight: "500" },
   availLowText: { color: "#D97706", fontSize: 12 },

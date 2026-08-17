@@ -41,10 +41,11 @@ function humanizeCategory(raw: string | null): string {
 export default function IngredientInfoScreen() {
   const insets = useSafeAreaInsets()
   const { session } = useAuth()
-  const params = useLocalSearchParams<{ key?: string; name?: string; listed?: string }>()
+  const params = useLocalSearchParams<{ key?: string; name?: string; listed?: string; from?: string }>()
 
   const ingredientKey = String(params.key ?? '').trim()
   const fallbackName = String(params.name ?? '').trim()
+  const fromRecipe = String(params.from ?? '').trim() === 'recipe'
 
   const [info, setInfo] = useState<IngredientInfo | null>(null)
   const [loading, setLoading] = useState(false)
@@ -82,7 +83,7 @@ export default function IngredientInfoScreen() {
         body: {
           ingredient_key: ingredientKey,
           display_name: info?.display_name || fallbackName || ingredientKey,
-          source: 'restock',
+          source: fromRecipe ? 'recipe' : 'restock',
         },
       })
       if (!res.ok) throw new Error(`status ${res.status}`)
@@ -92,16 +93,31 @@ export default function IngredientInfoScreen() {
     } finally {
       setAdding(false)
     }
-  }, [session, listed, adding, ingredientKey, info, fallbackName])
+  }, [session, listed, adding, ingredientKey, info, fallbackName, fromRecipe])
 
   const title = info?.display_name || fallbackName || 'Ingredient'
 
   return (
     <View style={styles.screen}>
       <View style={[styles.band, { paddingTop: insets.top + 8 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={6} accessibilityLabel="Back to Restock" style={styles.backPill}>
+        <Pressable onPress={() => router.back()} hitSlop={6} accessibilityLabel={fromRecipe ? 'Back to Recipe' : 'Back to Restock'} style={styles.backPill}>
           <FontAwesome name="chevron-left" size={14} color={OaklandDusk.brand.gold} />
-          <Text style={styles.backPillText}>Restock</Text>
+          <Text style={styles.backPillText}>{fromRecipe ? 'Recipe' : 'Restock'}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            if (router.canDismiss()) {
+              router.dismissAll()
+            } else {
+              router.replace('/(tabs)/bartender' as any)
+            }
+          }}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel="Close and return to tabs"
+          style={styles.closeBtn}
+        >
+          <FontAwesome name="close" size={14} color={OaklandDusk.brand.gold} />
         </Pressable>
       </View>
 
@@ -194,7 +210,23 @@ export default function IngredientInfoScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: OaklandDusk.bg.void },
-  band: { paddingHorizontal: GUTTER, paddingBottom: 4 },
+  band: {
+    paddingHorizontal: GUTTER,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: R.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(237,230,214,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(237,230,214,0.14)',
+  },
   backPill: {
     alignSelf: 'flex-start',
     height: 40,
