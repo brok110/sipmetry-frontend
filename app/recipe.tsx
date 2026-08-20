@@ -55,6 +55,7 @@ type DbRecipe = {
   instructions: string | null;
   is_published: boolean | null;
   image_url?: string | null;
+  story?: string | null;
   ingredients: DbRecipeIngredient[];
   recipe_vec?: Record<string, any> | null;
   // SAFETY-BADGE (2026-08-14): server-sorted facts; normalization 白名單必須帶上,
@@ -412,6 +413,7 @@ export default function TabTwoScreen() {
           instructions: (r as any).instructions ?? null,
           is_published: (r as any).is_published ?? null,
           image_url: typeof (r as any).image_url === "string" ? (r as any).image_url : null,
+          story: typeof (r as any).story === "string" && (r as any).story.trim() ? (r as any).story : null,
           ingredients: Array.isArray((r as any).ingredients)
             ? (r as any).ingredients.map((it: any) => {
                 const amountMlRaw =
@@ -1257,9 +1259,31 @@ export default function TabTwoScreen() {
         {/* Main content */}
         <View style={styles.mainContent}>
         {/* Type.display — recipe title */}
-        <Text style={[Type.display, styles.primaryText]}>
-          {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
-        </Text>
+        {/* INGREDIENT-INFO 二期:故事書 icon 入口(2026-08-19 實機回饋
+            改版:mono 行被 HIGH PROOF 實心塊壓過,改 title 同列 book icon,
+            Brok 手繪定稿)。story 為 null 時 icon 不渲染;hitSlop 撐 44pt;
+            長酒名折行時 icon 停列尾垂直置中(一期折行教訓,穩健解)。 */}
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <Text style={[Type.display, styles.primaryText, { flexShrink: 1 }]}>
+            {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
+          </Text>
+          {dbRecipe?.story ? (
+            <Pressable
+              onPress={() =>
+                router.push({
+                  pathname: "/cocktail-story",
+                  params: { name: dbRecipe.name, story: dbRecipe.story },
+                })
+              }
+              hitSlop={16}
+              accessibilityRole="button"
+              accessibilityLabel={`Read the story of ${dbRecipe.name}`}
+              style={{ marginLeft: 12 }}
+            >
+              <FontAwesome name="book" size={20} color={OaklandDusk.brand.gold} />
+            </Pressable>
+          ) : null}
+        </View>
 
         {/* SAFETY-BADGE (2026-08-13): 成分事實列 — 全展、後端序 */}
         <BadgeRow badges={(dbRecipe as any)?.badges} />
