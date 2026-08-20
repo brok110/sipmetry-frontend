@@ -1272,7 +1272,7 @@ export default function TabTwoScreen() {
               onPress={() =>
                 router.push({
                   pathname: "/cocktail-story",
-                  params: { name: dbRecipe.name, story: dbRecipe.story },
+                  params: { iba_code: dbRecipe.iba_code, name: dbRecipe.name, story: dbRecipe.story },
                 })
               }
               hitSlop={16}

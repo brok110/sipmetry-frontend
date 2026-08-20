@@ -4,24 +4,60 @@
 // ingredient-info.tsx:band(back pill + ✕ 逃生梯)/ Type.display
 // 標題 / STORY 眉標(category 同槽)/ prose(story 欄由 param 帶入,
 // 零 API)/ 收尾 ✦。FLAVOR / USED IN / Add 槽刻意留空——純故事頁。
+// STORY-RECS(2026-08-19):✦ 後追加 YOU MIGHT LIKE 三卡(借 USED IN
+// 語彙),GET /recipes/:iba_code/similar;端點失敗或不足三杯整節不
+// 渲染(靜默)。本頁第一個 fetch;iba_code 由入口 param 帶入。
 
 import OaklandDusk from '@/constants/OaklandDusk'
 import { R } from '@/constants/radius'
 import Type from '@/constants/typography'
+import { V3 } from '@/constants/v3DesignTokens'
+import { useAuth } from '@/context/auth'
+import { apiFetch } from '@/lib/api'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
+import { Image } from 'expo-image'
+import { LinearGradient } from 'expo-linear-gradient'
 import { router, useLocalSearchParams } from 'expo-router'
 import React from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const GUTTER = 16
+const RECS_GAP = 10
+const RECS_CARD_W = (Dimensions.get('window').width - GUTTER * 2 - RECS_GAP * 2) / 3
+
+type SimilarItem = { iba_code: string; name: string; image_url?: string | null; score?: number }
 
 export default function CocktailStoryScreen() {
   const insets = useSafeAreaInsets()
-  const params = useLocalSearchParams<{ name?: string; story?: string }>()
+  const { session } = useAuth()
+  const params = useLocalSearchParams<{ iba_code?: string; name?: string; story?: string }>()
 
+  const ibaCode = String(params.iba_code ?? '').trim()
   const title = String(params.name ?? '').trim() || 'Story'
   const story = String(params.story ?? '').trim()
+
+  const [recs, setRecs] = React.useState<SimilarItem[]>([])
+
+  React.useEffect(() => {
+    let alive = true
+    const load = async () => {
+      if (!session || !ibaCode) return
+      try {
+        const res = await apiFetch(`/recipes/${encodeURIComponent(ibaCode)}/similar`, { session })
+        if (!res.ok) return
+        const data = await res.json()
+        const items = Array.isArray(data?.items) ? data.items : []
+        if (alive) setRecs(items.slice(0, 3))
+      } catch {
+        // 靜默:端點失敗 → recs 維持空 → 整節不渲染
+      }
+    }
+    load()
+    return () => {
+      alive = false
+    }
+  }, [session, ibaCode])
 
   return (
     <View style={styles.screen}>
@@ -52,6 +88,42 @@ export default function CocktailStoryScreen() {
         <Text style={styles.eyebrow}>STORY</Text>
         {story ? <Text style={styles.prose}>{story}</Text> : null}
         {story ? <Text style={styles.fin}>✦</Text> : null}
+
+        {recs.length >= 3 ? (
+          <>
+            <Text style={styles.recsLabel}>YOU MIGHT LIKE</Text>
+            <View style={styles.recsRow}>
+              {recs.map((r) => (
+                <Pressable
+                  key={r.iba_code}
+                  style={styles.recsCard}
+                  onPress={() => router.push({ pathname: '/recipe', params: { iba_code: r.iba_code, from: 'story' } })}
+                  accessibilityRole="button"
+                  accessibilityLabel={r.name}
+                >
+                  <View style={styles.recsArt}>
+                    {r.image_url ? (
+                      <Image source={{ uri: r.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" />
+                    ) : (
+                      <View style={styles.recsFallback}>
+                        <FontAwesome name="glass" size={20} color={OaklandDusk.text.disabled} />
+                      </View>
+                    )}
+                    <LinearGradient
+                      colors={['transparent', `${OaklandDusk.bg.void}BF`]}
+                      locations={[0.55, 1]}
+                      style={StyleSheet.absoluteFill}
+                      pointerEvents="none"
+                    />
+                  </View>
+                  <Text style={styles.recsName} numberOfLines={1}>
+                    {r.name.toLowerCase()}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </>
+        ) : null}
       </ScrollView>
     </View>
   )
@@ -111,5 +183,33 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5,
     color: OaklandDusk.text.disabled,
     marginTop: 26,
+  },
+  recsLabel: {
+    fontFamily: 'DMMono',
+    fontSize: 10,
+    letterSpacing: 2.5,
+    color: OaklandDusk.text.tertiary,
+    marginTop: 30,
+    marginBottom: 10,
+  },
+  recsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: RECS_GAP },
+  recsCard: { width: RECS_CARD_W },
+  recsArt: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderRadius: R.action,
+    borderWidth: 1,
+    borderColor: `${OaklandDusk.text.primary}0F`,
+    overflow: 'hidden',
+    marginBottom: 6,
+    backgroundColor: OaklandDusk.bg.surface,
+  },
+  recsFallback: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  recsName: {
+    fontFamily: V3.fonts.mono,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    color: OaklandDusk.text.primary,
+    textTransform: 'lowercase',
   },
 })
