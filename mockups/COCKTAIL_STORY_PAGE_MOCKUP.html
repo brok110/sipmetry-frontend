@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>COCKTAIL STORY PAGE MOCKUP — 重建版 2026-08-18</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600&family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Cormorant+Garamond:ital,wght@1,300&display=swap" rel="stylesheet">
+<style>
+  /* ── OaklandDusk tokens(逐值抄自 constants/OaklandDusk.ts)── */
+  :root{
+    --bg-void:#08070C; --bg-card:#100C18; --bg-surface:#180F20; --bg-border:#251810;
+    --gold:#C87828; --sundown:#E0A030; --tagbg:#3A1808;
+    --txt1:#F0E4C8; --txt2:#C8B898; --txt3:#6A5040; --txt4:#352A1E;
+    --crimson:#C04858; --rosebg:#3A0820;
+  }
+  body{margin:0;background:#141018;color:var(--txt2);font-family:-apple-system,'Helvetica Neue',sans-serif;padding:28px 24px 64px;}
+  h1{font-family:'DM Mono',monospace;font-size:15px;letter-spacing:2px;color:var(--txt1);margin:0 0 4px;}
+  .meta{font-family:'DM Mono',monospace;font-size:11px;color:var(--txt3);margin-bottom:26px;line-height:1.7;}
+  .row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start;}
+  .col{display:flex;flex-direction:column;gap:10px;}
+  .label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:1.5px;color:var(--sundown);}
+  .note{max-width:250px;font-size:12px;line-height:1.75;color:var(--txt2);}
+  .note b{color:var(--txt1);font-weight:600;}
+  .note .dim{color:var(--txt3);}
+  /* ── phone frame ── */
+  .phone{width:340px;background:var(--bg-void);border:1px solid #2a2230;border-radius:34px;padding:14px 16px 26px;box-shadow:0 18px 50px rgba(0,0,0,.5);}
+  .statusbar{height:22px;}
+  /* header band(照 ingredient-info band:back pill 左、✕ 右)*/
+  .band{display:flex;justify-content:space-between;align-items:center;padding:8px 0 4px;}
+  .backpill{display:flex;align-items:center;gap:6px;height:40px;padding:0 16px;border-radius:999px;
+    background:rgba(237,230,214,.05);border:1px solid rgba(237,230,214,.14);color:var(--gold);font-size:16px;}
+  .backpill .chev{font-size:13px;}
+  .closebtn{width:40px;height:40px;border-radius:999px;display:flex;align-items:center;justify-content:center;
+    background:rgba(237,230,214,.05);border:1px solid rgba(237,230,214,.14);color:var(--gold);font-size:14px;}
+  /* title 區 */
+  .display{font-family:'EB Garamond',serif;font-weight:600;font-size:40px;line-height:1.05;color:var(--txt1);margin-top:10px;display:flex;align-items:center;gap:12px;}
+  .bookicon{font-size:20px;color:var(--gold);}
+  .eyebrow{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2.5px;color:var(--txt3);margin-top:6px;}
+  /* recipe 頁既有元素(簡化示意)*/
+  .badges{display:flex;gap:6px;margin-top:10px;}
+  .badge{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:1.2px;color:var(--txt2);
+    border:1px solid rgba(200,120,40,.3);border-radius:6px;padding:3px 7px;}
+  .tags{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}
+  .ttag{background:var(--tagbg);color:var(--gold);font-size:12px;font-weight:700;border-radius:8px;padding:4px 10px;}
+  .confbox{display:flex;align-items:center;gap:8px;margin-top:12px;border:1px solid rgba(29,158,117,.4);
+    border-radius:12px;padding:9px 12px;color:#1D9E75;font-size:13px;font-weight:600;}
+  .ghost{margin-top:16px;height:64px;border:1px dashed #2a2230;border-radius:12px;display:flex;align-items:center;
+    justify-content:center;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;color:var(--txt4);}
+  /* ✦ 入口 變體 A:pill */
+  .storypillA{display:inline-flex;align-items:center;gap:7px;margin-top:12px;
+    border:1px solid rgba(200,120,40,.45);border-radius:999px;padding:8px 15px;color:var(--gold);
+    font-size:13px;font-weight:700;}
+  .storypillA .star{font-size:12px;}
+  /* ✦ 入口 變體 B:mono eyebrow link */
+  .storylinkB{display:inline-flex;align-items:center;gap:6px;margin-top:8px;
+    font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2.5px;color:var(--gold);}
+  /* story 頁 prose */
+  .prose{font-size:14px;line-height:24px;color:var(--txt2);margin-top:22px;}
+  .divider{height:1px;background:transparent;margin-top:28px;}
+  .fin{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2.5px;color:var(--txt4);margin-top:26px;}
+  .variant-tag{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;
+    color:var(--bg-void);background:var(--sundown);border-radius:6px;padding:3px 8px;margin-bottom:2px;}
+  .section-gap{height:44px;}
+</style>
+</head>
+<body>
+
+<h1>COCKTAIL STORY PAGE — MOCKUP(重建版)</h1>
+<div class="meta">
+  2026-08-18 · 原檔遺失重建 · 骨架逐格對齊 app/ingredient-info.tsx(4cebaee7 期 frontend)·
+  色票/字型逐值抄 constants/OaklandDusk.ts · Type.display 以 Bebas Neue 近似,實作沿用既有 token,零新樣式語彙<br>
+  內容 = DB_ALASKA 實庫 413 字元(已入庫的正式內容,非 lorem)<br>
+  <b style="color:#E0A030">v2(2026-08-19):入口定稿 = book icon 貼酒名旁(實機證偽 mono 行後 Brok 手繪定稿,已上線 69491e5);A/B 變體自本檔移除。本版新增 YOU MIGHT LIKE 推薦節 = STORY-RECS 案 mockup 先行,待 Brok 終審。</b>
+</div>
+
+<!-- ════════ 第一排:入口定稿(book icon 貼酒名旁)════════ -->
+<div class="row">
+
+  <div class="col">
+    <span class="variant-tag">入口定稿 — book icon(已上線 69491e5)</span>
+    <div class="phone">
+      <div class="statusbar"></div>
+      <div class="band">
+        <div class="backpill"><span class="chev">‹</span> Back</div>
+        <div class="closebtn">✕</div>
+      </div>
+      <div class="ghost" style="height:110px;margin-top:4px;">HERO 圖(既有,不動)</div>
+      <div class="display">Alaska <span class="bookicon">&#x1F4D6;&#xFE0E;</span></div>
+      <div class="badges"><span class="badge">% HIGH PROOF</span></div>
+      <div class="tags"><span class="ttag">Aromatic</span></div>
+      <div class="confbox">🛒 &nbsp;2 ingredients away</div>
+      <div class="ghost">↓ INGREDIENTS(既有,不動)</div>
+    </div>
+  </div>
+
+  <div class="col">
+    <span class="label">入口定稿注記</span>
+    <div class="note">
+      FA <b>book</b> 20pt 金、與標題同列右側、hitSlop 44pt;
+      story 為 null 時 icon 不渲染;長酒名折行時 icon 停列尾
+      垂直置中(一期折行教訓,穩健解)。<br><br>
+      <span class="dim">演進留痕:mockup 裁 B(mono 行)→ 實機被
+      HIGH PROOF 實心塊壓過證偽 → Brok 手繪定稿本案。詳 backlog
+      「二期前端段結案」節。</span>
+    </div>
+  </div>
+</div>
+
+<div class="section-gap"></div>
+
+<!-- ════════ 第二排:故事頁本體 ════════ -->
+<div class="row">
+
+  <div class="col">
+    <span class="variant-tag">故事頁(骨架逐格對齊)</span>
+    <div class="phone">
+      <div class="statusbar"></div>
+      <div class="band">
+        <div class="backpill"><span class="chev">‹</span> Recipe</div>
+        <div class="closebtn">✕</div>
+      </div>
+      <div class="display">ALASKA</div>
+      <div class="eyebrow">STORY</div>
+      <div class="prose">Nothing about this drink is Alaskan. It shows up in early twentieth-century bar books — Jacques Straub's Drinks (1913) among the first — and was cemented by Harry Craddock's Savoy Cocktail Book (1930), where Craddock joked it was likelier invented in South Carolina than anywhere near the Arctic. Just gin and yellow Chartreuse, stirred cold: one of the simplest ways to let the old French liqueur do the talking.</div>
+      <div class="fin">✦</div>
+      <div class="eyebrow" style="margin-top:30px;">YOU MIGHT LIKE</div>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <div style="flex:1;">
+          <div style="aspect-ratio:3/4;border-radius:12px;border:1px solid rgba(240,228,200,.06);background:linear-gradient(160deg,#4a3510,#1a1208 70%);display:flex;align-items:flex-end;padding:6px;"><span style="font-size:22px;">🥃</span></div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--txt1);margin-top:6px;">widow's kiss</div>
+        </div>
+        <div style="flex:1;">
+          <div style="aspect-ratio:3/4;border-radius:12px;border:1px solid rgba(240,228,200,.06);background:linear-gradient(160deg,#5a2812,#170d06 70%);display:flex;align-items:flex-end;padding:6px;"><span style="font-size:22px;">🥃</span></div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--txt1);margin-top:6px;">diamondback</div>
+        </div>
+        <div style="flex:1;">
+          <div style="aspect-ratio:3/4;border-radius:12px;border:1px solid rgba(240,228,200,.06);background:linear-gradient(160deg,#2e4016,#0e1406 70%);display:flex;align-items:flex-end;padding:6px;"><span style="font-size:22px;">🥃</span></div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.8px;color:var(--txt1);margin-top:6px;">tipperary</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <span class="label">逐格對齊帳(材料頁 → 故事頁)</span>
+    <div class="note">
+      band(back pill + ✕)→ <b>照抄</b>,back 標籤 = Recipe,✕ 沿用
+      dismissAll 逃生梯<br>
+      title(Type.display)→ <b>照抄</b>,值 = 酒名<br>
+      category eyebrow → <b>同槽換字</b>:STORY(DMMono 10 / 2.5 / txt3)<br>
+      prose(14 / 24 / txt2,上距 22)→ <b>照抄</b>,值 = story 欄<br>
+      FLAVOR tags / USED IN / Add 膠囊 → <b>本頁刻意留空</b>——
+      故事頁 = 純故事,不重複詳情頁資訊(寧短勿虛的版面版)<br>
+      收尾 ✦(txt4)→ 故事與推薦節之間的分隔訊號<br>
+      <b>YOU MIGHT LIKE 節(STORY-RECS,本版新增)</b>→ 借 USED IN
+      三卡語彙(3:4 圖 + mono 小名),eyebrow 標(無副標,2026-08-19 Brok 裁);示意杯 = 與 Alaska 真實同族(Widow's Kiss /
+      Diamondback 同用 yellow Chartreuse、Tipperary 草本同軸),
+      實際由端點回傳;tap → 該杯詳情頁 push;端點失敗或不足三杯
+      → 整節不渲染(null-gate 同款)<br><br>
+      <span class="dim">富文本懸置案在此落地為:純文字、書名不斜體
+      (Straub's Drinks / Savoy Cocktail Book 直排)。要斜體 = 存
+      markdown + 前端解析,量級升檔,今晚不動。</span>
+    </div>
+  </div>
+
+  <div class="col">
+    <span class="label">實作面(供終審後的 brief 定界)</span>
+    <div class="note">
+      <b>新檔</b> app/cocktail-story.tsx:一頁一檔,結構 = ingredient-info
+      去掉 fetch/FLAVOR/USED IN/Add(story 由 param 帶入,零 API)<br>
+      <b>recipe.tsx</b>:+1 入口(變體 A 或 B)+ story gate<br>
+      <b>後端 / DB</b>:零改動(供應線今晚已收案)<br>
+      <b>導航</b>:push 疊層;✕ 逃生梯與 Back 語意照一期規則<br><br>
+      <span class="dim">量級:S(前端兩檔)。OTA 併下一次發車。</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

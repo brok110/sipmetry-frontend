@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STORY-RECS RADAR QA — 真實向量抽驗</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ── OaklandDusk tokens(逐值抄自 COCKTAIL_STORY_PAGE_MOCKUP.html)── */
+  :root{
+    --bg-void:#08070C; --bg-card:#100C18; --bg-surface:#180F20;
+    --gold:#C87828; --sundown:#E0A030; --tagbg:#3A1808;
+    --txt1:#F0E4C8; --txt2:#C8B898; --txt3:#6A5040; --txt4:#352A1E;
+    --crimson:#C04858; --ok:#1D9E75;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:#141018;color:var(--txt2);
+    font-family:-apple-system,'Helvetica Neue',sans-serif;padding:26px 22px 80px;}
+  h1{font-family:'DM Mono',monospace;font-size:15px;letter-spacing:2px;color:var(--txt1);margin:0 0 4px;}
+  .meta{font-family:'DM Mono',monospace;font-size:11px;color:var(--txt3);line-height:1.8;margin-bottom:18px;}
+  .meta b{color:var(--sundown);font-weight:500;}
+  .panel{background:var(--bg-void);border:1px solid #2a2230;border-radius:16px;padding:16px;margin-bottom:16px;max-width:1080px;}
+  .lab{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:2px;color:var(--txt3);display:block;margin:10px 0 4px;}
+  input,select{width:100%;background:var(--bg-surface);border:1px solid rgba(237,230,214,.14);
+    border-radius:9px;color:var(--txt1);font-family:'DM Mono',monospace;font-size:12px;padding:9px 11px;}
+  input:focus,select:focus{outline:none;border-color:rgba(200,120,40,.55);}
+  .rowflex{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+  .rowflex>div{flex:1;min-width:220px;}
+  button{font-family:'DM Mono',monospace;font-size:11.5px;letter-spacing:1px;color:var(--gold);
+    background:rgba(237,230,214,.05);border:1px solid rgba(200,120,40,.45);border-radius:999px;
+    padding:9px 16px;cursor:pointer;white-space:nowrap;}
+  button:hover{background:var(--tagbg);}
+  button:focus-visible{outline:2px solid var(--sundown);outline-offset:2px;}
+  button:disabled{opacity:.4;cursor:default;}
+  #log{font-family:'DM Mono',monospace;font-size:10.5px;color:var(--txt3);line-height:1.8;
+    margin-top:10px;max-height:120px;overflow:auto;white-space:pre-wrap;}
+  #log .err{color:var(--crimson);}
+  #log .ok{color:var(--ok);}
+  /* 抽驗結果列 */
+  .case{background:var(--bg-void);border:1px solid #2a2230;border-radius:18px;padding:18px;margin-bottom:18px;max-width:1080px;}
+  .case-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+  .case-name{font-family:'EB Garamond',serif;font-weight:600;font-size:26px;color:var(--txt1);}
+  .case-code{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:1.5px;color:var(--txt3);}
+  .verdicts{margin-left:auto;display:flex;gap:6px;}
+  .vbtn{padding:6px 13px;font-size:10.5px;color:var(--txt3);border-color:rgba(237,230,214,.14);}
+  .vbtn.on-fit{color:var(--ok);border-color:rgba(29,158,117,.55);}
+  .vbtn.on-nofit{color:var(--crimson);border-color:rgba(192,72,88,.6);}
+  .vbtn.on-hold{color:var(--sundown);border-color:rgba(224,160,48,.55);}
+  .picks{display:flex;gap:14px;flex-wrap:wrap;}
+  .pick{flex:1;min-width:230px;max-width:330px;background:var(--bg-card);border:1px solid rgba(240,228,200,.06);
+    border-radius:14px;padding:12px;}
+  .pick-name{font-family:'DM Mono',monospace;font-size:11.5px;letter-spacing:.8px;color:var(--txt1);}
+  .pick-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--txt3);margin-top:3px;line-height:1.7;}
+  .pick-sub .warn{color:var(--crimson);}
+  .pick svg{width:100%;height:auto;display:block;margin-top:6px;}
+  .empty-note{font-family:'DM Mono',monospace;font-size:11px;color:var(--crimson);letter-spacing:.6px;}
+  .legend{font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:1px;color:var(--txt3);margin-bottom:10px;}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;vertical-align:-1px;margin:0 5px 0 12px;}
+</style>
+</head>
+<body>
+
+<h1>STORY-RECS RADAR QA</h1>
+<div class="meta">
+  抽驗 <b>GET /recipes/:iba_code/similar</b> 的 top-3 貼不貼:向量讀 <b>Supabase 實庫</b>、
+  picks 打 <b>真實端點</b>(實機才是裁判)。分數會以 flavorSim 同款公式本地驗算交叉比對,
+  不符即紅字。⚠ 本檔含連線 key 使用,勿外流(ontology-reviewer 同規)。
+</div>
+
+<div class="panel">
+  <div class="rowflex">
+    <div><span class="lab">SUPABASE URL</span><input id="supaUrl" value="https://cuvkwqtdmzlcpidjzrgy.supabase.co"></div>
+    <div><span class="lab">SUPABASE KEY(anon 或 service_role,唯讀查詢)</span><input id="supaKey" type="password" placeholder="eyJ..."></div>
+    <div><span class="lab">ENDPOINT BASE</span><input id="epBase" value="http://localhost:8787"></div>
+    <div style="flex:0"><button id="btnConn">儲存連線並載入酒單</button></div>
+  </div>
+  <div class="rowflex" style="margin-top:12px;">
+    <div><span class="lab">手動加一杯</span><select id="pickOne"><option value="">(先載入酒單)</option></select></div>
+    <div style="flex:0"><button id="btnAdd" disabled>加入抽驗</button></div>
+    <div style="flex:0"><button id="btnRand" disabled>隨機抽 10</button></div>
+    <div style="flex:0"><button id="btnRun" disabled>跑抽驗</button></div>
+    <div style="flex:0"><button id="btnCopy" disabled>複製抽驗結果</button></div>
+  </div>
+  <div id="log"></div>
+</div>
+
+<div class="legend">雷達:<i style="background:var(--gold)"></i>當前杯 <i style="background:var(--crimson)"></i>候選杯 · 每卡下行 = 端點 score / 本地驗算 / 最大差維</div>
+<div id="cases"></div>
+
+<script>
+// ── flavorSim:逐字同 server.js 端點內公式 ──────────────────
+const FLAVOR_SCALE_MAX = 3;
+const flavorSim = (recipeVec, targetVec, dims) => {
+  let sum = 0;
+  let max = 0;
+  for (const d of dims) {
+    const rv = Number(recipeVec?.[d] ?? 0);
+    const tv = Number(targetVec?.[d] ?? 0);
+    sum += (FLAVOR_SCALE_MAX - Math.abs(rv - tv));
+    max += FLAVOR_SCALE_MAX;
+  }
+  return max > 0 ? sum / max : 0;
+};
+// DB 欄名(snake_case)直接當維度鍵,免映射
+const DIMS = ["alcohol_strength","aroma_intensity","sweetness","sourness","bitterness","herbal","fruity","smoky","body","fizz","floral","spicy"];
+const SHORT = ["alcohol","aroma","sweet","sour","bitter","herbal","fruity","smoky","body","fizz","floral","spicy"];
+const ZH = {alcohol_strength:"酒精",aroma_intensity:"香氣",sweetness:"甜",sourness:"酸",bitterness:"苦",herbal:"草本",fruity:"果香",smoky:"煙燻",body:"酒體",fizz:"氣泡",floral:"花香",spicy:"辛香"};
+
+// ── 狀態 ──────────────────────────────────────────────────
+let RECIPES = [];            // {iba_code,name}
+let SAMPLE = [];             // iba_code[]
+const VERDICT = {};          // code -> fit|nofit|hold
+const RESULTS = {};          // code -> {items:[...], simLocal:{pickCode:num}}
+
+const $ = (id)=>document.getElementById(id);
+const log = (msg, cls)=>{ const d=$("log"); d.innerHTML += `<span class="${cls||''}">${msg}</span>\n`; d.scrollTop=d.scrollHeight; };
+const store = (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} };
+const load  = (k)=>{ try{ return localStorage.getItem(k); }catch(e){ return null; } };
+
+// 連線資訊還原
+["supaUrl","supaKey","epBase"].forEach(k=>{ const v=load("srqa_"+k); if(v) $(k).value=v; });
+
+const supaHeaders = ()=>({ apikey: $("supaKey").value.trim(), Authorization: "Bearer "+$("supaKey").value.trim() });
+
+async function supaGet(path){
+  const url = $("supaUrl").value.trim().replace(/\/$/,"") + "/rest/v1/" + path;
+  const r = await fetch(url, { headers: supaHeaders() });
+  if(!r.ok) throw new Error("Supabase "+r.status+" — "+(await r.text()).slice(0,140));
+  return r.json();
+}
+
+// ── 載入酒單 ──────────────────────────────────────────────
+$("btnConn").onclick = async ()=>{
+  ["supaUrl","supaKey","epBase"].forEach(k=>store("srqa_"+k, $(k).value));
+  $("log").innerHTML="";
+  try{
+    log("讀取 recipes(is_published=true)…");
+    RECIPES = await supaGet("recipes?select=iba_code,name&is_published=eq.true&order=name.asc&limit=500");
+    log("酒單載入:"+RECIPES.length+" 杯","ok");
+    const sel=$("pickOne");
+    sel.innerHTML='<option value="">— 選一杯 —</option>'+RECIPES.map(r=>`<option value="${r.iba_code}">${r.name} · ${r.iba_code}</option>`).join("");
+    ["btnAdd","btnRand","btnRun"].forEach(id=>$(id).disabled=false);
+  }catch(e){ log("載入失敗:"+e.message,"err"); }
+};
+
+$("btnAdd").onclick = ()=>{
+  const c=$("pickOne").value; if(!c) return;
+  if(!SAMPLE.includes(c)){ SAMPLE.push(c); log("加入:"+c+"(目前 "+SAMPLE.length+" 杯)"); }
+};
+$("btnRand").onclick = ()=>{
+  const pool=[...RECIPES.map(r=>r.iba_code)];
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  SAMPLE = pool.slice(0,10);
+  log("隨機抽 10:"+SAMPLE.join(", "));
+};
+
+// ── 跑抽驗 ────────────────────────────────────────────────
+$("btnRun").onclick = async ()=>{
+  if(SAMPLE.length===0){ log("抽驗清單是空的——先隨機抽或手動加。","err"); return; }
+  $("cases").innerHTML=""; $("btnRun").disabled=true;
+  const ep = $("epBase").value.trim().replace(/\/$/,"");
+  try{
+    // 1. 打端點
+    const picksByCode = {};
+    for(const code of SAMPLE){
+      log("端點:"+code+" …");
+      let r;
+      try{ r = await fetch(ep+"/recipes/"+encodeURIComponent(code)+"/similar"); }
+      catch(netErr){
+        log("端點連不上:"+netErr.message,"err");
+        log("排查:①server 是否在跑(node server.js)②本機 .env 的 CORS_ALLOW_ORIGINS 若非空會擋 file://——留空 = dev allow-all,改後重啟 server。","err");
+        $("btnRun").disabled=false; return;
+      }
+      if(!r.ok){ log(code+" → HTTP "+r.status,"err"); picksByCode[code]={items:[]}; continue; }
+      picksByCode[code]=await r.json();
+    }
+    // 2. 批量抓向量(當前杯 + 全部 picks)
+    const need = new Set(SAMPLE);
+    Object.values(picksByCode).forEach(p=>(p.items||[]).forEach(it=>need.add(it.iba_code)));
+    log("抓向量:"+need.size+" 杯 …");
+    const vecRows = await supaGet("recipe_flavor_vectors?select=*&iba_code=in.("+[...need].join(",")+")");
+    const VEC={}; vecRows.forEach(v=>VEC[v.iba_code]=v);
+    const NAME={}; RECIPES.forEach(r=>NAME[r.iba_code]=r.name);
+    // 3. 渲染
+    for(const code of SAMPLE){
+      RESULTS[code]={ items:(picksByCode[code].items||[]) , simLocal:{} };
+      renderCase(code, picksByCode[code].items||[], VEC, NAME);
+    }
+    $("btnCopy").disabled=false;
+    log("抽驗渲染完成——逐列裁 貼/不貼/待議,完了按「複製抽驗結果」。","ok");
+  }catch(e){ log("失敗:"+e.message,"err"); }
+  $("btnRun").disabled=false;
+};
+
+// ── 雷達 SVG ──────────────────────────────────────────────
+function radarSvg(curVec, pickVec){
+  const CX=110, CY=104, R=72;
+  const pt=(i,val)=>{ const a=(-90+i*30)*Math.PI/180; const r=(Math.max(0,Math.min(3,Number(val)||0))/3)*R;
+    return [(CX+r*Math.cos(a)).toFixed(1),(CY+r*Math.sin(a)).toFixed(1)]; };
+  const poly=(v)=>DIMS.map((d,i)=>pt(i,v?.[d]).join(",")).join(" ");
+  let g="";
+  for(const lvl of [1,2,3]){
+    const p=DIMS.map((_,i)=>pt(i,lvl).join(",")).join(" ");
+    g+=`<polygon points="${p}" fill="none" stroke="#352A1E" stroke-width="${lvl===3?1:0.6}"/>`;
+  }
+  DIMS.forEach((_,i)=>{
+    const a=(-90+i*30)*Math.PI/180, lx=CX+88*Math.cos(a), ly=CY+88*Math.sin(a);
+    const anchor=Math.abs(Math.cos(a))<0.25?"middle":(Math.cos(a)>0?"start":"end");
+    g+=`<text x="${lx.toFixed(1)}" y="${(ly+2.5).toFixed(1)}" text-anchor="${anchor}" font-family="DM Mono,monospace" font-size="7.5" fill="#6A5040">${SHORT[i]}</text>`;
+  });
+  g+=`<polygon points="${poly(curVec)}" fill="rgba(200,120,40,.18)" stroke="#C87828" stroke-width="1.4"/>`;
+  g+=`<polygon points="${poly(pickVec)}" fill="rgba(192,72,88,.16)" stroke="#C04858" stroke-width="1.4"/>`;
+  return `<svg viewBox="0 0 220 208" role="img">${g}</svg>`;
+}
+
+function renderCase(code, items, VEC, NAME){
+  const wrap=document.createElement("div"); wrap.className="case";
+  const nm=NAME[code]||code;
+  let inner=`<div class="case-head"><span class="case-name">${nm}</span><span class="case-code">${code}</span>
+    <span class="verdicts">
+      <button class="vbtn" data-v="fit" data-c="${code}">貼</button>
+      <button class="vbtn" data-v="nofit" data-c="${code}">不貼</button>
+      <button class="vbtn" data-v="hold" data-c="${code}">待議</button>
+    </span></div>`;
+  if(items.length<3){
+    inner+=`<div class="empty-note">端點回 ${items.length} 筆(<3)→ 前端整節不渲染。此列僅供記錄。</div>`;
+  }
+  inner+=`<div class="picks">`+items.map(it=>{
+    const cv=VEC[code], pv=VEC[it.iba_code];
+    let sub;
+    if(cv&&pv){
+      const local=flavorSim(cv,pv,DIMS);
+      RESULTS[code].simLocal[it.iba_code]=+local.toFixed(4);
+      const drift=Math.abs(local-it.score)>0.001;
+      let maxD="",maxV=-1;
+      DIMS.forEach(d=>{ const diff=Math.abs((Number(cv[d])||0)-(Number(pv[d])||0)); if(diff>maxV){maxV=diff;maxD=d;} });
+      sub=`端點 ${it.score.toFixed(4)} / 驗算 ${local.toFixed(4)}${drift?' <span class="warn">← 不符,查!</span>':''}<br>最大差維:${ZH[maxD]}(${maxV.toFixed(1)})`;
+      return `<div class="pick"><div class="pick-name">${it.name}</div><div class="pick-sub">${it.iba_code}<br>${sub}</div>${radarSvg(cv,pv)}</div>`;
+    }
+    return `<div class="pick"><div class="pick-name">${it.name}</div><div class="pick-sub warn">缺向量列,無法畫(異常,回報)</div></div>`;
+  }).join("")+`</div>`;
+  wrap.innerHTML=inner;
+  $("cases").appendChild(wrap);
+  wrap.querySelectorAll(".vbtn").forEach(b=>b.onclick=()=>{
+    VERDICT[b.dataset.c]=b.dataset.v;
+    wrap.querySelectorAll(".vbtn").forEach(x=>x.className="vbtn");
+    b.classList.add("on-"+b.dataset.v);
+  });
+}
+
+// ── 匯出 ──────────────────────────────────────────────────
+$("btnCopy").onclick = async ()=>{
+  const out = SAMPLE.map(c=>({
+    code:c, verdict:VERDICT[c]||"(未裁)",
+    picks:(RESULTS[c]?.items||[]).map(it=>({code:it.iba_code, ep:it.score, local:RESULTS[c].simLocal[it.iba_code]}))
+  }));
+  const txt = JSON.stringify(out, null, 1);
+  try{ await navigator.clipboard.writeText(txt); log("已複製到剪貼簿("+out.length+" 列)。","ok"); }
+  catch(e){ log("剪貼簿失敗,手動複製:\n"+txt,"err"); }
+};
+</script>
+</body>
+</html>
