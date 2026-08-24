@@ -4,36 +4,72 @@ Central tracker for frontend technical debt and deferred work.
 
 ---
 
-## NATIVE-GATE — OTA frozen until the 1.0.2 build ships (2026-07-27)
+## OTA pre-flight — FOUR-check gate (standing rule)
 
-**Status:** Active constraint. Lifts when the 1.0.2 binary is live.
+**Status:** Permanent. Applies to **every** `eas update`, indefinitely.
+Not tied to any open or closed case.
+
+Promoted out of NATIVE-GATE on 2026-08-23 so that it survives that case's
+closure instead of being buried under it. The fourth check is the one the
+NATIVE-GATE incident bought:
+
+`git log --oneline <last-build-commit>..HEAD -- package.json app.json ios android`
+
+**Must be EMPTY before any `eas update`.** A non-empty result means the JS
+bundle may reference native code the installed binary does not contain,
+which crashes every user on app open. The original three checks were blind
+to this entire class of failure.
+
+Related standing rules (cross-repo source of truth: `ROUND_4_BACKLOG.md`):
+- Use `eas update --channel production --platform ios` — **never** `--auto`.
+- Verify `.env` is not pointing at localhost before every OTA.
+
+---
+
+## ~~NATIVE-GATE — OTA frozen until the 1.0.2 build ships (2026-07-27)~~ ✅ LIFTED 2026-08-07
+
+**Status:** ✅ Resolved — historical record only. **This constraint no
+longer applies.**
+
+**⚠️ Correction note (2026-08-23):** this section sat at "Active
+constraint" for over two weeks after the gate actually lifted. A stale
+*prohibition* is worse than a stale completion status: it does not merely
+misinform, it actively blocks work that is in fact permitted. Anyone (or
+any agent) reading this file top-down hit it first, since it was the
+opening section of a living document.
+
+**Resolution:** 1.0.2 build 24 reached TestFlight on 2026-08-01 and passed
+acceptance. The gate lifted 2026-08-07 with the first 1.0.2-runtime OTA,
+update group `8f164aa0`. The fleet has moved again since — current
+production OTA is `2c85ee85` (2026-08-21, runtime 1.0.2, commit
+`1e38a30`), so the "`80965803` / `3e5400b`" figures below are two
+generations stale.
+
+**⚠️ The "Discipline while frozen" rules are now VOID — do not follow
+them.** Running `eas update` from the tip of main is fine. There is no
+reason to branch from `3e5400b`. The one durable output of this incident,
+the fourth pre-flight check, has been promoted to its own standing section
+above.
+
+**Incident record (2026-07-27 — reference only, do not act on):**
 
 The rail-chain perf batch (`5ae7965`..`c68521d`, 9 commits, all on main)
-includes `54bb608` which adds `expo-image` — a **native module**. The
-production 1.0.1 binary (built 2026-07-19) does not contain it, and the
-runtime version string ("1.0.1") gives EAS no way to block a mismatched
-update. Publishing an OTA from the current main tip would crash every
-user on app open (JS requests a native module the binary doesn't have).
-Confirmed via `git log -S '"expo-image"' -- package.json` → `54bb608`.
+included `54bb608`, which adds `expo-image` — a **native module**. The
+production 1.0.1 binary (built 2026-07-19) did not contain it, and the
+runtime version string ("1.0.1") gave EAS no way to block a mismatched
+update. Publishing an OTA from the main tip would have crashed every user
+on app open (JS requesting a native module the binary lacks). Confirmed
+via `git log -S '"expo-image"' -- package.json` → `54bb608`.
 
-**Ruling (Brok, 2026-07-27, option C):** hold the whole batch on shore —
-no OTA, no revert. It ships inside the next store build (version +
-runtime bumped to 1.0.2) together with everything since. Production
-fleet stays on update group `80965803` (commit `3e5400b`) until then.
-
-**Discipline while frozen:**
-- Never run `eas update` from the tip of main.
-- Emergency production fix: branch from `3e5400b` (last OTA'd commit),
-  fix + verify + publish the OTA from that branch, then cherry-pick
-  back to main.
-- OTA pre-flight is now a FOUR-check gate; the new fourth check:
-  `git log --oneline <last-build-commit>..HEAD -- package.json app.json ios android`
-  must be EMPTY before any `eas update`. (This incident was invisible
-  to the old three checks.)
+Ruling (Brok, 2026-07-27, option C): hold the whole batch on shore — no
+OTA, no revert; ship it inside the next store build with runtime bumped to
+1.0.2. Production fleet stayed on update group `80965803` (commit
+`3e5400b`) until that build shipped.
 
 Cross-repo ledger: `ROUND_4_BACKLOG.md` (backend repo) carries the
-matching NATIVE-GATE entry and remains the cross-repo source of truth;
-this file tracks frontend-local debt.
+struck-through NATIVE-GATE entry plus `RELEASE-1.0.2-BUILD24`; full text
+archived in `ROUND_4_ARCHIVE.md`. That ledger remains the cross-repo
+source of truth; this file tracks frontend-local debt.
 
 ---
 
