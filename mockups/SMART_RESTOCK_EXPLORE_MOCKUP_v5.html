@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Smart Restock — Explore Mockup v5</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital@1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#08070C; --card:#100C18; --surface:#180F20; --border:#251810;
+    --tagbg:#3A1808; --rust:#7A2420; --gold:#C87828; --sundown:#E0A030; --yellow:#F0C848;
+    --rosebg:#3A0820; --rose:#8B3060; --crimson:#C04858; --indigobg:#2A1860; --indigo:#7868B8;
+    --t1:#F0E4C8; --t2:#C8B898; --t3:#6A5040; --t4:#352A1E;
+    --ready:#1D9E75;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#040308;color:var(--t2);font-family:'DM Mono',monospace;padding:28px}
+  h1{font-family:'Bebas Neue';color:var(--t1);font-size:34px;letter-spacing:2px}
+  .sub{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--t3);font-size:16px;margin:4px 0 18px}
+  .rulings{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:11px;line-height:1.9;color:var(--t2);margin-bottom:26px;max-width:1260px}
+  .rulings b{color:var(--sundown)}
+  .board{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+  .frame-wrap{width:390px}
+  .frame-label{font-size:11px;color:var(--t3);margin-bottom:8px;letter-spacing:1px}
+  .frame{width:390px;background:var(--void);border:1px solid var(--border);border-radius:28px;overflow:hidden;padding:18px 0 24px}
+  .gutter{padding-left:24px;padding-right:24px}  /* GUTTER 16→24 併入本階 */
+  .anno{font-size:10px;color:var(--gold);letter-spacing:.5px}
+  .anno::before{content:"◆ "}
+
+  /* ── header ── */
+  .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .hd h2{font-family:'Bebas Neue';font-size:26px;color:var(--t1);letter-spacing:2px}
+  .listpill{display:flex;gap:6px;align-items:center;border:1px solid var(--gold);border-radius:999px;padding:5px 12px;color:var(--gold);font-size:11px}
+  .listpill .n{background:var(--gold);color:var(--void);border-radius:999px;padding:0 6px;font-weight:500}
+
+  /* ── WHATIF search ── */
+  .whatif{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 14px;color:var(--t3);font-size:12px;margin-bottom:16px}
+  .whatif.active{border-color:var(--gold);color:var(--t1)}
+  .type-list{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-top:6px;overflow:hidden}
+  .type-row{display:flex;justify-content:space-between;padding:10px 14px;font-size:12px;color:var(--t2);border-bottom:1px solid var(--border)}
+  .type-row:last-child{border-bottom:0}
+  .inbar{color:var(--ready);font-size:10px}
+
+  /* ── hero ── */
+  .hero{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--gold);border-radius:14px;padding:12px 14px;margin-bottom:20px;position:relative}
+  .pick{position:absolute;top:-9px;left:12px;background:var(--yellow);color:var(--void);font-size:9px;font-weight:500;border-radius:4px;padding:2px 6px;letter-spacing:1px}
+  .mono{width:48px;height:48px;border-radius:10px;background:var(--tagbg);color:var(--sundown);display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue';font-size:22px;flex-shrink:0}
+  .hero .nm{color:var(--t1);font-size:14px}
+  .hero .un{color:var(--sundown);font-size:11px;margin-top:2px}
+
+  /* ── rails ── */
+  .rail{margin-bottom:20px}
+  .rail-hd{display:flex;flex-direction:column;margin-bottom:8px}
+  .rail-hd .t{font-family:'Bebas Neue';font-size:17px;color:var(--t1);letter-spacing:1.5px}
+  .rail-hd .s{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;color:var(--t3)}
+  .cards{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;padding-left:24px;padding-right:24px}
+  .rcard{min-width:128px;max-width:128px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+  .rcard .mono{width:42px;height:42px;font-size:19px}
+  .rcard .nm{color:var(--t1);font-size:12px;line-height:1.3;min-height:31px}
+  .rcard .un{color:var(--sundown);font-size:10px}
+  .rcard.dim{opacity:.68}
+  .uptag{align-self:flex-start;background:var(--indigobg);color:var(--indigo);font-size:8px;border-radius:3px;padding:1px 5px;letter-spacing:.5px}
+  .cap{border:1px solid var(--gold);color:var(--gold);border-radius:999px;text-align:center;font-size:10px;padding:4px 0}
+  .cap.on{border-color:var(--ready);color:var(--ready)}
+
+  /* ── detail sheet ── */
+  .sheet{background:var(--surface);border:1px solid var(--gold);border-radius:20px 20px 24px 24px;padding:18px;margin:0 12px}
+  .sheet .top{display:flex;gap:12px;align-items:center;margin-bottom:14px}
+  .sheet .nm{font-family:'Bebas Neue';font-size:22px;color:var(--t1);letter-spacing:1px}
+  .sheet .un{color:var(--sundown);font-size:11px}
+  .sec{font-size:10px;color:var(--t3);letter-spacing:1.5px;margin:12px 0 8px}
+  .thumbs{display:flex;gap:8px}
+  .thumb{width:48px;text-align:center}
+  .thumb .ph{width:48px;height:48px;border-radius:10px;background:var(--tagbg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--rust);font-family:'Bebas Neue';font-size:16px}
+  .thumb .cap2{font-size:8px;color:var(--t2);margin-top:4px;line-height:1.3}
+  .step{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px}
+  .step .r{color:var(--t1);font-size:12px}
+  .step .need{color:var(--t3);font-size:10px;margin-top:2px}
+  .minicap{border:1px solid var(--gold);color:var(--gold);border-radius:999px;font-size:9px;padding:3px 9px;white-space:nowrap}
+  .bigcap{margin-top:14px;background:var(--gold);color:var(--void);border-radius:999px;text-align:center;font-size:13px;padding:11px 0;font-weight:500}
+</style>
+</head>
+<body>
+<h1>SMART RESTOCK — EXPLORE</h1>
+<div class="sub">mockup v5 · 2026-08-25 · v4 遺失後依案載裁決重建(v4 shasum 8b40444c 已不可考)</div>
+<div class="rulings">
+  <b>已拍板裁決(入帳為準):</b>
+  ① rails 後端驅動、主題輪換(API 實形已上線,A-2 194/194 驗過) ·
+  ② WHATIF 選定卡 = detail-sheet 同款富卡(Frame 3;rail 卡點擊同開此 sheet) ·
+  ③ shopping list 獨立頁,LIST 徽章入口 ·
+  ④ CTA 沿用 Add / On list 膠囊,hero 48px 保留,#1 PICK 徽章保留 ·
+  ⑤ <b>鎖定 rail 不渲染</b>(2026-08-25 裁 B;locked_rails 資料照收不畫,teaser 待 SUB-INFRA) ·
+  ⑥ upgrade 項 +N 調暗 + UPGRADE 標區隔 · ⑦ 材料圖未產前 monogram 為正式樣(Stage C 平行) ·
+  ⑧ GUTTER 16→24、SuggestionCard React.memo 兩待議併入本階
+</div>
+
+<div class="board">
+
+  <!-- Frame 1: 主畫面 -->
+  <div class="frame-wrap">
+    <div class="frame-label">FRAME 1 — 主畫面(free:3 rails,locked 不渲染)</div>
+    <div class="frame">
+      <div class="gutter">
+        <div class="hd"><h2>SMART RESTOCK</h2><div class="listpill">LIST <span class="n">3</span></div></div>
+        <div class="whatif">🔍 what if I buy…</div>
+        <div class="hero">
+          <div class="pick">#1 PICK</div>
+          <div class="mono">T</div>
+          <div><div class="nm">Tequila Blanco</div><div class="un">+3 cocktails tonight</div></div>
+        </div>
+        <div class="anno" style="margin-bottom:14px">hero 48px monogram · 榜首自動 = suggestions[0]</div>
+      </div>
+
+      <div class="rail">
+        <div class="rail-hd gutter"><span class="t">MAKE TONIGHT</span><span class="s">one bottle → pour now</span></div>
+        <div class="cards">
+          <div class="rcard"><div class="mono">C</div><div class="nm">Cointreau</div><div class="un">+2 cocktails</div><div class="cap">＋ Add</div></div>
+          <div class="rcard"><div class="mono">A</div><div class="nm">Angostura Bitters</div><div class="un">+2 cocktails</div><div class="cap on">✓ On list</div></div>
+          <div class="rcard"><div class="mono">M</div><div class="nm">Maraschino</div><div class="un">+1 cocktail</div><div class="cap">＋ Add</div></div>
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="rail-hd gutter"><span class="t">GROW YOUR BOURBON SHELF</span><span class="s">you own bourbon — use it more</span></div>
+        <div class="cards">
+          <div class="rcard"><div class="mono">S</div><div class="nm">Sweet Vermouth</div><div class="un">+2 cocktails</div><div class="cap">＋ Add</div></div>
+          <div class="rcard"><div class="mono">A</div><div class="nm">Absinthe</div><div class="un">+1 cocktail</div><div class="cap">＋ Add</div></div>
+        </div>
+      </div>
+
+      <div class="rail">
+        <div class="rail-hd gutter"><span class="t">UPGRADE THE POUR</span><span class="s">you pour a substitute — get the classic</span></div>
+        <div class="cards">
+          <div class="rcard dim"><span class="uptag">UPGRADE</span><div class="mono">M</div><div class="nm">Mezcal</div><div class="un">+2 · 現用 tequila 代打</div><div class="cap">＋ Add</div></div>
+          <div class="rcard dim"><span class="uptag">UPGRADE</span><div class="mono">C</div><div class="nm">Cognac</div><div class="un">+1 · 現用 calvados 代打</div><div class="cap">＋ Add</div></div>
+        </div>
+      </div>
+      <div class="gutter"><div class="anno">主題池日輪換(rails_meta.rotation_seed);free 3 條、locked_rails 不畫</div></div>
+    </div>
+  </div>
+
+  <!-- Frame 2: WHATIF 三態 -->
+  <div class="frame-wrap">
+    <div class="frame-label">FRAME 2 — WHATIF 三態(空 → typeahead → target)</div>
+    <div class="frame">
+      <div class="gutter">
+        <div class="hd"><h2>SMART RESTOCK</h2><div class="listpill">LIST <span class="n">3</span></div></div>
+        <div class="whatif">🔍 what if I buy…</div>
+        <div class="anno" style="margin:2px 0 16px">態一:空 — placeholder 引導</div>
+
+        <div class="whatif active">🔍 mar│</div>
+        <div class="type-list">
+          <div class="type-row"><span>Maraschino Liqueur</span></div>
+          <div class="type-row"><span>Marsala</span></div>
+          <div class="type-row"><span>Margarita Mix</span><span class="inbar">IN MY BAR</span></div>
+        </div>
+        <div class="anno" style="margin:8px 0 16px">態二:typeahead — IN MY BAR 標記沿用現況</div>
+
+        <div class="anno" style="margin-bottom:6px">態三:選定 → target 富卡,同 Frame 3 detail sheet(WHATIF 與 rail 卡共用同一 sheet 元件)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frame 3: detail sheet 富卡 -->
+  <div class="frame-wrap">
+    <div class="frame-label">FRAME 3 — detail sheet(rail 卡點擊 / WHATIF target 共用)</div>
+    <div class="frame">
+      <div class="sheet">
+        <div class="top">
+          <div class="mono">C</div>
+          <div><div class="nm">COINTREAU</div><div class="un">+2 cocktails · orange liqueur</div></div>
+        </div>
+
+        <div class="sec">INSTANT UNLOCKS</div>
+        <div class="thumbs">
+          <div class="thumb"><div class="ph">M</div><div class="cap2">Margarita</div></div>
+          <div class="thumb"><div class="ph">S</div><div class="cap2">Sidecar</div></div>
+        </div>
+
+        <div class="sec">ONE MORE STEP</div>
+        <div class="step">
+          <div><div class="r">Cosmopolitan</div><div class="need">need · Cranberry Juice</div></div>
+          <div class="minicap">＋ LIST</div>
+        </div>
+        <div class="step">
+          <div><div class="r">White Lady</div><div class="need">need · Egg White</div></div>
+          <div class="minicap">＋ LIST</div>
+        </div>
+
+        <div class="bigcap">＋ Add Cointreau to list</div>
+      </div>
+      <div class="gutter" style="margin-top:12px">
+        <div class="anno">unlocks 縮圖 48px(圖未產前 monogram)· next_step 上限 8 · minicap 走既有 handleAddToList</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
