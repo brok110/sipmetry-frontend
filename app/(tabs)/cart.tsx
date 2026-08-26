@@ -282,9 +282,6 @@ export default function CartScreen() {
       .catch(() => {});
   }, []);
 
-  // Explore accordion
-  const [exploreExpanded, setExploreExpanded] = useState(false);
-
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { inventory } = useInventory();
 
@@ -345,10 +342,6 @@ export default function CartScreen() {
   // Split into primary (true must-buys) vs explore (user already has a substitute)
   const primarySuggestions = useMemo(
     () => filteredSuggestions.filter((s) => !s.is_alternative_upgrade),
-    [filteredSuggestions]
-  );
-  const exploreSuggestions = useMemo(
-    () => filteredSuggestions.filter((s) => s.is_alternative_upgrade),
     [filteredSuggestions]
   );
 
@@ -941,162 +934,6 @@ export default function CartScreen() {
               </ScrollView>
             </View>
           ))}
-        </View>
-      )}
-
-      {/* Explore section — items where user already has a substitute (collapsible) */}
-      {/* B-2:railsActive 時由 UPGRADE THE POUR rail 接班,條件隱藏(拆碼留 B-4) */}
-      {hasFetched && !railsActive && exploreSuggestions.length > 0 && (
-        <View style={{ borderTopWidth: 1, borderTopColor: "rgba(200,120,40,0.1)", marginTop: 8, paddingTop: 14 }}>
-          {/* Toggle header */}
-          <Pressable
-            onPress={() => setExploreExpanded(!exploreExpanded)}
-            style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-              {/* LEAVE: 15px/700 section toggle — doesn't cleanly map to heading(17) or body(15/normal) */}
-              <Text style={{ fontSize: 15, fontWeight: "700", color: exploreExpanded ? OaklandDusk.brand.gold : OaklandDusk.text.secondary }}>
-                Explore
-              </Text>
-              <View style={{ backgroundColor: "rgba(200,120,40,0.1)", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999 }}>
-                {/* LEAVE: 11px pill count — label textTransform would uppercase "3 upgrades" */}
-                <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>
-                  {exploreSuggestions.length} upgrade{exploreSuggestions.length > 1 ? "s" : ""}
-                </Text>
-              </View>
-            </View>
-            <FontAwesome
-              name={exploreExpanded ? "chevron-up" : "chevron-down"}
-              size={12}
-              color={exploreExpanded ? OaklandDusk.brand.gold : OaklandDusk.text.secondary}
-            />
-          </Pressable>
-
-          {/* Subtitle when collapsed */}
-          {!exploreExpanded && (
-            // Type.caption — collapsed section subtitle
-            <Text style={[Type.caption, { color: OaklandDusk.text.secondary, marginTop: 6 }]}>
-              You can already make these with substitutes in your bar
-            </Text>
-          )}
-
-          {/* Expanded cards */}
-          {exploreExpanded && (
-            <View style={{ gap: 10, marginTop: 12 }}>
-              {exploreSuggestions.map((s) => {
-                const covering = s.covering_alternative;
-                const recipeNames = (s.recipes ?? []).map((r) => r.name).filter(Boolean);
-                const showRecipes = recipeNames.slice(0, 5);
-
-                return (
-                  <View
-                    key={s.ingredient_key}
-                    style={{
-                      borderRadius: 14,
-                      borderWidth: 0.5,
-                      borderColor: "rgba(200,120,40,0.12)",
-                      backgroundColor: OaklandDusk.bg.card,
-                      padding: 14,
-                      gap: 8,
-                    }}
-                  >
-                    {/* Header: name + category + unlock count (gray, not gold) */}
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                      <View style={{ flex: 1 }}>
-                        {/* Type.heading — explore card ingredient name */}
-                        <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
-                          {s.display_name}
-                        </Text>
-                        {/* Type.caption — category sub-label */}
-                        <Text style={[Type.caption, { color: OaklandDusk.text.secondary, marginTop: 2 }]}>
-                          {s.category_key ? s.category_key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : ""}
-                        </Text>
-                      </View>
-                      {/* LEAVE: 14px/600 muted count — between caption(12) and body(15), no clean role */}
-                      <Text style={{ fontSize: 14, fontWeight: "600", color: OaklandDusk.text.secondary }}>
-                        +{s.unlocks_count}
-                      </Text>
-                    </View>
-
-                    {/* Green pill: substitute info */}
-                    {covering && (
-                      <View style={{
-                        flexDirection: "row", alignItems: "center", gap: 6,
-                        backgroundColor: "rgba(99,153,34,0.08)",
-                        paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8,
-                      }}>
-                        <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#639922" }} />
-                        {/* Type.caption — availability note */}
-                        <Text style={[Type.caption, { color: "#97C459" }]}>
-                          You have {covering.user_has_display} as a substitute
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* Alt description */}
-                    {s.alt_description ? (
-                      // Type.caption — alt description
-                      <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
-                        {s.alt_description}
-                      </Text>
-                    ) : null}
-
-                    {/* Recipe pills — muted style */}
-                    {showRecipes.length > 0 && (
-                      <View>
-                        {/* Type.label — recipe section kicker */}
-                        <Text style={[Type.label, { color: OaklandDusk.text.secondary, marginBottom: 4 }]}>
-                          ORIGINAL RECIPE USES {s.display_name.toUpperCase()} IN
-                        </Text>
-                        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 4 }}>
-                          {showRecipes.map((name: string) => (
-                            <View key={name} style={{
-                              backgroundColor: "rgba(200,120,40,0.08)",
-                              paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
-                            }}>
-                              {/* LEAVE: 11px recipe names — label would uppercase proper nouns */}
-                              <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>{name}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-
-                    {/* CTA: outline style — add to shopping list (3b-fix) */}
-                    <Pressable
-                      onPress={() => handleAddToList(s)}
-                      disabled={listedKeys.has(s.ingredient_key)}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Add ${s.display_name} to shopping list`}
-                      style={{
-                        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-                        borderWidth: 1,
-                        borderColor: listedKeys.has(s.ingredient_key)
-                          ? "rgba(74,222,128,0.2)"
-                          : "rgba(200,120,40,0.2)",
-                        borderRadius: 12,
-                        paddingVertical: 11,
-                        marginTop: 2,
-                        opacity: listedKeys.has(s.ingredient_key) ? 0.7 : 1,
-                      }}
-                    >
-                      <FontAwesome
-                        name={listedKeys.has(s.ingredient_key) ? "check" : "shopping-bag"}
-                        size={12}
-                        color={listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
-                      />
-                      {/* Type.button — explore CTA */}
-                      <Text style={[Type.button, {
-                        color: listedKeys.has(s.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
-                      }]}>
-                        {listedKeys.has(s.ingredient_key) ? "On list" : "Add"}
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              })}
-            </View>
-          )}
         </View>
       )}
 
