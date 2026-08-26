@@ -68,6 +68,47 @@ type Suggestion = {
   alt_description?: string | null;
 };
 
+// RESTOCK-EXPLORE B-1:後端 rails(include_rails: true 時回;A-2 Group 25 已鎖形狀)
+type RailNextStep = {
+  iba_code: string;
+  name: string;
+  image_url?: string | null;
+  missing_key: string;
+  missing_display: string;
+};
+
+type RailItem = {
+  ingredient_key: string;
+  display_name: string;
+  unlocks_count: number;
+  avg_pref_match: number;
+  score: number;
+  category_key?: string | null;
+  family_key?: string | null;
+  versatility_categories?: string[];
+  recipes: Suggestion["recipes"];
+  is_alternative_upgrade: boolean;
+  covering_alternative?: { user_has: string; user_has_display: string } | null;
+  alt_description?: string | null;
+  on_list: boolean;
+  next_step_count: number;
+  next_step: RailNextStep[];
+};
+
+type Rail = {
+  key: string;
+  title: string;
+  subtitle: string;
+  items: RailItem[];
+};
+
+type RailsMeta = {
+  tier: "free" | "plus";
+  rotation_seed: string;
+  pool_size: number;
+  returned: number;
+};
+
 // S2:+N / hero → 明細頁(呼叫端已有 recipes,免二次請求)
 function openUnlocks(title: string, recipes: Suggestion["recipes"]) {
   router.push({
@@ -247,6 +288,11 @@ export default function CartScreen() {
   const [target, setTarget] = useState<TargetResult | null>(null);
   const [targetLoading, setTargetLoading] = useState(false);
 
+  // RESTOCK-EXPLORE B-1:rails 資料層。null = 後端未回(舊版/錯誤)→ fail-soft
+  // 走現行版面;locked_rails 依 2026-08-25 裁 B 不渲染、不入 state。
+  const [rails, setRails] = useState<Rail[] | null>(null);
+  const [railsMeta, setRailsMeta] = useState<RailsMeta | null>(null);
+
   // WHATIF typeahead 的「IN MY BAR」判定來源(S1 曾移除 useInventory,S4 重新需要)
   const ownedKeys = useMemo(
     () => new Set((inventory ?? []).map((it) => String(it.ingredient_key || "").trim()).filter(Boolean)),
@@ -327,7 +373,7 @@ export default function CartScreen() {
       const resp = await apiFetch("/restock-suggestions", {
         session,
         method: "POST",
-        body: { user_interactions: userInteractions },
+        body: { user_interactions: userInteractions, include_rails: true },
       });
 
       if (!resp.ok) {
@@ -338,6 +384,14 @@ export default function CartScreen() {
       const data = await resp.json();
       setSuggestions(data.suggestions ?? []);
       setMeta(data.meta ?? null);
+      setRails(Array.isArray(data.rails) ? data.rails : null);
+      setRailsMeta(data.rails_meta ?? null);
+      if (__DEV__ && Array.isArray(data.rails)) {
+        console.log(
+          `[restock] rails=${data.rails.length} keys=${data.rails.map((r: Rail) => r.key).join(",")} ` +
+          `tier=${data.rails_meta?.tier} seed=${data.rails_meta?.rotation_seed}`
+        );
+      }
       setHasFetched(true);
 
       analytics(EVENTS.SMART_RESTOCK_VIEWED, { count: data.suggestions?.length ?? 0 });
