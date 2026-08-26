@@ -77,6 +77,19 @@ source of truth; this file tracks frontend-local debt.
 
 **Status:** Worked around (custom headerLeft); proper fix deferred.
 
+**Update 2026-08-25 — the deferral trigger has FIRED and nobody re-tested.**
+The "do this when bumping the Expo SDK" condition happened on 2026-08-09
+(SDK 57, `expo ^57.0.0`); `react-native-screens` is now `~4.26.0` — past
+the 4.25.2 this entry named as carrying the iOS 26 fix. Native back may
+already be healed. Also, the workaround is no longer one qr-screen patch:
+it is now the shared `HeaderBackButton` behind SIX `headerLeft` sites in
+`_layout.tsx` (qr/Recipe, Restock, Profile ×4 — the 批 6 dedup); some of
+those are likely design choices, not bug detours, so even a clean retest
+does not make removal a one-liner — judge per usage. Next action: re-test
+native back on an iOS 26 device, then decide each `headerLeft` site
+separately. The "possibly same root cause" masthead note below is also now
+due — the RNS upgrade it was waiting for has happened.
+
 **Symptom:** On iOS 26 (simulator AND real device, New Arch), the native
 header back button becomes disabled after: navigate to a screen with
 headerShown:false / custom header → push next screen → go back → push
@@ -147,20 +160,24 @@ was already resolved by P0-1a/P1-5 in Batch 1. Remaining, pending:
 `lib/browse/rowEngine.ts`, `app/recipe.tsx`. Ranked against the rule set in
 `.claude/skills/vercel-react-native-skills`.
 
-**The number everything else ranks against (derived, not measured):**
-`MAX_RAIL_CARDS = 12` (rowEngine.ts:39) × `CARD_WIDTH + CARD_GAP = 140` gives
-a rail period of 1680px. On a 393pt device `LoopingRail.tsx:37` computes
-`copies = 2`, so each rail mounts 24 cards. The page is READY + 3 middle +
+**The number everything else ranks against (derived, not measured;
+updated 2026-08-25 to post-`aa22bfb` values — the original 2026-07-26 scan
+said 12 / 1680px / ~120 cards):**
+`MAX_RAIL_CARDS = 10` (rowEngine.ts:42) × `CARD_WIDTH + CARD_GAP = 140` gives
+a rail period of 1400px. On a 393pt device `LoopingRail.tsx:37` computes
+`copies = 2`, so each rail mounts 20 cards. The page is READY + 3 middle +
 HUNT = up to 5 rails, so:
 
-- ~120 `RecipeCard` mounted at once, ~6 of them visible
-- ~8 native views per card → ~950 views
-- 120 remote `Image` + 120 `LinearGradient` native views
+- ~100 `RecipeCard` mounted at once, ~6 of them visible
+- ~8 native views per card → ~800 views
+- ~100 remote `Image` + ~100 `LinearGradient` native views
 - outer container is a plain `ScrollView` (bartender.tsx:603) — no
   virtualization anywhere in the chain
 
 `copies = 2` is already the mathematical floor for a seamless loop
 (`(copies-1)*period >= viewportWidth`), so it cannot just be lowered.
+**Forward note (2026-08-25):** RESTOCK-EXPLORE Stage B will make cart.tsx a
+second rail consumer — re-scope these numbers when it lands.
 
 ### P0
 
@@ -306,6 +323,8 @@ is the gesture memo in P1-3.
 
 **Status:** Logged 2026-07-26, not fixed. Found while scanning the bartender
 rail chain; out of that scan's scope, so it was never investigated in depth.
+Re-verified 2026-08-25 — still present (`RecipeCard` :208, `SectionHeader`
+:330, both inside the screen body, both rendered from `renderItem` :428).
 
 **Symptom (not yet reproduced on device):** `RecipeCard`
 (app/recommendations.tsx:205-322, ~117 lines) and `SectionHeader` (:324-332)
@@ -331,16 +350,19 @@ file first — the closure surface has not been mapped.
 
 **Status:** Logged 2026-07-26. Latent — **not reachable today.** Correctness,
 not performance; recorded here because it was found during the perf scan.
+Re-verified 2026-08-25 — still latent, still not reachable (`setParams`
+remains cart.tsx-only).
 
-**Symptom:** The `/recipe-availability` effect at app/recipe.tsx:434-486 reads
-`scanItems` at :464 (guest branch only) but its dependency array (:486) is
-`[ibaCode, session, isGuestSession]`. If `scanItems` ever changed while the
+**Symptom:** The `/recipe-availability` effect reads `scanItems` (guest
+branch only) but its dependency array is `[ibaCode, session,
+isGuestSession]` (re-verified 2026-08-25: read at app/recipe.tsx:514, deps
+at :536; originally logged as :434-486 / :464 / :486). If `scanItems` ever changed while the
 screen stayed mounted, the effect would post the stale value.
 
 **Why it is not a live bug:** `scanItems` is a `useMemo` over
 `params.scan_items_json`, and route params are fixed for the lifetime of a
 mounted screen unless something calls `router.setParams`. Grepped the whole
-app: the only `setParams` call is app/(tabs)/cart.tsx:116, on a different
+app: the only `setParams` call is app/(tabs)/cart.tsx:266 (grep re-run 2026-08-25; was :116), on a different
 screen. So the stale read cannot occur as the code stands.
 
 **Trigger to watch for:** anything that adds `router.setParams` on the recipe
@@ -360,7 +382,9 @@ memo needs to stay stable.
 inherited as-is from the pre-extraction `renderDbIngredients()`, so it
 predates this session; the extraction faithfully preserved it rather than
 cleaning it up (P1-6 was scoped as a pure identity move, not a behavior
-audit).
+audit). Re-verified 2026-08-25 — still present: 7 `availBadge` hits, all
+assignments (now :105-136), zero render references; it survived the
+INGREDIENT-INFO tappable-name changes to this file untouched.
 
 **Symptom:** `components/DbIngredientsList.tsx:93-126` builds
 `let availBadge: React.ReactNode = null;` and assigns it across all 6
@@ -431,6 +455,15 @@ and consolidated here while executing P1-7 commit 4. All three are design
 decisions, not mechanical relocations — deliberately not bundled into P1-7's
 mechanical commits.
 
+**Update 2026-08-25 (re-verified):** the toast and CTA symptoms still hold
+(toast styles now `toastContainer`/`toastText` at ~:1728-1744; CTA colors
+at ~:1714-1726 plus the `#FFF`/`#1A1A2E` spinner ternary at :1468). The
+Like/Dislike block below is OBSOLETE — the whole rating row was removed in
+`7e361c1` (de-gamification; negative signal moved to skip/unfavorite) and
+UI-RADIUS swept the leftover `ratingButton*` styles; `#1A2A1A` / `#6B8F6B`
+/ `#3A2A2A` no longer appear anywhere in recipe.tsx. Two of the original
+three symptoms remain.
+
 **Symptom — toast:** `app/recipe.tsx`'s "Stage 3: First-interaction feedback
 toast" block (currently ~line 1481-1500) uses `backgroundColor: "#1e293b"`
 and `color: "white"` — neither matches any token in `DESIGN.md`'s
@@ -439,7 +472,7 @@ documented "warm neutrals from deep void to warm ivory" palette; nothing in
 `bg.*` is close. `"white"` isn't `text.primary` (`#F0E4C8`, warm ivory)
 either.
 
-**Symptom — Like/Dislike buttons:** the rating row's selected-state colors
+**~~Symptom — Like/Dislike buttons~~ (OBSOLETE 2026-08-25 — UI removed in `7e361c1`):** the rating row's selected-state colors
 (now `styles.ratingButtonLikeSelected`, `styles.ratingButtonDislikeSelected`,
 `styles.ratingTextLikeSelected` in the `StyleSheet.create` block P1-7 commit
 2 added) use `"#1A2A1A"` / `"#6B8F6B"` (like-selected background/border+text)
@@ -465,7 +498,8 @@ the CTA's done/not-done colors have no obvious existing OaklandDusk match and
 may need new tokens) — not a P1-7-style pure relocation, so kept out of the
 mechanical inline-style-to-StyleSheet passes. P1-7 is now fully mechanically
 extracted as of commit 4 — this color-token decision is the only open thread
-left from that work.
+left from that work. (2026-08-25: the Like/Dislike half of this decision is
+moot — see the update above; only the toast + CTA tokens remain to pick.)
 
 ---
 
@@ -474,6 +508,9 @@ left from that work.
 **Status:** Logged 2026-07-26, not fixed. Found while scoping P1-7's commit
 1 (Nav bar + hero image + tags + loading card) — deliberately left inline
 rather than folded into that commit's `StyleSheet.create` extraction.
+Re-verified 2026-08-25 — still present (now ~:1294-1306; the row wrapper
+gained a `tasteTagsRow` StyleSheet entry but the per-pill View/Text styles
+are still inline in the `.map()`).
 
 **Symptom:** `app/recipe.tsx`'s taste-tag row (currently ~lines 1194-1206)
 allocates a fresh `<View style={{...}}>` and `<Text style={{...}}>` per tag
@@ -519,7 +556,10 @@ but a shared abstraction would tempt exactly that.
 
 **Fix:** none needed — this entry exists so P1-7's later commits (or any
 future pass) don't "helpfully" deduplicate these into a shared style/component
-without realizing the branches are independent.
+without realizing the branches are independent. (2026-08-25: the two sides
+are no longer even literally identical — P1-7 moved the in-component one
+into `styles.backButton`/`backButtonText` while the module-level one stays
+inline — so the merge temptation is weaker, but the guardrail stands.)
 
 ---
 
@@ -528,6 +568,9 @@ without realizing the branches are independent.
 **Status:** Logged 2026-07-26, informational — a redundant duplicate, not
 dead code, not fixed. Found while scoping P1-7 commit 3; log-only per scope,
 no behavior change bundled into that commit.
+Re-verified 2026-08-25 — structure unchanged (truthy `setError` sites now
+:403 / :469, both alongside `setDbRecipe(null)`; share-catch :844 without;
+ladder arm :1394, standalone card :1416).
 
 **Symptom:** Inside the Ingredients card's 4-way conditional ladder
 (`dbRecipe ? <DbIngredientsList/> : loading ? ... : error ? ... : ibaCode ? ... : ...`),
