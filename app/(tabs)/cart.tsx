@@ -25,6 +25,7 @@ import OaklandDusk from "@/constants/OaklandDusk";
 import Type from "@/constants/typography";
 import { R } from "@/constants/radius";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
+import { Monogram, RailCard } from "@/components/restock/RailCard";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -124,7 +125,8 @@ function openUnlocks(title: string, recipes: Suggestion["recipes"]) {
 
 // RESTOCK-REDESIGN S4-FE-a:卡片抽成元件(純重構,零行為改變)。
 // S4-FE-b 的 WHATIF 搜尋結果卡會複用同一顆,避免兩處維護。
-function SuggestionCard({
+// B-2:補 React.memo(RESTOCK-REDESIGN 衍生待議第 7 項併入)。
+const SuggestionCard = React.memo(function SuggestionCard({
   s,
   isTop,
   listed,
@@ -242,7 +244,7 @@ function SuggestionCard({
           </View>
         </View>
   );
-}
+});
 
 export default function CartScreen() {
   const { session } = useAuth();
@@ -342,6 +344,27 @@ export default function CartScreen() {
     () => filteredSuggestions.filter((s) => s.is_alternative_upgrade),
     [filteredSuggestions]
   );
+
+  // ── RESTOCK-EXPLORE B-2:rails 呈現層 ─────────────────────────────
+  // hero = make_tonight 首卡(v5 拍板:monogram hero 卡取代 48px 數字,
+  // 2026-08-26 Brok 裁;聚合「全解鎖」入口隨舊 hero 退場,已知取捨)。
+  // rails 缺席(fail-soft)→ 下方全部條件回落現行版面。
+  const railsActive = !!rails && rails.length > 0;
+  const heroItem = useMemo(() => {
+    if (!rails || rails.length === 0) return null;
+    const mt = rails.find((r) => r.key === "make_tonight");
+    return mt?.items?.[0] ?? null;
+  }, [rails]);
+  const railsForRender = useMemo(() => {
+    if (!rails) return [];
+    if (!heroItem) return rails;
+    return rails
+      .map((r) => (r.key === "make_tonight" ? { ...r, items: r.items.slice(1) } : r))
+      .filter((r) => r.items.length > 0);
+  }, [rails, heroItem]);
+  const handleOpenRailItem = useCallback((it: { display_name: string } & Partial<RailItem>) => {
+    openUnlocks(`${it.display_name} unlocks`, (it as RailItem).recipes ?? []);
+  }, []);
 
   // SHOP-LIST 3b: refresh the badge whenever the tab regains focus (e.g.
   // returning from the list page after checking items off).
@@ -560,7 +583,7 @@ export default function CartScreen() {
     />
     <ScrollView
       style={{ flex: 1 }}
-      contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 40 }}
+      contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={fetchSuggestions} tintColor={OaklandDusk.brand.gold} />
@@ -664,8 +687,41 @@ export default function CartScreen() {
         </Pressable>
       )}
 
-      {/* Hero number — top PRIMARY suggestion's unlock count */}
-      {hasFetched && primarySuggestions.length > 0 && !loading && !target && (
+      {/* B-2 v5 hero:#1 PICK monogram 卡(railsActive 時取代 48px 數字 hero) */}
+      {hasFetched && railsActive && heroItem && !loading && !target && (
+        <Pressable
+          onPress={() => handleOpenRailItem(heroItem)}
+          accessibilityRole="button"
+          accessibilityLabel={`Top pick ${heroItem.display_name}`}
+          style={{
+            flexDirection: "row", alignItems: "center", gap: 12,
+            backgroundColor: OaklandDusk.bg.card,
+            borderWidth: 1, borderColor: OaklandDusk.brand.gold,
+            borderRadius: 14, padding: 14, marginTop: 6,
+          }}
+        >
+          <View style={{
+            position: "absolute", top: -9, left: 14,
+            backgroundColor: OaklandDusk.brand.yellow,
+            paddingHorizontal: 9, paddingVertical: 3, borderRadius: R.control, zIndex: 1,
+          }}>
+            {/* Type.label — badge kicker(沿用 #1 pick 樣式,底色 v5 yellow) */}
+            <Text style={[Type.label, { color: OaklandDusk.bg.void }]}>#1 pick</Text>
+          </View>
+          <Monogram label={heroItem.display_name} size={48} />
+          <View style={{ flex: 1 }}>
+            {/* Type.heading — hero ingredient name */}
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>{heroItem.display_name}</Text>
+            {/* LEAVE: DMMono 11px hero unlock line — mockup v5 spec */}
+            <Text style={{ fontFamily: "DMMono", fontSize: 11, color: OaklandDusk.brand.sundown, marginTop: 2 }}>
+              +{heroItem.unlocks_count} cocktail{heroItem.unlocks_count === 1 ? "" : "s"} tonight
+            </Text>
+          </View>
+        </Pressable>
+      )}
+
+      {/* Hero number — top PRIMARY suggestion's unlock count(fail-soft 回落) */}
+      {hasFetched && !railsActive && primarySuggestions.length > 0 && !loading && !target && (
         <Pressable
           onPress={() => openUnlocks(
             "All new cocktails",
@@ -807,10 +863,11 @@ export default function CartScreen() {
         </View>
       )}
 
-      {target && primarySuggestions.length > 0 && (
+      {target && !railsActive && primarySuggestions.length > 0 && (
         <Text style={{ fontFamily: "DMMono", fontSize: 10, letterSpacing: 2.5, color: OaklandDusk.text.tertiary }}>SUGGESTED</Text>
       )}
 
+      {!railsActive && (
       <View style={target ? { opacity: 0.45, gap: 16 } : { gap: 16 }}>
         {primarySuggestions.map((s, i) => (
           <SuggestionCard
@@ -823,9 +880,45 @@ export default function CartScreen() {
           />
         ))}
       </View>
+      )}
+
+      {/* B-2:rails 區塊(v5 Frame 1;WHATIF target 時同調暗;出血對齊 GUTTER 24) */}
+      {railsActive && (
+        <View style={target ? { opacity: 0.45, gap: 20 } : { gap: 20 }}>
+          {railsForRender.map((rail) => (
+            <View key={rail.key} style={{ gap: 8 }}>
+              <View style={{ gap: 2 }}>
+                {/* Type.title — rail 標題 */}
+                <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>{rail.title}</Text>
+                {/* Type.caption italic — rail 副標 */}
+                <Text style={[Type.caption, { color: OaklandDusk.text.tertiary, fontStyle: "italic" }]}>
+                  {rail.subtitle}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={{ marginHorizontal: -24 }}
+                contentContainerStyle={{ paddingHorizontal: 24, gap: 10 }}
+              >
+                {rail.items.map((it) => (
+                  <RailCard
+                    key={it.ingredient_key}
+                    item={it}
+                    listed={listedKeys.has(it.ingredient_key)}
+                    onAdd={handleAddToList}
+                    onPress={handleOpenRailItem}
+                  />
+                ))}
+              </ScrollView>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Explore section — items where user already has a substitute (collapsible) */}
-      {hasFetched && exploreSuggestions.length > 0 && (
+      {/* B-2:railsActive 時由 UPGRADE THE POUR rail 接班,條件隱藏(拆碼留 B-4) */}
+      {hasFetched && !railsActive && exploreSuggestions.length > 0 && (
         <View style={{ borderTopWidth: 1, borderTopColor: "rgba(200,120,40,0.1)", marginTop: 8, paddingTop: 14 }}>
           {/* Toggle header */}
           <Pressable
