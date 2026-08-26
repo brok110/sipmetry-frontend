@@ -26,6 +26,7 @@ import Type from "@/constants/typography";
 import { R } from "@/constants/radius";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import { Monogram, RailCard } from "@/components/restock/RailCard";
+import { RestockDetailSheet, type SheetData } from "@/components/restock/RestockDetailSheet";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -49,6 +50,9 @@ type TargetResult = {
   recipes: { iba_code: string; name: string; iba_category: string; image_url?: string | null; badges?: string[] }[];
   category_key?: string | null;
   family_key?: string | null;
+  // B-3:owned === false 時後端附(A-1 接線裁決②)
+  next_step?: RailNextStep[];
+  next_step_count?: number;
 };
 
 type Suggestion = {
@@ -295,6 +299,9 @@ export default function CartScreen() {
   const [rails, setRails] = useState<Rail[] | null>(null);
   const [railsMeta, setRailsMeta] = useState<RailsMeta | null>(null);
 
+  // B-3:detail sheet(rail 卡 / hero / WHATIF target 共用)
+  const [sheetItem, setSheetItem] = useState<SheetData | null>(null);
+
   // WHATIF typeahead 的「IN MY BAR」判定來源(S1 曾移除 useInventory,S4 重新需要)
   const ownedKeys = useMemo(
     () => new Set((inventory ?? []).map((it) => String(it.ingredient_key || "").trim()).filter(Boolean)),
@@ -362,8 +369,17 @@ export default function CartScreen() {
       .map((r) => (r.key === "make_tonight" ? { ...r, items: r.items.slice(1) } : r))
       .filter((r) => r.items.length > 0);
   }, [rails, heroItem]);
+  // B-3:rail 卡 / hero 點擊 → detail sheet(取代 B-2 過渡的 openUnlocks 直開)
   const handleOpenRailItem = useCallback((it: { display_name: string } & Partial<RailItem>) => {
-    openUnlocks(`${it.display_name} unlocks`, (it as RailItem).recipes ?? []);
+    const r = it as RailItem;
+    setSheetItem({
+      ingredient_key: r.ingredient_key,
+      display_name: r.display_name,
+      unlocks_count: r.unlocks_count ?? 0,
+      category_key: r.category_key ?? null,
+      recipes: r.recipes ?? [],
+      next_step: r.next_step ?? [],
+    });
   }, []);
 
   // SHOP-LIST 3b: refresh the badge whenever the tab regains focus (e.g.
@@ -481,7 +497,19 @@ export default function CartScreen() {
         });
         if (!res.ok) throw new Error(`status ${res.status}`);
         const data = await res.json();
-        setTarget(data.target ?? null);
+        const t = data.target ?? null;
+        setTarget(t);
+        // B-3(mockup 態三):未擁有的 target 直接開 detail sheet 富卡
+        if (t && t.owned === false) {
+          setSheetItem({
+            ingredient_key: t.ingredient_key,
+            display_name: t.display_name,
+            unlocks_count: t.unlocks_count ?? 0,
+            category_key: t.category_key ?? null,
+            recipes: t.recipes ?? [],
+            next_step: t.next_step ?? [],
+          });
+        }
       } catch {
         setToastMessage("Could not look that up — try again.");
         setTimeout(() => setToastMessage(null), 3500);
@@ -857,7 +885,7 @@ export default function CartScreen() {
               isTop={false}
               listed={listedKeys.has(target.ingredient_key)}
               onAdd={() => handleAddToList(target)}
-              onOpenUnlocks={() => openUnlocks(`${target.display_name} unlocks`, target.recipes)}
+              onOpenUnlocks={() => handleOpenRailItem(target)}
             />
           )}
         </View>
@@ -1083,6 +1111,17 @@ export default function CartScreen() {
     </ScrollView>
 
       {/* Toast notification */}
+      {/* B-3:detail sheet(rail 卡 / hero / WHATIF target 共用) */}
+      <RestockDetailSheet
+        data={sheetItem}
+        listedKeys={listedKeys}
+        onClose={() => setSheetItem(null)}
+        onAdd={handleAddToList}
+        onOpenUnlocks={() => {
+          if (sheetItem) openUnlocks(`${sheetItem.display_name} unlocks`, sheetItem.recipes as Suggestion["recipes"]);
+        }}
+      />
+
       {toastMessage && (
         <View style={{
           position: "absolute", bottom: 40, left: 20, right: 20,
