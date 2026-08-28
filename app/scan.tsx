@@ -2239,8 +2239,6 @@ const sessionBottles = sessionBottlesRef.current.get(snakeKey(ing.canonical));
             </Text>
           )}
 
-          {/* Stage 10: Flavor Explorer — future feature, not yet implemented */}
-
           {/* Stage 3: Add to My Bar — rendered as bottom sheet Modal below */}
 
           {/* Stage 4: Show me cocktails — moved to sticky footer below ScrollView */}
