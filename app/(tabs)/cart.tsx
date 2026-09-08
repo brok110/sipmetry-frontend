@@ -27,6 +27,8 @@ import { R } from "@/constants/radius";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import { Monogram, RailCard } from "@/components/restock/RailCard";
 import { RestockDetailSheet, type SheetData } from "@/components/restock/RestockDetailSheet";
+import { BundleRailCard, type BundleItem } from "@/components/restock/BundleRailCard";
+import { BundleDetailSheet } from "@/components/restock/BundleDetailSheet";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -100,12 +102,18 @@ type RailItem = {
   next_step: RailNextStep[];
 };
 
-type Rail = {
+// PLUS-RAILS B2:rail 依 kind 分流(single | bundle);tier 由 backend spec 帶出
+// (B1.2),tier === "plus" 的 rail 標題旁畫 PLUS 小標(裁決 b)。
+type RailBase = {
   key: string;
+  kind: "single" | "bundle";
+  tier: "free" | "plus";
   title: string;
   subtitle: string;
-  items: RailItem[];
 };
+type SingleRail = RailBase & { kind: "single"; items: RailItem[] };
+type BundleRail = RailBase & { kind: "bundle"; items: BundleItem[] };
+type Rail = SingleRail | BundleRail;
 
 type RailsMeta = {
   tier: "free" | "plus";
@@ -298,6 +306,8 @@ export default function CartScreen() {
 
   // B-3:detail sheet(rail 卡 / hero / WHATIF target 共用)
   const [sheetItem, setSheetItem] = useState<SheetData | null>(null);
+  // PLUS-RAILS B2:瓶對 sheet(BundleRailCard 點擊)
+  const [bundleSheet, setBundleSheet] = useState<BundleItem | null>(null);
 
   // WHATIF typeahead 的「IN MY BAR」判定來源(S1 曾移除 useInventory,S4 重新需要)
   const ownedKeys = useMemo(
@@ -349,19 +359,30 @@ export default function CartScreen() {
   // hero = make_tonight 首卡(v5 拍板:monogram hero 卡取代 48px 數字,
   // 2026-08-26 Brok 裁;聚合「全解鎖」入口隨舊 hero 退場,已知取捨)。
   // rails 缺席(fail-soft)→ 下方全部條件回落現行版面。
-  const railsActive = !!rails && rails.length > 0;
-  const heroItem = useMemo(() => {
-    if (!rails || rails.length === 0) return null;
-    const mt = rails.find((r) => r.key === "make_tonight");
-    return mt?.items?.[0] ?? null;
-  }, [rails]);
-  const railsForRender = useMemo(() => {
+  // PLUS-RAILS B2:staples 過濾補到 rails(Stage A 起的既有缺口)——single item ∈
+  // staples 濾掉;bundle 任一 member ∈ staples 整對濾掉;濾空的 rail 不畫;hero 亦
+  // 取濾後首張。railsActive 看濾後,全濾空時回落舊清單而非空白。
+  const railsFiltered = useMemo<Rail[]>(() => {
     if (!rails) return [];
-    if (!heroItem) return rails;
     return rails
-      .map((r) => (r.key === "make_tonight" ? { ...r, items: r.items.slice(1) } : r))
+      .map((r): Rail =>
+        r.kind === "bundle"
+          ? { ...r, items: r.items.filter((b) => !b.members.some((m) => staplesKeys.has(m.ingredient_key))) }
+          : { ...r, items: r.items.filter((it) => !staplesKeys.has(it.ingredient_key)) }
+      )
       .filter((r) => r.items.length > 0);
-  }, [rails, heroItem]);
+  }, [rails, staplesKeys]);
+  const railsActive = railsFiltered.length > 0;
+  const heroItem = useMemo(() => {
+    const mt = railsFiltered.find((r) => r.key === "make_tonight");
+    return mt && mt.kind !== "bundle" ? mt.items[0] ?? null : null;
+  }, [railsFiltered]);
+  const railsForRender = useMemo<Rail[]>(() => {
+    if (!heroItem) return railsFiltered;
+    return railsFiltered
+      .map((r): Rail => (r.key === "make_tonight" && r.kind !== "bundle" ? { ...r, items: r.items.slice(1) } : r))
+      .filter((r) => r.items.length > 0);
+  }, [railsFiltered, heroItem]);
   // B-3:rail 卡 / hero 點擊 → detail sheet(取代 B-2 過渡的 openUnlocks 直開)
   const handleOpenRailItem = useCallback((it: { display_name: string } & Partial<RailItem>) => {
     const r = it as RailItem;
@@ -374,6 +395,8 @@ export default function CartScreen() {
       next_step: r.next_step ?? [],
     });
   }, []);
+  // PLUS-RAILS B2:瓶對卡點擊 → BundleDetailSheet
+  const handleOpenBundle = useCallback((b: BundleItem) => setBundleSheet(b), []);
 
   // SHOP-LIST 3b: refresh the badge whenever the tab regains focus (e.g.
   // returning from the list page after checking items off).
@@ -909,8 +932,16 @@ export default function CartScreen() {
           {railsForRender.map((rail) => (
             <View key={rail.key} style={{ gap: 8 }}>
               <View style={{ gap: 2 }}>
-                {/* Type.title — rail 標題 */}
-                <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>{rail.title}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  {/* Type.title — rail 標題 */}
+                  <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>{rail.title}</Text>
+                  {/* PLUS-RAILS B2:Plus 主題小標(裁決 b:8px gold 細框;rail.tier 由 backend 帶出) */}
+                  {rail.tier === "plus" && (
+                    <View style={{ borderWidth: 1, borderColor: OaklandDusk.brand.gold, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 1 }}>
+                      <Text style={{ fontFamily: "DMMono", fontSize: 8, letterSpacing: 1, color: OaklandDusk.brand.gold }}>PLUS</Text>
+                    </View>
+                  )}
+                </View>
                 {/* Type.caption italic — rail 副標 */}
                 <Text style={[Type.caption, { color: OaklandDusk.text.tertiary, fontStyle: "italic" }]}>
                   {rail.subtitle}
@@ -922,15 +953,26 @@ export default function CartScreen() {
                 style={{ marginHorizontal: -24 }}
                 contentContainerStyle={{ paddingHorizontal: 24, gap: 10 }}
               >
-                {rail.items.map((it) => (
-                  <RailCard
-                    key={it.ingredient_key}
-                    item={it}
-                    listed={listedKeys.has(it.ingredient_key)}
-                    onAdd={handleAddToList}
-                    onPress={handleOpenRailItem}
-                  />
-                ))}
+                {/* PLUS-RAILS B2:依 rail.kind 分流——bundle 走瓶對卡,single 照舊 */}
+                {rail.kind === "bundle"
+                  ? rail.items.map((it) => (
+                      <BundleRailCard
+                        key={it.bundle_key}
+                        item={it}
+                        listedKeys={listedKeys}
+                        onAdd={handleAddToList}
+                        onPress={handleOpenBundle}
+                      />
+                    ))
+                  : rail.items.map((it) => (
+                      <RailCard
+                        key={it.ingredient_key}
+                        item={it}
+                        listed={listedKeys.has(it.ingredient_key)}
+                        onAdd={handleAddToList}
+                        onPress={handleOpenRailItem}
+                      />
+                    ))}
               </ScrollView>
             </View>
           ))}
@@ -957,6 +999,13 @@ export default function CartScreen() {
         onOpenUnlocks={() => {
           if (sheetItem) openUnlocks(`${sheetItem.display_name} unlocks`, sheetItem.recipes as Suggestion["recipes"]);
         }}
+      />
+      {/* PLUS-RAILS B2:瓶對 sheet */}
+      <BundleDetailSheet
+        data={bundleSheet}
+        listedKeys={listedKeys}
+        onClose={() => setBundleSheet(null)}
+        onAdd={handleAddToList}
       />
 
       {toastMessage && (
