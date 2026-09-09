@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>Restock Simplify — Ingredient / Bundle pages Mockup v1</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Cormorant+Garamond:ital,wght@0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#08070C; --card:#100C18; --surface:#180F20; --border:#251810;
+    --tagbg:#3A1808; --rust:#7A2420; --gold:#C87828; --sundown:#E0A030; --yellow:#F0C848;
+    --rosebg:#3A0820; --rose:#8B3060; --crimson:#C04858; --indigobg:#2A1860; --indigo:#7868B8;
+    --t1:#F0E4C8; --t2:#C8B898; --t3:#6A5040; --t4:#352A1E;
+    --ready:#1D9E75;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#040308;color:var(--t2);font-family:'DM Mono',monospace;padding:28px}
+  h1{font-family:'Bebas Neue';color:var(--t1);font-size:34px;letter-spacing:2px}
+  .sub{font-family:'Cormorant Garamond',serif;font-style:italic;color:var(--t3);font-size:16px;margin:4px 0 18px}
+  .rulings{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 16px;font-size:11px;line-height:1.9;color:var(--t2);margin-bottom:26px;max-width:1260px}
+  .rulings b{color:var(--sundown)}
+  .rulings .open{color:var(--crimson)}
+  .board{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+  .frame-wrap{width:390px}
+  .frame-label{font-size:11px;color:var(--t3);margin-bottom:8px;letter-spacing:1px}
+  .frame{width:390px;background:var(--void);border:1px solid var(--border);border-radius:28px;overflow:hidden;padding:18px 16px 40px}
+  .anno{font-size:10px;color:var(--gold);letter-spacing:.5px;margin-top:10px}
+  .anno::before{content:"◆ "}
+
+  /* ── page band(照 ingredient-info.tsx)── */
+  .band{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .pill{height:36px;border-radius:999px;padding:0 14px;background:rgba(237,230,214,.05);border:1px solid rgba(237,230,214,.14);color:var(--gold);font-size:14px;display:flex;align-items:center;gap:6px}
+  .close{width:36px;height:36px;border-radius:999px;background:rgba(237,230,214,.05);border:1px solid rgba(237,230,214,.14);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:13px}
+  .display{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:38px;line-height:1.05;color:var(--t1)}
+  .cat{font-size:10px;letter-spacing:2.5px;color:var(--t3);margin-top:6px}
+  .cat b{color:var(--sundown);font-weight:400}
+  .prose{font-family:-apple-system,Helvetica,Arial,sans-serif;font-size:14px;line-height:24px;color:var(--t2);margin-top:22px}
+  .sec{font-size:10px;letter-spacing:2.5px;color:var(--t3);margin:22px 0 10px}
+  .sec.hi{color:var(--yellow)}
+  .tags{display:flex;flex-wrap:wrap;gap:7px}
+  .tag{border:1px solid rgba(200,120,40,.35);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:500;color:var(--gold)}
+  .grid3{display:flex;gap:10px;flex-wrap:wrap}
+  .art{width:112px}
+  .art .ph{width:112px;aspect-ratio:3/4;border-radius:12px;background:linear-gradient(180deg,#2a1a10,#0d0a12);border:1px solid rgba(240,228,200,.06);display:flex;align-items:flex-end;justify-content:center;color:var(--rust);font-family:'Bebas Neue';font-size:22px;padding-bottom:8px}
+  .art.hi .ph{border-color:var(--yellow)}
+  .art .nm{font-size:10px;letter-spacing:.8px;color:var(--t1);margin-top:6px;text-transform:lowercase}
+  .step{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:6px}
+  .step .r{color:var(--t1);font-size:12px;font-family:-apple-system,Helvetica,Arial,sans-serif}
+  .step .need{color:var(--t3);font-size:10px;margin-top:2px}
+  .minicap{border:1px solid var(--gold);color:var(--gold);border-radius:999px;font-size:9px;padding:3px 9px;white-space:nowrap}
+  .addpill{display:inline-flex;align-items:center;gap:8px;margin-top:30px;border:1px solid rgba(200,120,40,.45);border-radius:999px;padding:10px 18px;font-size:13px;font-weight:500;color:var(--gold)}
+  .addpill.on{border-color:rgba(74,222,128,.4);color:#4ade80}
+
+  /* ── bundle header ── */
+  .pair{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .mono{width:48px;height:48px;border-radius:10px;background:var(--tagbg);color:var(--sundown);display:flex;align-items:center;justify-content:center;font-family:'DM Mono';font-weight:500;font-size:22px;position:relative}
+  .plus{color:var(--t3);font-size:18px}
+  .onlist{position:absolute;top:-5px;right:-5px;width:14px;height:14px;border-radius:999px;background:var(--ready);color:var(--void);font-size:9px;display:flex;align-items:center;justify-content:center}
+
+  /* ── entry map ── */
+  .map{font-size:11px;line-height:1.9}
+  .map td{padding:4px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  .map td:first-child{color:var(--t1)}
+  .map .old{color:var(--t3);text-decoration:line-through}
+  .map .new{color:var(--sundown)}
+</style>
+</head>
+<body>
+<h1>RESTOCK SIMPLIFY — INGREDIENT / BUNDLE PAGES</h1>
+<div class="sub">mockup v1 · 2026-09-08 · Smart Restock 點擊一律進頁,sheet 退場;backend 零改動;數字示意</div>
+<div class="rulings">
+  <b>裁向(09-07 晚,Brok):</b> Smart Restock over-engineering——點 ingredient 應進介紹頁、下面列可調的酒,不要彈 sheet。與 08-15「凡名字皆入口 → 材料介紹頁」同向;08-25 B-3 detail sheet 為重複 pattern,退場。<br>
+  <b>方案(09-07 裁「可以」):</b> ① <code>/ingredient-info</code> 加兩段個人化:MAKE TONIGHT(買了立刻能調)+ ONE MORE STEP(再一瓶);資料 = POST <code>/restock-suggestions</code> 帶 <code>target: key</code> 的既有回應(<code>target.recipes</code> / <code>target.next_step</code>),零後端 ·
+  ② USED IN(通用)只在 MAKE TONIGHT 為空時顯示 ·
+  ③ <code>cart.tsx</code>:rail 卡 / hero / WHATIF target 點下去一律 push 頁;<code>RestockDetailSheet</code> 退場 ·
+  ④ BUY TOGETHER 卡 → 新頁 <code>/bundle-info</code>(params 帶 JSON,1–2KB);<code>BundleDetailSheet</code> 退場 ·
+  ⑤ 段序 = prose 先、酒在後(Brok 原話)<br>
+  <b>本 mockup 六點已裁(09-08):</b>
+  a 副標行「MIXER · +2 COCKTAILS TONIGHT」把 unlocks 數提到頭部 ·
+  b MAKE TONIGHT 用 USED IN 同款 3:4 直立圖卡,點 → recipe 頁 ·
+  c ONE MORE STEP 保留迷你 ＋LIST(加「缺的那支」),上限 8 ·
+  d bundle 頁 ONLY TOGETHER 圖卡可點 → recipe 頁(iba_code null 則不可點;recipe 頁 back pill 對照表補 from:'bundle') ·
+  e 底部 Add 膠囊沿用本頁既有樣式(左對齊細框),不改滿版金底 ·
+  f bundle 頁成員 monogram / 名字 / EACH ALONE 標題可點 → /ingredient-info(from:'bundle');rail 上 BUY TOGETHER 卡整張進瓶對頁,不切 touch target<br>
+  <b>實作風險(立案時列入切分):</b>
+  ① <b>listedKeys 跨畫面同步</b>——頁上 Add 後回 Smart Restock,卡面膠囊會 stale(cart.tsx 回前景只重抓徽章數);對策:回前景 GET /shopping-list 重建 listedKeys ·
+  ② 介紹頁的 POST /restock-suggestions {target} 是整榜運算,與 /ingredient-info 並行 fetch、各自 loading,prose 先出、個人化段後到,不整頁等
+</div>
+
+<div class="board">
+
+  <!-- Frame 1: ingredient page with personalized sections -->
+  <div class="frame-wrap">
+    <div class="frame-label">FRAME 1 — /ingredient-info(rail 卡 / hero / WHATIF target 點入)</div>
+    <div class="frame">
+      <div class="band"><div class="pill">‹ Restock</div><div class="close">✕</div></div>
+      <div class="display">Ginger Ale</div>
+      <div class="cat">MIXER · <b>+2 COCKTAILS TONIGHT</b></div>
+      <div class="prose">The workhorse of the highball shelf. Sweeter and softer than ginger beer — reach for it when you want the whiskey to lead and the ginger to follow.</div>
+      <div class="sec">FLAVOR</div>
+      <div class="tags"><span class="tag">sweet</span><span class="tag">ginger</span><span class="tag">fizzy</span></div>
+
+      <div class="sec">MAKE TONIGHT</div>
+      <div class="grid3">
+        <div class="art"><div class="ph">B&amp;G</div><div class="nm">bourbon &amp; ginger</div></div>
+        <div class="art"><div class="ph">WG</div><div class="nm">whiskey ginger</div></div>
+      </div>
+      <div class="anno">個人化:target.recipes;3:4 卡同 USED IN;點 → /recipe</div>
+
+      <div class="sec">ONE MORE STEP</div>
+      <div class="step"><div><div class="r">Moscow Mule</div><div class="need">need · Lime Juice</div></div><div class="minicap">＋ LIST</div></div>
+      <div class="step"><div><div class="r">Dark 'n' Stormy</div><div class="need">need · Dark Rum</div></div><div class="minicap">＋ LIST</div></div>
+      <div class="anno">個人化:target.next_step(≤8);＋LIST 加「缺的那支」</div>
+
+      <div class="addpill">🛍 Add to Shopping List</div>
+      <div class="anno" style="margin-top:14px">USED IN 段:僅 MAKE TONIGHT 為空時顯示(通用資料,避免重複)</div>
+    </div>
+  </div>
+
+  <!-- Frame 2: bundle page -->
+  <div class="frame-wrap">
+    <div class="frame-label">FRAME 2 — /bundle-info(BUY TOGETHER 卡點入,params 帶 JSON)</div>
+    <div class="frame">
+      <div class="band"><div class="pill">‹ Restock</div><div class="close">✕</div></div>
+      <div class="pair"><div class="mono">C</div><span class="plus">＋</span><div class="mono">S<span class="onlist">✓</span></div></div>
+      <div class="display" style="font-size:30px;margin-top:10px">Campari ＋ Sweet Vermouth</div>
+      <div class="cat"><b>+3 COCKTAILS · 3 ONLY TOGETHER</b></div>
+
+      <div class="sec hi">ONLY TOGETHER</div>
+      <div class="grid3">
+        <div class="art hi"><div class="ph">B</div><div class="nm">boulevardier</div></div>
+        <div class="art hi"><div class="ph">N</div><div class="nm">negroni</div></div>
+        <div class="art hi"><div class="ph">VN</div><div class="nm">vodka negroni</div></div>
+      </div>
+      <div class="anno">黃框 3:4 卡;點 → /recipe(頁面版可點)</div>
+
+      <div class="sec">EACH ALONE</div>
+      <div class="step"><div><div class="r">Campari alone</div><div class="need">nothing yet — only together</div></div></div>
+      <div class="step"><div><div class="r">Sweet Vermouth alone</div><div class="need">nothing yet — only together</div></div></div>
+
+      <div class="addpill">🛍 Add Campari to list</div>
+      <div class="anno" style="margin-top:14px">膠囊三態同卡面(Add both / Add 缺的那瓶 / Both on list);Sweet Vermouth 已在清單 → 只加 Campari</div>
+    </div>
+  </div>
+
+  <!-- Frame 3: entry map -->
+  <div class="frame-wrap">
+    <div class="frame-label">FRAME 3 — 入口對照(cart.tsx 改動地圖)</div>
+    <div class="frame">
+      <table class="map">
+        <tr><td>rail 單瓶卡 點</td><td><span class="old">RestockDetailSheet</span><br><span class="new">push /ingredient-info {key,name,listed,from:'restock'}</span></td></tr>
+        <tr><td>#1 PICK hero 點</td><td><span class="old">sheet</span><br><span class="new">同上</span></td></tr>
+        <tr><td>WHATIF 選定 target 卡 點</td><td><span class="old">sheet</span><br><span class="new">同上(target 卡本體保留在頁上)</span></td></tr>
+        <tr><td>BUY TOGETHER 卡 點</td><td><span class="old">BundleDetailSheet</span><br><span class="new">push /bundle-info {bundle: JSON}</span></td></tr>
+        <tr><td>卡面膠囊 Add / Add both</td><td>不變(handleAddToList)</td></tr>
+        <tr><td>openUnlocks modal</td><td>僅舊清單 fallback 保留;rails 路徑不再用</td></tr>
+        <tr><td>退場檔</td><td><span class="old">components/restock/RestockDetailSheet.tsx</span><br><span class="old">components/restock/BundleDetailSheet.tsx</span><br>(BundleRailCard 的共用函式移到 bundle-info 可 import)</td></tr>
+      </table>
+      <div class="anno">backend 零改動;全 JS → OTA;ingredient-info 多一次 POST /restock-suggestions {target}</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
