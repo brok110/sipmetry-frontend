@@ -26,9 +26,7 @@ import Type from "@/constants/typography";
 import { R } from "@/constants/radius";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import { Monogram, RailCard } from "@/components/restock/RailCard";
-import { RestockDetailSheet, type SheetData } from "@/components/restock/RestockDetailSheet";
 import { BundleRailCard, type BundleItem } from "@/components/restock/BundleRailCard";
-import { BundleDetailSheet } from "@/components/restock/BundleDetailSheet";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -305,9 +303,8 @@ export default function CartScreen() {
   const [railsMeta, setRailsMeta] = useState<RailsMeta | null>(null);
 
   // B-3:detail sheet(rail 卡 / hero / WHATIF target 共用)
-  const [sheetItem, setSheetItem] = useState<SheetData | null>(null);
-  // PLUS-RAILS B2:瓶對 sheet(BundleRailCard 點擊)
-  const [bundleSheet, setBundleSheet] = useState<BundleItem | null>(null);
+  // RESTOCK-SIMPLIFY S3:detail sheet / bundle sheet 退場,點擊改 push 頁
+  // (handleOpenRailItem → /ingredient-info,handleOpenBundle → /bundle-info)
 
   // WHATIF typeahead 的「IN MY BAR」判定來源(S1 曾移除 useInventory,S4 重新需要)
   const ownedKeys = useMemo(
@@ -383,20 +380,20 @@ export default function CartScreen() {
       .map((r): Rail => (r.key === "make_tonight" && r.kind !== "bundle" ? { ...r, items: r.items.slice(1) } : r))
       .filter((r) => r.items.length > 0);
   }, [railsFiltered, heroItem]);
-  // B-3:rail 卡 / hero 點擊 → detail sheet(取代 B-2 過渡的 openUnlocks 直開)
+  // RESTOCK-SIMPLIFY S3:rail 卡 / hero / WHATIF target 點擊 → /ingredient-info
+  // (08-15「凡名字皆入口」;頁面自取個人化段,只帶 key / name / listed / from)
   const handleOpenRailItem = useCallback((it: { display_name: string } & Partial<RailItem>) => {
-    const r = it as RailItem;
-    setSheetItem({
-      ingredient_key: r.ingredient_key,
-      display_name: r.display_name,
-      unlocks_count: r.unlocks_count ?? 0,
-      category_key: r.category_key ?? null,
-      recipes: r.recipes ?? [],
-      next_step: r.next_step ?? [],
+    const key = String(it.ingredient_key ?? "");
+    if (!key) return;
+    router.push({
+      pathname: "/ingredient-info",
+      params: { key, name: it.display_name, listed: listedKeys.has(key) ? "1" : "0", from: "restock" },
     });
+  }, [listedKeys]);
+  // RESTOCK-SIMPLIFY S3:瓶對卡點擊 → /bundle-info(params 帶 JSON,bundle 無 key 可查)
+  const handleOpenBundle = useCallback((b: BundleItem) => {
+    router.push({ pathname: "/bundle-info", params: { bundle: JSON.stringify(b), from: "restock" } });
   }, []);
-  // PLUS-RAILS B2:瓶對卡點擊 → BundleDetailSheet
-  const handleOpenBundle = useCallback((b: BundleItem) => setBundleSheet(b), []);
 
   // SHOP-LIST 3b: refresh the badge whenever the tab regains focus (e.g.
   // returning from the list page after checking items off).
@@ -515,17 +512,8 @@ export default function CartScreen() {
         const data = await res.json();
         const t = data.target ?? null;
         setTarget(t);
-        // B-3(mockup 態三):未擁有的 target 直接開 detail sheet 富卡
-        if (t && t.owned === false) {
-          setSheetItem({
-            ingredient_key: t.ingredient_key,
-            display_name: t.display_name,
-            unlocks_count: t.unlocks_count ?? 0,
-            category_key: t.category_key ?? null,
-            recipes: t.recipes ?? [],
-            next_step: t.next_step ?? [],
-          });
-        }
+        // RESTOCK-SIMPLIFY S3:target 卡留在頁上,使用者點卡才進 /ingredient-info
+        // (B-3 的「選定即開 sheet」退場)
       } catch {
         setToastMessage("Could not look that up — try again.");
         setTimeout(() => setToastMessage(null), 3500);
@@ -990,23 +978,7 @@ export default function CartScreen() {
     </ScrollView>
 
       {/* Toast notification */}
-      {/* B-3:detail sheet(rail 卡 / hero / WHATIF target 共用) */}
-      <RestockDetailSheet
-        data={sheetItem}
-        listedKeys={listedKeys}
-        onClose={() => setSheetItem(null)}
-        onAdd={handleAddToList}
-        onOpenUnlocks={() => {
-          if (sheetItem) openUnlocks(`${sheetItem.display_name} unlocks`, sheetItem.recipes as Suggestion["recipes"]);
-        }}
-      />
-      {/* PLUS-RAILS B2:瓶對 sheet */}
-      <BundleDetailSheet
-        data={bundleSheet}
-        listedKeys={listedKeys}
-        onClose={() => setBundleSheet(null)}
-        onAdd={handleAddToList}
-      />
+      {/* RESTOCK-SIMPLIFY S3:detail sheet / bundle sheet 已退場(點擊進頁) */}
 
       {toastMessage && (
         <View style={{

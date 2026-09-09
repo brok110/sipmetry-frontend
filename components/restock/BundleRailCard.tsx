@@ -1,9 +1,10 @@
 // components/restock/BundleRailCard.tsx — PLUS-RAILS B2
 // 瓶對卡(mockup SMART_RESTOCK_BUY_TOGETHER_MOCKUP_v1 Frame 1 pcard):
-// 雙 monogram + 「＋」、名稱、+N cocktails、N ONLY TOGETHER 標、組合才解鎖酒名
-// (上限 2,超過「+N」,裁決 e)、膠囊三態(裁決 c:Add both / Add 缺的那瓶 /
-// Both on list)。members 承 backend bundle 合約(註記六十四);listed 狀態以前端
-// listedKeys 為準(比 member.on_list 新)。命名通用(bundle / members),三瓶卡直接沿用。
+// 雙 monogram + 「＋」、名稱、+N cocktails、膠囊三態(裁決 c:Add both / Add 缺的
+// 那瓶 / Both on list)。RESTOCK-SIMPLIFY S5(09-08):ONLY TOGETHER 標與酒名行拿掉
+// (卡面太擁擠,撤 PLUS-RAILS 裁決 e;細節進 /bundle-info)。members 承 backend
+// bundle 合約(註記六十四);listed 狀態以前端 listedKeys 為準(比 member.on_list
+// 新)。命名通用(bundle / members),三瓶卡直接沿用。
 import React, { memo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import OaklandDusk from "@/constants/OaklandDusk";
@@ -52,14 +53,6 @@ export async function addMissingMembers(
   }
 }
 
-/** 組合才解鎖酒名:上限 2,超過「A · B +N」(裁決 e)。 */
-export function togetherOnlyLabel(recipes: BundleRecipe[]) {
-  const names = recipes.map((r) => r.name).filter((n): n is string => !!n);
-  const head = names.slice(0, 2).join(" · ");
-  const rest = names.length - 2;
-  return rest > 0 ? `${head} +${rest}` : head;
-}
-
 /** 雙 monogram 一列;已在清單的成員角落帶 ✓(card 與 sheet 共用)。 */
 export function BundleMonograms({
   members,
@@ -102,7 +95,6 @@ export const BundleRailCard = memo(function BundleRailCard({
 }) {
   const names = item.members.map((m) => m.display_name).join(" ＋ ");
   const cap = bundleCapsuleState(item, listedKeys);
-  const recipesLabel = togetherOnlyLabel(item.together_only_recipes);
   return (
     <Pressable
       onPress={() => onPress(item)}
@@ -115,12 +107,6 @@ export const BundleRailCard = memo(function BundleRailCard({
       <Text style={styles.unlocks} numberOfLines={1}>
         +{item.unlocks_total} cocktail{item.unlocks_total === 1 ? "" : "s"}
       </Text>
-      <View style={styles.togTag}>
-        <Text style={styles.togTagText}>{item.together_only_count} ONLY TOGETHER</Text>
-      </View>
-      {recipesLabel ? (
-        <Text style={styles.recipes} numberOfLines={1}>{recipesLabel}</Text>
-      ) : null}
       <Pressable
         onPress={() => { void addMissingMembers(cap.missing, onAdd); }}
         disabled={cap.disabled}
@@ -161,15 +147,6 @@ const styles = StyleSheet.create({
   onListText: { fontFamily: "DMMono", fontSize: 9, lineHeight: 11, color: OaklandDusk.bg.void },
   name: { fontSize: 12, lineHeight: 15.5, minHeight: 31, color: OaklandDusk.text.primary },
   unlocks: { fontFamily: "DMMono", fontSize: 10, color: OaklandDusk.brand.sundown },
-  togTag: {
-    alignSelf: "flex-start",
-    backgroundColor: OaklandDusk.brand.tagBg,
-    borderRadius: 3,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-  },
-  togTagText: { fontFamily: "DMMono", fontSize: 8, letterSpacing: 0.5, color: OaklandDusk.brand.yellow },
-  recipes: { fontSize: 9, lineHeight: 12, color: OaklandDusk.text.secondary },
   cap: {
     borderWidth: 1,
     borderColor: OaklandDusk.brand.gold,

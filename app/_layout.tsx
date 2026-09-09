@@ -136,7 +136,7 @@ function RootLayoutNav() {
     if (!hydrated) return;
 
     const firstSegment = segments[0];
-    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile' || firstSegment === 'shopping-list' || firstSegment === 'restock-unlocks' || firstSegment === 'ingredient-info' || firstSegment === 'cocktail-story';
+    const inAuthArea = firstSegment === '(tabs)' || firstSegment === 'scan' || firstSegment === 'recipe' || firstSegment === 'recommendations' || firstSegment === 'qr' || firstSegment === 'profile' || firstSegment === 'shopping-list' || firstSegment === 'restock-unlocks' || firstSegment === 'ingredient-info' || firstSegment === 'cocktail-story' || firstSegment === 'bundle-info';
 
     if (!user && inAuthArea) {
       router.replace('/age-gate');
@@ -241,6 +241,8 @@ function RootLayoutNav() {
         {/* RESTOCK-REDESIGN S2:自繪 header(同 activity 前例) */}
         <Stack.Screen name="restock-unlocks" options={{ headerShown: false }} />
         <Stack.Screen name="ingredient-info" options={{ headerShown: false }} />
+        {/* RESTOCK-SIMPLIFY S2:瓶對頁,自繪 header(同 ingredient-info 前例) */}
+        <Stack.Screen name="bundle-info" options={{ headerShown: false }} />
         {/* INGREDIENT-INFO 二期:故事頁,自繪 header(同 ingredient-info 前例) */}
         <Stack.Screen name="cocktail-story" options={{ headerShown: false }} />
         {/* CABINET-3A 批 7(F4):退出原生 header——iOS 26 對 header 內按鈕
