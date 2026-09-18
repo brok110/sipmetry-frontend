@@ -27,6 +27,25 @@ export function isShelfId(value: string): value is ShelfId {
   return (SHELF_ORDER as readonly string[]).includes(value)
 }
 
+// CABINET-PHOTO:照片櫃固定 6 層(GIN / VODKA / RUM / WHISKEY / TEQUILA / LIQUEURS)。
+// 用加法寫:舊的 8 層 SHELF_ORDER / shelfFor 不動(舊櫃與 shelf detail 照常),
+// 照片櫃另外把 ShelfId 映到 0–5;brandy 併 whiskey、others 併 liqueurs(決策 2)。
+// Record<ShelfId, PhotoShelfIndex>:漏掉任何 ShelfId 或給出 0–5 以外的值,tsc 直接報錯。
+export type PhotoShelfIndex = 0 | 1 | 2 | 3 | 4 | 5
+const PHOTO_SHELF_INDEX: Record<ShelfId, PhotoShelfIndex> = {
+  gin: 0,
+  vodka: 1,
+  rum: 2,
+  whiskey: 3,
+  brandy: 3,
+  tequila: 4,
+  liqueurs: 5,
+  others: 5,
+}
+export function photoShelfIndexFor(shelfId: ShelfId): PhotoShelfIndex {
+  return PHOTO_SHELF_INDEX[shelfId]
+}
+//
 // 每層最多渲染 5 瓶,其餘以「+N」表示
 export const MAX_VISIBLE_BOTTLES = 5
 

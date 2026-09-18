@@ -78,4 +78,32 @@ export function tierForMl(totalMl: number | null | undefined): BottleSizeTier {
   return 'std'
 }
 
+// ── CABINET-PHOTO(2026-09-17):照片背景的量測座標 ──
+// 來源圖:cabinet-background-r1(1168x2528;backend scripts/cabinet-images/processed/)。
+// 暫用 asset:幾何過關(間距最大差 0.84%、水平差 0px),質感待 Stage 3 WHISKEY 實測複審。
+// 數值全部是 measure_shelves.py 輸出的「來源圖像素」,不得手改;換圖 = 重量後整組替換,
+// background 的 require 與座標放同一個物件,就是為了讓圖和座標一起換。
+// 渲染契約:背景以 width = 螢幕寬、height = 寬 × sourceHeight / sourceWidth、
+// 頂端對齊渲染;禁用 resizeMode cover / contain(置中裁切會讓座標全錯)。
+// 元件檔不得出現裸座標,一律經 cabinetPhotoScale() 換算成 pt。
+// CABINET_PHOTO_PREVIEW:開發模式看新櫃,正式 build / OTA 一律舊櫃;Stage 5 才對線上開。
+export const CABINET_PHOTO_PREVIEW = __DEV__
+export const CABINET_PHOTO = {
+  background: require('@/assets/images/cabinet/cabinet-background-r1.jpg'),
+  sourceWidth: 1168,
+  sourceHeight: 2528,
+  // 6 片層板頂緣 y(瓶底對齊此值);index 0–5 = 由上到下的層序
+  shelfTopY: [723, 962, 1201, 1441, 1679, 1917],
+  // 層板左右端 x(6 片一致,±2px)
+  shelfLeftX: 56,
+  shelfRightX: 1108,
+  // 層板正面厚度;底面可見高度取 6 片最大值(實測 12–15px)
+  shelfFaceHeight: 23,
+  shelfUndersideHeight: 15,
+} as const
+/** 來源圖像素 → 畫面 pt。背景以全幅寬渲染,縮放比 = 渲染寬 / sourceWidth */
+export function cabinetPhotoScale(renderedWidth: number): number {
+  return renderedWidth / CABINET_PHOTO.sourceWidth
+}
+//
 export default CabinetTokens

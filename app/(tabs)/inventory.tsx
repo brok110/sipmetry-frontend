@@ -1,10 +1,11 @@
+import PhotoCabinet from '@/components/cabinet/PhotoCabinet'
 import Shelf from '@/components/cabinet/Shelf'
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import Masthead from '@/components/Masthead'
 import RegistrationPrompt from '@/components/RegistrationPrompt'
 import ScanSourceSheet, { ScanSourceResult } from '@/components/ScanSourceSheet'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
-import CabinetTokens, { withAlpha } from '@/constants/cabinetTokens'
+import CabinetTokens, { CABINET_PHOTO_PREVIEW, withAlpha } from '@/constants/cabinetTokens'
 import OaklandDusk from '@/constants/OaklandDusk'
 import Type from '@/constants/typography'
 import { V3 } from '@/constants/v3DesignTokens'
@@ -254,38 +255,42 @@ export default function MyBarScreen() {
     )
   }
 
+  // CABINET-PHOTO Stage 2:開發模式 + 有瓶 + 無錯誤 → 照片櫃骨架;其餘一律舊畫面
+  const photoMode = CABINET_PHOTO_PREVIEW && inventory.length > 0 && !error
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      <AmbientWash />
+      {!photoMode && <AmbientWash />}
 
       {/* Masthead:共用元件(logo 24、tap → Bartender),SCAN 鈕走 actions 槽
           (舊 My Bar 相機鈕同模式);下方僅留 meta 行 */}
-      <Masthead
-        actions={
-          <Pressable
-            onPress={promptScanBottles}
-            hitSlop={6}
-            accessibilityLabel="Scan bottles"
-            style={styles.scanBtn}
-          >
-            <View style={styles.scanFrame}>
-              <CameraGlyph />
-            </View>
-            <Text style={styles.scanLabel}>SCAN</Text>
-          </Pressable>
-        }
-      />
-      <View style={styles.metaRow}>
-        <Text style={styles.metaNum}>{totalBottles}</Text>
-        <Text style={styles.metaUnit}>{totalBottles === 1 ? 'bottle' : 'bottles'}</Text>
-        <Text style={styles.metaDot}>·</Text>
-        <Text style={styles.metaNum}>{nonEmptyShelves.length}</Text>
-        <Text style={styles.metaUnit}>{nonEmptyShelves.length === 1 ? 'shelf' : 'shelves'}</Text>
+      <View pointerEvents="box-none" style={photoMode ? styles.photoTopOverlay : undefined}>
+        <Masthead
+          actions={
+            <Pressable
+              onPress={promptScanBottles}
+              hitSlop={6}
+              accessibilityLabel="Scan bottles"
+              style={styles.scanBtn}
+            >
+              <View style={styles.scanFrame}>
+                <CameraGlyph />
+              </View>
+              <Text style={styles.scanLabel}>SCAN</Text>
+            </Pressable>
+          }
+        />
+        <View style={styles.metaRow}>
+          <Text style={styles.metaNum}>{totalBottles}</Text>
+          <Text style={styles.metaUnit}>{totalBottles === 1 ? 'bottle' : 'bottles'}</Text>
+          <Text style={styles.metaDot}>·</Text>
+          <Text style={styles.metaNum}>{nonEmptyShelves.length}</Text>
+          <Text style={styles.metaUnit}>{nonEmptyShelves.length === 1 ? 'shelf' : 'shelves'}</Text>
+        </View>
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.container}
+        contentContainerStyle={photoMode ? styles.photoContainer : styles.container}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
@@ -332,6 +337,8 @@ export default function MyBarScreen() {
               </HintBubble>
             </View>
           </View>
+        ) : photoMode ? (
+          <PhotoCabinet />
         ) : (
           <>
             {/* The Cabinet:one furniture piece(crown / backboard / base rail) */}
@@ -416,8 +423,8 @@ export default function MyBarScreen() {
           paddingHorizontal: 16,
           paddingTop: 12,
           paddingBottom: Platform.OS === 'ios' ? 16 : 12,
-          backgroundColor: OaklandDusk.bg.void,
-          borderTopWidth: 0.5,
+          backgroundColor: photoMode ? 'transparent' : OaklandDusk.bg.void,
+          borderTopWidth: photoMode ? 0 : 0.5,
           borderTopColor: OaklandDusk.bg.border,
         }}>
           <HintBubble
@@ -497,6 +504,17 @@ export default function MyBarScreen() {
 }
 
 const styles = StyleSheet.create({
+  // CABINET-PHOTO Stage 2:masthead + meta 行浮在木牆上;牆全幅,不留邊
+  photoTopOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+  },
+  photoContainer: {
+    padding: 0,
+  },
   container: {
     paddingTop: 2,
     paddingHorizontal: 12,
