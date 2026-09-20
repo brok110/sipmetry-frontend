@@ -338,7 +338,7 @@ export default function MyBarScreen() {
             </View>
           </View>
         ) : photoMode ? (
-          <PhotoCabinet />
+          <PhotoCabinet shelves={shelvesById} />
         ) : (
           <>
             {/* The Cabinet:one furniture piece(crown / backboard / base rail) */}

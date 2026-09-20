@@ -57,7 +57,7 @@ const HALO_REDUCED = 0.6
 const HALO_HALF_MS = 1700 // 0.42↔0.82 單程;整循環 3.4s
 
 // 以 item.id 決定的穩定 hash(djb2)——高度/瓶形/酒液端點皆由此導出,渲染不抖動
-function hashId(id: string): number {
+export function hashId(id: string): number {
   let h = 5381
   for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) | 0
   return Math.abs(h)
