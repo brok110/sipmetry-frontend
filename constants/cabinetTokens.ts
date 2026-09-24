@@ -1,4 +1,5 @@
 import OaklandDusk from '@/constants/OaklandDusk'
+import type { ImageRequireSource } from 'react-native'
 
 // CABINET-3A:My Bar 酒櫃的衍生色票。
 // handoff README「Design Tokens」的全部衍生 hex 收編於此;
@@ -107,31 +108,146 @@ export const CABINET_PHOTO = {
 export function cabinetPhotoScale(renderedWidth: number): number {
   return renderedWidth / CABINET_PHOTO.sourceWidth
 }
-// ── CABINET-PHOTO Stage 3:照片瓶(每瓶型兩張對齊圖層 + 校準值)──
-// 數值取自 backend scripts/cabinet-images/processed/bottles/<key>.calibration.json
-// (process_bottle.py --look lit 產出),不得手改;換瓶圖 = 重跑後整組替換,require 與校準值同物件。
+// ── CABINET-PHOTO Stage 4:照片瓶 = 瓶型 × 酒色(每瓶型一張玻璃層 + 每個酒色一張液體層 + 校準值)──
+// 數值取自 backend scripts/cabinet-images/processed/bottles/<瓶型>.calibration.json
+// (process_bottle.py --look lit --name … --colour … --variants … 產出),不得手改;換瓶圖 = 重跑後整組替換,require 與校準值同物件。
 // T1 修訂 2026-09-19:glass = 空瓶拍在打了光的牆前面,透過玻璃看到的牆已經烤進圖層(瓶內不透明);
-// liquid = 同一支瓶子裝滿時的照片,輪廓與 glass 逐像素相同。app 只露出液面以下的 liquid。
+// liquids.<酒色> = 同一支瓶子裝滿該酒色時的照片,輪廓與 glass 逐像素相同。app 只露出液面以下的液體層。
 // 瓶子因此和背景綁定:換背景 = 瓶子重做;瓶子不透明,所以排列時不得互相重疊。
 // liquidTopFrac / liquidBaseFrac:液面 100% / 0% 在瓶高上的位置(0 = 瓶頂,1 = 瓶底)。
+// labelTopFrac / labelBaseFrac:標籤帶(瓶子中央不透光的那一段)在瓶高上的位置;液面落在這一段時不畫液面線。無標籤 = null。
 // heightSrc:這個瓶型在背景來源圖上的高度(px)。色調校正是照這個高度對到牆上的光,所以畫面上一律用這個高度、
 // 不依容量縮放;要改大小 = 用新的 --height-src 重跑 process_bottle.py。大小差異靠不同瓶型,不靠縮放。
-export const CABINET_PHOTO_BOTTLES = {
-  whiskey_squat: {
-    glass: require('@/assets/images/cabinet/bottles/whiskey_squat_r1_glass.png'),
-    liquid: require('@/assets/images/cabinet/bottles/whiskey_squat_r1_liquid.png'),
+// 酒色(決策 4 的 2026-09-20 修訂):琥珀 / 透明 / 深色 / 紅,六種瓶型共用同一組。每個瓶型一定有 amber;
+// bitters_150 沒做 clear——瓶型沒有的酒色,photoLiquidLayer() 落回 amber。
+export const PHOTO_LIQUID_COLOURS = ['amber', 'clear', 'dark', 'red'] as const
+export type PhotoLiquidColour = typeof PHOTO_LIQUID_COLOURS[number]
+export type PhotoBottleType = 'small_350' | 'flask_500' | 'squat_750' | 'round_750' | 'longneck_1000' | 'bitters_150'
+type PhotoBottleSpec = {
+  glass: ImageRequireSource
+  liquids: { amber: ImageRequireSource } & Partial<Record<PhotoLiquidColour, ImageRequireSource>>
+  sourceWidth: number
+  sourceHeight: number
+  aspect: number
+  liquidTopFrac: number
+  liquidBaseFrac: number
+  labelTopFrac: number | null
+  labelBaseFrac: number | null
+  heightSrc: number
+}
+// Record<PhotoBottleType, PhotoBottleSpec>:六種瓶型漏一種、多一種、少一個欄位、少了 amber,tsc 直接報錯
+export const CABINET_PHOTO_BOTTLES: Record<PhotoBottleType, PhotoBottleSpec> = {
+  small_350: {
+    glass: require('@/assets/images/cabinet/bottles/small_350_glass.png'),
+    liquids: {
+      amber: require('@/assets/images/cabinet/bottles/small_350_amber.png'),
+      clear: require('@/assets/images/cabinet/bottles/small_350_clear.png'),
+      dark: require('@/assets/images/cabinet/bottles/small_350_dark.png'),
+      red: require('@/assets/images/cabinet/bottles/small_350_red.png'),
+    },
+    sourceWidth: 130,
+    sourceHeight: 240,
+    aspect: 0.5421,
+    liquidTopFrac: 0.3421,
+    liquidBaseFrac: 0.8579,
+    labelTopFrac: 0.5526,
+    labelBaseFrac: 0.7592,
+    heightSrc: 103,
+  },
+  flask_500: {
+    glass: require('@/assets/images/cabinet/bottles/flask_500_glass.png'),
+    liquids: {
+      amber: require('@/assets/images/cabinet/bottles/flask_500_amber.png'),
+      clear: require('@/assets/images/cabinet/bottles/flask_500_clear.png'),
+      dark: require('@/assets/images/cabinet/bottles/flask_500_dark.png'),
+      red: require('@/assets/images/cabinet/bottles/flask_500_red.png'),
+    },
+    sourceWidth: 131,
+    sourceHeight: 240,
+    aspect: 0.547,
+    liquidTopFrac: 0.293,
+    liquidBaseFrac: 0.8767,
+    labelTopFrac: 0.5629,
+    labelBaseFrac: 0.7595,
+    heightSrc: 120,
+  },
+  squat_750: {
+    glass: require('@/assets/images/cabinet/bottles/squat_750_glass.png'),
+    liquids: {
+      amber: require('@/assets/images/cabinet/bottles/squat_750_amber.png'),
+      clear: require('@/assets/images/cabinet/bottles/squat_750_clear.png'),
+      dark: require('@/assets/images/cabinet/bottles/squat_750_dark.png'),
+      red: require('@/assets/images/cabinet/bottles/squat_750_red.png'),
+    },
     sourceWidth: 118,
     sourceHeight: 240,
     aspect: 0.4901,
     liquidTopFrac: 0.3452,
     liquidBaseFrac: 0.8651,
+    labelTopFrac: null,
+    labelBaseFrac: null,
     heightSrc: 133,
   },
-} as const
-export type PhotoBottleType = keyof typeof CABINET_PHOTO_BOTTLES
-// 照片櫃的瓶子大小 = 六個容量級距(Brok 2026-09-19 拍板),對應 Edit Bottle 的 BOTTLE SIZE 選項
-// (375 / 500 / 700 / 750 / 1L / 1.75L)。Custom 落到最接近的一級(等距取小的),缺值 → 750。
-export const PHOTO_SIZE_CLASSES_ML = [375, 500, 700, 750, 1000, 1750] as const
+  round_750: {
+    glass: require('@/assets/images/cabinet/bottles/round_750_glass.png'),
+    liquids: {
+      amber: require('@/assets/images/cabinet/bottles/round_750_amber.png'),
+      clear: require('@/assets/images/cabinet/bottles/round_750_clear.png'),
+      dark: require('@/assets/images/cabinet/bottles/round_750_dark.png'),
+      red: require('@/assets/images/cabinet/bottles/round_750_red.png'),
+    },
+    sourceWidth: 69,
+    sourceHeight: 240,
+    aspect: 0.2889,
+    liquidTopFrac: 0.2943,
+    liquidBaseFrac: 0.9233,
+    labelTopFrac: 0.4438,
+    labelBaseFrac: 0.7049,
+    heightSrc: 187,
+  },
+  longneck_1000: {
+    glass: require('@/assets/images/cabinet/bottles/longneck_1000_glass.png'),
+    liquids: {
+      amber: require('@/assets/images/cabinet/bottles/longneck_1000_amber.png'),
+      clear: require('@/assets/images/cabinet/bottles/longneck_1000_clear.png'),
+      dark: require('@/assets/images/cabinet/bottles/longneck_1000_dark.png'),
+      red: require('@/assets/images/cabinet/bottles/longneck_1000_red.png'),
+    },
+    sourceWidth: 71,
+    sourceHeight: 240,
+    aspect: 0.297,
+    liquidTopFrac: 0.3297,
+    liquidBaseFrac: 0.9135,
+    labelTopFrac: null,
+    labelBaseFrac: null,
+    heightSrc: 193,
+  },
+  bitters_150: {
+    glass: require('@/assets/images/cabinet/bottles/bitters_150_glass.png'),
+    liquids: {
+      amber: require('@/assets/images/cabinet/bottles/bitters_150_amber.png'),
+      dark: require('@/assets/images/cabinet/bottles/bitters_150_dark.png'),
+      red: require('@/assets/images/cabinet/bottles/bitters_150_red.png'),
+    },
+    sourceWidth: 64,
+    sourceHeight: 240,
+    aspect: 0.2681,
+    liquidTopFrac: 0.3182,
+    liquidBaseFrac: 0.8928,
+    labelTopFrac: 0.4534,
+    labelBaseFrac: 0.6678,
+    heightSrc: 92,
+  },
+}
+/** 某瓶型 × 某酒色的液體層;那個瓶型沒做這個酒色時落回 amber(目前只有 bitters_150 沒有 clear) */
+export function photoLiquidLayer(type: PhotoBottleType, colour: PhotoLiquidColour): ImageRequireSource {
+  const liquids = CABINET_PHOTO_BOTTLES[type].liquids
+  return liquids[colour] ?? liquids.amber
+}
+// 照片櫃的瓶子大小 = 五個容量級距(Brok 2026-09-20 拍板):150 / 350 / 500 / 750 / 1L,150 給 bitters 等小包裝。
+// Edit Bottle 的 BOTTLE SIZE 選項不動(375 / 500 / 700 / 750 / 1L / 1.75L),由「取最接近的一級」吸收:
+// 375 → 350、700 → 750、1.75L → 1L(代價:1.75L 畫成 1L 的瓶子)。Custom 同法(等距取小的),缺值 → 750。
+export const PHOTO_SIZE_CLASSES_ML = [150, 350, 500, 750, 1000] as const
 export type PhotoSizeClass = typeof PHOTO_SIZE_CLASSES_ML[number]
 export function photoSizeClassForMl(totalMl: number | null | undefined): PhotoSizeClass {
   const ml = Number(totalMl)
