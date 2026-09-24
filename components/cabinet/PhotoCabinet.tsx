@@ -1,11 +1,13 @@
 import { hashId } from '@/components/cabinet/BottleGlyph'
 import PhotoBottle, { photoBottleWidth } from '@/components/cabinet/PhotoBottle'
-import {
+import CabinetTokens, {
   CABINET_PHOTO,
   CABINET_PHOTO_BOTTLES,
   CABINET_PHOTO_MAX_BOTTLE_SRC,
+  CABINET_PHOTO_SIGN,
   cabinetPhotoScale,
   photoSizeClassForMl,
+  withAlpha,
   type PhotoBottleType,
   type PhotoLiquidColour,
   type PhotoSizeClass,
@@ -25,7 +27,7 @@ import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'r
 // Stage 4:六層全鋪(GIN / VODKA / RUM / WHISKEY / TEQUILA / LIQUEURS;Stage 3 只鋪 WHISKEY 那一層)
 const ENABLED_PHOTO_SHELVES: readonly PhotoShelfIndex[] = [0, 1, 2, 3, 4, 5]
 // T3(Brok 2026-09-18 裁):不設固定瓶數上限 —— 一層放得下幾瓶就放幾瓶,放不下的才收進 +N。
-// 層板右側這一段保留給 Stage 4 的家族名 + 數量(整頁 mockup:瓶子靠左、文字靠右)
+// 層板右側這一段保留給名牌(Stage 4(三)接上;整頁 mockup:瓶子靠左、名牌靠右)
 const LABEL_RESERVE_RATIO = 0.3
 // 有 +N 時,要替它在瓶子後面留的寬度
 const OVERFLOW_TAG_SRC = 70
@@ -110,6 +112,28 @@ function liquidColourFor(unit: BottleUnit, shelfIndex: PhotoShelfIndex): PhotoLi
 
 // 靠左、間距刻意不等(決策 4):間距由 bottleId 的 hash 決定,每次渲染一致
 const ROW_INSET_SRC = 36
+// Stage 4(三):層板名牌(Brok 手繪 IMG_5013;大小 A = 牌高 100,Brok 2026-09-24 裁)。站在每層層板的右端,右緣內縮和瓶子的左內縮對稱;
+// 牌子只佔保留區的右半,左邊還留得下 +N。名牌畫在所有六層,不管那層有沒有酒;它沒有自己的點擊,點名牌 = 點那一層。
+const SIGN_RIGHT_INSET_SRC = 36
+const SIGN_WIDTH_SRC = CABINET_PHOTO_SIGN.heightSrc * CABINET_PHOTO_SIGN.aspect
+const SIGN_LEFT_SRC = CABINET_PHOTO.shelfRightX - SIGN_RIGHT_INSET_SRC - SIGN_WIDTH_SRC
+// 刻字:字高先取牌高的 40%,放不進牌面空白區的長名(LIQUEURS)由 iOS 縮到剛好放得下;字距 = 字高 × 0.12。
+// 暗字 + 上緣 0.5pt 亮邊 = 刻進金屬的凹槽(光從下方來,凹槽的上壁受光);兩個色在 CabinetTokens。
+const SIGN_FONT_RATIO = 0.4
+const SIGN_LETTER_SPACING_RATIO = 0.12
+const SIGN_MIN_FONT_SCALE = 0.5
+const SIGN_INK_ALPHA = 0.88
+const SIGN_EDGE_ALPHA = 0.6
+const SIGN_EDGE_OFFSET_PT = -0.5
+// 每層牌子上的字(Brok 2026-09-23:只寫家族名的英文大寫,數量留在標頭)
+const PHOTO_SHELF_SIGN_NAME: Record<PhotoShelfIndex, string> = {
+  0: 'GIN',
+  1: 'VODKA',
+  2: 'RUM',
+  3: 'WHISKEY',
+  4: 'TEQUILA',
+  5: 'LIQUEURS',
+}
 const GAP_MIN_SRC = 28
 const GAP_STEP_SRC = 7
 const GAP_STEPS = 5
@@ -130,6 +154,25 @@ function assertAssetMatchesTokens() {
       `CABINET_PHOTO: asset is ${asset.width}x${asset.height} but tokens say ` +
         `${CABINET_PHOTO.sourceWidth}x${CABINET_PHOTO.sourceHeight}; re-run measure_shelves.py and replace the tokens`,
     )
+  }
+}
+
+function assertSignMatchesTokens() {
+  const asset = Image.resolveAssetSource(CABINET_PHOTO_SIGN.image)
+  if (asset.width !== CABINET_PHOTO_SIGN.sourceWidth || asset.height !== CABINET_PHOTO_SIGN.sourceHeight) {
+    throw new Error(
+      `CABINET_PHOTO_SIGN: asset is ${asset.width}x${asset.height} but tokens say ` +
+        `${CABINET_PHOTO_SIGN.sourceWidth}x${CABINET_PHOTO_SIGN.sourceHeight}; re-run process_plate.py and replace the tokens`,
+    )
+  }
+  // 名牌不得伸進瓶子的排列區(排列區右界 = 保留區左界);伸進去就會和最右邊的瓶子疊
+  const shelfWidthSrc = CABINET_PHOTO.shelfRightX - CABINET_PHOTO.shelfLeftX
+  const bottleLimitSrc = CABINET_PHOTO.shelfRightX - shelfWidthSrc * LABEL_RESERVE_RATIO
+  if (SIGN_LEFT_SRC < bottleLimitSrc) {
+    throw new Error(`PhotoCabinet: the sign starts at ${SIGN_LEFT_SRC}px but bottles may reach ${bottleLimitSrc}px`)
+  }
+  if (CABINET_PHOTO_SIGN.heightSrc > CABINET_PHOTO_MAX_BOTTLE_SRC) {
+    throw new Error(`PhotoCabinet: the sign is ${CABINET_PHOTO_SIGN.heightSrc}px tall but a shelf cell only fits ${CABINET_PHOTO_MAX_BOTTLE_SRC}px`)
   }
 }
 
@@ -198,7 +241,14 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
   const height = CABINET_PHOTO.sourceHeight * scale
   const grouped = useMemo(() => groupByPhotoShelf(shelves), [shelves])
 
-  if (__DEV__) assertAssetMatchesTokens()
+  if (__DEV__) {
+    assertAssetMatchesTokens()
+    assertSignMatchesTokens()
+  }
+  const signHeightPt = CABINET_PHOTO_SIGN.heightSrc * scale
+  const signWidthPt = signHeightPt * CABINET_PHOTO_SIGN.aspect
+  const signFontSize = signHeightPt * SIGN_FONT_RATIO
+  const field = CABINET_PHOTO_SIGN.textField
 
   return (
     <View style={{ width, height }}>
@@ -218,6 +268,35 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
         const cellBottomSrc = shelfTopSrc + CABINET_PHOTO.shelfFaceHeight
         return (
           <React.Fragment key={index}>
+            <View
+              pointerEvents="none"
+              style={[
+                styles.sign,
+                { left: SIGN_LEFT_SRC * scale, top: (shelfTopSrc - CABINET_PHOTO_SIGN.heightSrc) * scale, width: signWidthPt, height: signHeightPt },
+              ]}
+            >
+              <Image source={CABINET_PHOTO_SIGN.image} style={{ width: signWidthPt, height: signHeightPt }} resizeMode="stretch" />
+              <View
+                style={[
+                  styles.signField,
+                  {
+                    left: signWidthPt * field.left,
+                    width: signWidthPt * (field.right - field.left),
+                    top: signHeightPt * field.top,
+                    height: signHeightPt * (field.bottom - field.top),
+                  },
+                ]}
+              >
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={SIGN_MIN_FONT_SCALE}
+                  style={[styles.signText, { fontSize: signFontSize, letterSpacing: signFontSize * SIGN_LETTER_SPACING_RATIO }]}
+                >
+                  {PHOTO_SHELF_SIGN_NAME[index]}
+                </Text>
+              </View>
+            </View>
             {placed.map(({ unit, type, xSrc, heightSrc }) => (
               <View
                 key={unit.bottleId}
@@ -280,6 +359,22 @@ const styles = StyleSheet.create({
   },
   shelfHit: {
     position: 'absolute',
+  },
+  sign: {
+    position: 'absolute',
+  },
+  signField: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signText: {
+    fontFamily: CABINET_PHOTO_SIGN.fontFamily,
+    color: withAlpha(CabinetTokens.signInk, SIGN_INK_ALPHA),
+    textAlign: 'center',
+    textShadowColor: withAlpha(CabinetTokens.signEdge, SIGN_EDGE_ALPHA),
+    textShadowOffset: { width: 0, height: SIGN_EDGE_OFFSET_PT },
+    textShadowRadius: 0,
   },
   overflowTag: {
     position: 'absolute',

@@ -62,6 +62,7 @@ class Measurer:
         cell = slice(max(0, y_shelf - cell_h), y_shelf)
         diff = np.abs(img[cell] - wall[cell]).max(axis=2)
         mask = diff > thr
+        mask[:, int((self.app.SIGN_LEFT_SRC - 8) * s_px):] = False     # the sign stands there, it is not a bottle
         on = mask.sum(axis=0) >= 6
         on = ndimage.binary_closing(on, structure=np.ones(9))
         lab, n = ndimage.label(on)
@@ -135,6 +136,51 @@ class Measurer:
         best['pct'] = 0.0 if L is None else float(np.clip((b['liquidBaseFrac'] - L / h) / (b['liquidBaseFrac'] - b['liquidTopFrac']) * 100, 0, 100))
         return best
 
+    # ── the shelf sign: where it is, and whether the engraved name sits centred in the blank field ──
+    def measure_sign(self, shot, wall, shelf_index, s_px, dy):
+        exp = self.r.sign_box(shelf_index)
+        w, h = exp['w'], exp['h']
+        tf = self.app.SIGN['textField']
+        fx0, fx1 = int(round(w * tf['left'])), int(round(w * tf['right']))
+        fy0, fy1 = int(round(h * tf['top'])), int(round(h * tf['bottom']))
+        img = np.asarray(self.r.sign_image(w, h)).astype(float)
+        alpha = img[..., 3:4] / 255
+        outside_field = np.ones((h, w), bool)
+        outside_field[fy0:fy1, fx0:fx1] = False
+        best = None
+        for x0 in range(exp['x0'] - 4, exp['x0'] + 5):
+            for y0 in range(exp['y0'] + dy - 4, exp['y0'] + dy + 5):
+                if x0 < 0 or y0 < 0 or x0 + w > shot.shape[1] or y0 + h > shot.shape[0]:
+                    continue
+                wp = wall[y0:y0 + h, x0:x0 + w]
+                pred = wp * (1 - alpha) + img[..., :3] * alpha
+                sel = (alpha[..., 0] > 0.5) & outside_field
+                err = np.abs(shot[y0:y0 + h, x0:x0 + w] - pred).mean(axis=2)[sel].mean()
+                if best is None or err < best['pos_err']:
+                    best = dict(x0=x0, y0=y0, pos_err=float(err))
+        x0, y0 = best['x0'], best['y0']
+        wp = wall[y0:y0 + h, x0:x0 + w]
+        pred = wp * (1 - alpha) + img[..., :3] * alpha
+        real = shot[y0:y0 + h, x0:x0 + w]
+        # ink = where the screenshot is clearly darker than the blank plate, inside the field
+        dl = lum(pred) - lum(real)
+        ink = np.zeros((h, w), bool)
+        ink[fy0:fy1, fx0:fx1] = dl[fy0:fy1, fx0:fx1] > 25
+        ink = ndimage.binary_opening(ink, structure=np.ones((2, 2)))
+        text = None
+        if ink.sum() > 30:
+            ys, xs = np.where(ink)
+            text = dict(x0=int(xs.min()), x1=int(xs.max()) + 1, y0=int(ys.min()), y1=int(ys.max()) + 1,
+                        dx_centre=round(float((xs.min() + xs.max() + 1) / 2 - (fx0 + fx1) / 2), 1),
+                        dy_centre=round(float((ys.min() + ys.max() + 1) / 2 - (fy0 + fy1) / 2), 1),
+                        fill_of_field=round(float((xs.max() - xs.min() + 1) / (fx1 - fx0)), 3),
+                        inside_field=bool(xs.min() >= fx0 and xs.max() < fx1 and ys.min() >= fy0 and ys.max() < fy1))
+        y_shelf = int(round(self.CP['shelfTopY'][shelf_index] * s_px)) + dy
+        return dict(shelf=shelf_index, name=self.app.SIGN_NAME[shelf_index], x0=x0, x1=x0 + w, y0=y0, y1=y0 + h, w=w, h=h,
+                    dx=x0 - exp['x0'], bottom_vs_shelf=(y0 + h) - y_shelf, pos_err=round(best['pos_err'], 2),
+                    diff_outside_text=round(float(np.abs(real - pred).mean(axis=2)[(alpha[..., 0] > 0.5) & outside_field].mean()), 2),
+                    text=text, field=dict(x0=fx0, x1=fx1, y0=fy0, y1=fy1))
+
     # ── expected placement from truth; equal-pct bottles: the app keeps the API's order (stable sort), which we do not have ──
     def match_order(self, items, units, shelf_index, dy):
         """Try every permutation inside each equal-pct group; keep the order whose expected render agrees best with the measured
@@ -177,7 +223,11 @@ class Measurer:
         dpr = self.r.dpr
         wall0, s_px = self.expected_wall(Wpx)
         top0 = int(round(self.CP['shelfTopY'][0] * s_px))
-        dy, off_err = self.find_offset(shot, wall0, cols=(int(Wpx * 0.80), int(Wpx * 0.955)), rows=(top0 + 100, int(round(self.CP['shelfTopY'][-1] * s_px)) + 100))
+        # bottle-free, sign-free column band: between the bottle limit (right edge of the row area) and the sign's left edge
+        shelf_w = self.CP['shelfRightX'] - self.CP['shelfLeftX']
+        limit_src = self.CP['shelfRightX'] - shelf_w * self.app.LABEL_RESERVE_RATIO
+        cols = (int((limit_src + 6) * s_px), int((self.app.SIGN_LEFT_SRC - 6) * s_px))
+        dy, off_err = self.find_offset(shot, wall0, cols=cols, rows=(top0 + 100, int(round(self.CP['shelfTopY'][-1] * s_px)) + 100))
         wall = np.zeros_like(shot)
         ys = np.arange(Hpx)
         yw = ys - dy
@@ -223,7 +273,7 @@ class Measurer:
                 gap_src = gap_px / s_px
                 k = (gap_src - self.app.GAP_MIN_SRC) / self.app.GAP_STEP_SRC
                 a_.update(gap_px=gap_px, gap_src=round(gap_src, 1), gap_step=round(k, 2), overlap=gap_px < self.app.GAP_MIN_SRC * s_px - 1.5)
-            shelf_rep = dict(shelf=shelf_index, y_shelf=y_shelf, bottles=items)
+            shelf_rep = dict(shelf=shelf_index, y_shelf=y_shelf, bottles=items, sign=self.measure_sign(shot, wall, shelf_index, s_px, dy))
             if truth_rows is not None:
                 exp_all, tie_info = self.match_order(items, truth_shelves.get(shelf_index, []), shelf_index, dy)
                 exp_list = [e for e in exp_all if 'overflow' not in e]
@@ -244,6 +294,12 @@ class Measurer:
             d = ImageDraw.Draw(vis)
             for sh in rep['shelves']:
                 d.line([(0, sh['y_shelf']), (Wpx, sh['y_shelf'])], fill=(80, 160, 255), width=1)
+                sg = sh.get('sign')
+                if sg:
+                    d.rectangle([sg['x0'], sg['y0'], sg['x1'] - 1, sg['y1'] - 1], outline=(255, 200, 0), width=1)
+                    if sg['text']:
+                        t = sg['text']
+                        d.rectangle([sg['x0'] + t['x0'], sg['y0'] + t['y0'], sg['x0'] + t['x1'] - 1, sg['y0'] + t['y1'] - 1], outline=(255, 80, 200), width=1)
                 for it in sh['bottles']:
                     d.rectangle([it['x0'], it['y0'], it['x1'] - 1, it['y1'] - 1], outline=(0, 255, 120), width=1)
                     if it['level_row'] is not None:
@@ -259,6 +315,12 @@ def summarize(rep, app):
         bs = sh['bottles']
         lines.append('shelf %d (top row %d): %d bottle(s)%s' % (sh['shelf'], sh['y_shelf'], len(bs), '' if 'expected_count' not in sh else ' | expected %d (+%d) | equal-pct groups %s, %d order(s) tried, best score %s' % (
             sh['expected_count'], sh['expected_overflow'], sh['tie_orders_tried']['groups'], sh['tie_orders_tried']['orders'], sh['tie_orders_tried']['score'])))
+        sg = sh.get('sign')
+        if sg:
+            t = sg['text']
+            lines.append('  sign %-8s x %4d-%4d y %4d-%4d (%3dx%3d) dx %+d bottom %+d | pos %.1f diff(outside text) %.1f | text %s' % (
+                sg['name'], sg['x0'], sg['x1'], sg['y0'], sg['y1'], sg['w'], sg['h'], sg['dx'], sg['bottom_vs_shelf'], sg['pos_err'], sg['diff_outside_text'],
+                'NONE FOUND' if not t else 'centre dx %+.1f dy %+.1f%s, %.0f%% of field width, %s' % (t['dx_centre'], t['dy_centre'], ' (Q tail pulls dy down)' if 'Q' in sg['name'] else '', t['fill_of_field'] * 100, 'inside field' if t['inside_field'] else 'OUTSIDE FIELD')))
         for it in bs:
             s = '  #%d %-13s %-5s x %4d-%4d y %4d-%4d (%3dx%3d) bottom %+d | pct %5.1f%s line %s (app rule %s)%s | pos %.1f fit %.1f | glass %.1f / wall %.1f | vs expected %.1f→%.1f blur' % (
                 it['i'], it['type'], it['colour'] or '-', it['x0'], it['x1'], it['y0'], it['y1'], it['w'], it['h'], it['bottom_vs_shelf'], it['pct'],

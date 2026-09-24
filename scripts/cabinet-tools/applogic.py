@@ -97,6 +97,19 @@ class AppLogic:
         if len(self.BOTTLES) != 6:
             raise ValueError('expected 6 bottle types in CABINET_PHOTO_BOTTLES, parsed %d' % len(self.BOTTLES))
         self.COLOURS = re.search(r"PHOTO_LIQUID_COLOURS = \[(.*?)\]", tok).group(1).replace("'", '').replace(' ', '').split(',')
+        # ── sign board (Stage 4(三)) ──
+        m = re.search(r'export const CABINET_PHOTO_SIGN = \{(.*?)\n\} as const', tok, re.S)
+        if not m:
+            raise ValueError('cannot find CABINET_PHOTO_SIGN in cabinetTokens.ts')
+        sg = m.group(1)
+        im = re.search(r"image: require\('@/assets/(.*?)'\)", sg)
+        tf = re.search(r'textField: \{ left: ([0-9.]+), right: ([0-9.]+), top: ([0-9.]+), bottom: ([0-9.]+) \}', sg)
+        ff = re.search(r"fontFamily: '(\w+)'", sg)
+        if not (im and tf and ff):
+            raise ValueError('CABINET_PHOTO_SIGN: image / textField / fontFamily not parsed')
+        self.SIGN = dict(image=im.group(1), sourceWidth=int(_num(sg, 'sourceWidth', 'SIGN')), sourceHeight=int(_num(sg, 'sourceHeight', 'SIGN')),
+                         aspect=_num(sg, 'aspect', 'SIGN'), heightSrc=int(_num(sg, 'heightSrc', 'SIGN')),
+                         textField=dict(left=float(tf.group(1)), right=float(tf.group(2)), top=float(tf.group(3)), bottom=float(tf.group(4))), fontFamily=ff.group(1))
         self.SIZE_CLASSES = _int_list(tok, 'PHOTO_SIZE_CLASSES_ML', 'cabinetTokens.ts')
         sm = re.search(r"liquidSurface: '#([0-9A-Fa-f]{6})'", tok)
         self.LINE_RGB = tuple(int(sm.group(1)[i:i + 2], 16) for i in (0, 2, 4)) if sm else (255, 205, 140)
@@ -110,6 +123,11 @@ class AppLogic:
             setattr(self, k, _const(cab, k, 'PhotoCabinet.tsx'))
         self.GAP_STEPS = int(self.GAP_STEPS)
         self.ENABLED_SHELVES = _int_list(cab, 'ENABLED_PHOTO_SHELVES', 'PhotoCabinet.tsx')
+        for k in ('SIGN_RIGHT_INSET_SRC', 'SIGN_FONT_RATIO', 'SIGN_LETTER_SPACING_RATIO', 'SIGN_MIN_FONT_SCALE'):
+            setattr(self, k, _const(cab, k, 'PhotoCabinet.tsx'))
+        self.SIGN_WIDTH_SRC = self.SIGN['heightSrc'] * self.SIGN['aspect']
+        self.SIGN_LEFT_SRC = self.CABINET_PHOTO['shelfRightX'] - self.SIGN_RIGHT_INSET_SRC - self.SIGN_WIDTH_SRC
+        self.SIGN_NAME = {int(k): v for k, v in _kv_table(cab, 'PHOTO_SHELF_SIGN_NAME', 'PhotoCabinet.tsx', key_pattern=r'\d+', val_pattern=r"'([A-Z]+)'").items()}
         m = re.search(r'const BOTTLE_TYPES_BY_SIZE[^\n]*= \{\n(.*?)\n\}', cab, re.S)
         if not m:
             raise ValueError('cannot find BOTTLE_TYPES_BY_SIZE')
@@ -248,4 +266,5 @@ if __name__ == '__main__':
                           shelf_colour=app.SHELF_COLOUR, ingredient_overrides=len(app.INGREDIENT_COLOUR),
                           bottles={k: {kk: vv for kk, vv in v.items() if kk not in ('glass', 'liquids')} for k, v in app.BOTTLES.items()},
                           gaps=dict(ROW_INSET_SRC=app.ROW_INSET_SRC, GAP_MIN_SRC=app.GAP_MIN_SRC, GAP_STEP_SRC=app.GAP_STEP_SRC, GAP_STEPS=app.GAP_STEPS),
+                          sign=dict(app.SIGN, leftSrc=app.SIGN_LEFT_SRC, widthSrc=round(app.SIGN_WIDTH_SRC, 2), names=app.SIGN_NAME, rightInset=app.SIGN_RIGHT_INSET_SRC),
                           line=dict(rgb=app.LINE_RGB, alpha=app.LINE_ALPHA, inset=app.LINE_INSET_FRAC)), indent=1))

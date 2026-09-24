@@ -59,6 +59,9 @@ const CabinetTokens = {
   crimsonTint: '#D66E7C',
   // CABINET-PHOTO:照片瓶的液面線(暖白;取自 Brok 2026-09-19 過關的酒量預覽)
   liquidSurface: '#FFCD8C',
+  // CABINET-PHOTO Stage 4(三):層板名牌的刻字。光從下方來,凹槽的上壁受光:暗字 + 上緣一道亮邊(mockup 2026-09-24 過關)
+  signInk: '#26180C',
+  signEdge: '#FFECCD',
 } as const
 
 // ── CABINET-BOTTLE-SIZE(2026-08-01 A 案拍板):三階瓶身尺寸 ──
@@ -82,8 +85,10 @@ export function tierForMl(totalMl: number | null | undefined): BottleSizeTier {
 }
 
 // ── CABINET-PHOTO(2026-09-17):照片背景的量測座標 ──
-// 來源圖:cabinet-background-r2(1168x2528;backend scripts/cabinet-images/processed/)。
-// 暫用 asset:幾何過關(間距最大差 0.84%、水平差 2px 以內),r2 外觀取自 Brok 選定的樣張 c2,幾何由 respace_shelves.py 重排到 r1 的層板位置,真機畫面複審中。
+// 來源圖:cabinet-background-r3(1168x2528;backend scripts/cabinet-images/processed/)。
+// r2:幾何過關(間距最大差 0.84%、水平差 2px 以內),外觀取自 Brok 選定的樣張 c2,幾何由 respace_shelves.py 重排到 r1 的層板位置。
+// r3(2026-09-24)= r2 經 soften_seam.py:x=705 那條板縫比其他三條強一倍,Brok 看成邊界,柔化到同等;只動接縫左右 60px 的牆,
+// 幾何與六層的牆中位數不變,所以下面的座標與瓶子的色調校正照舊。
 // 數值全部是 measure_shelves.py 輸出的「來源圖像素」,不得手改;換圖 = 重量後整組替換,
 // background 的 require 與座標放同一個物件,就是為了讓圖和座標一起換。
 // 渲染契約:背景以 width = 螢幕寬、height = 寬 × sourceHeight / sourceWidth、
@@ -92,7 +97,7 @@ export function tierForMl(totalMl: number | null | undefined): BottleSizeTier {
 // CABINET_PHOTO_PREVIEW:開發模式看新櫃,正式 build / OTA 一律舊櫃;Stage 5 才對線上開。
 export const CABINET_PHOTO_PREVIEW = __DEV__
 export const CABINET_PHOTO = {
-  background: require('@/assets/images/cabinet/cabinet-background-r2.jpg'),
+  background: require('@/assets/images/cabinet/cabinet-background-r3.jpg'),
   sourceWidth: 1168,
   sourceHeight: 2528,
   // 6 片層板頂緣 y(瓶底對齊此值);index 0–5 = 由上到下的層序
@@ -258,6 +263,21 @@ export function photoSizeClassForMl(totalMl: number | null | undefined): PhotoSi
   }
   return nearest
 }
+// ── CABINET-PHOTO Stage 4(三):層板名牌(sign board;Brok 手繪 IMG_5013,2026-09-23)──
+// 數值取自 backend scripts/cabinet-images/processed/signs/sign_plate_r1.calibration.json(process_plate.py 產出),不得手改;
+// 換牌子 = 重跑後整組替換,require 與數值同物件。牌子是不透明的實物:拍在瓶子的固定場景、去背成圓角矩形、套與 small_350 同高度的牆增益。
+// 牌面本身空白,家族名由 app 刻上去:textField 是牌面空白區(飾框內側)在牌子上的位置(0–1),字要排在這裡面。
+// fontFamily 必須等於 app/_layout.tsx useFonts 裡的名字(EB Garamond SemiBold,專案既有字型)。
+// heightSrc:牌子在背景來源圖上的高度(px),同瓶子:色調校正照這個高度做,畫面上一律用這個高度。
+export const CABINET_PHOTO_SIGN = {
+  image: require('@/assets/images/cabinet/sign_plate_r1.png'),
+  sourceWidth: 529,
+  sourceHeight: 240,
+  aspect: 2.2052,
+  heightSrc: 100,
+  textField: { left: 0.0871, right: 0.9129, top: 0.1921, bottom: 0.8166 },
+  fontFamily: 'EBGaramond',
+} as const
 // 瓶子可用的最大高度(來源圖像素)= 最小層距 − 層板正面 − 層板底面;由量測值推導,不手寫
 const CABINET_PHOTO_PITCHES = CABINET_PHOTO.shelfTopY.slice(1).map((y, i) => y - CABINET_PHOTO.shelfTopY[i])
 export const CABINET_PHOTO_MAX_BOTTLE_SRC =

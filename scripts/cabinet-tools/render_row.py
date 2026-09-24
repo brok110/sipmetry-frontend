@@ -44,6 +44,49 @@ class Renderer:
         H = self.px(self.app.CABINET_PHOTO['sourceHeight'] * self.s_pt)
         return self.bg_src.resize((W, H), Image.LANCZOS).convert('RGBA')
 
+    def sign_box(self, shelf_index):
+        """device-px box of the shelf sign, the way Yoga snaps it"""
+        shelf_top = self.app.CABINET_PHOTO['shelfTopY'][shelf_index]
+        h_pt = self.app.SIGN['heightSrc'] * self.s_pt
+        w_pt = h_pt * self.app.SIGN['aspect']
+        left_pt, top_pt = self.app.SIGN_LEFT_SRC * self.s_pt, (shelf_top - self.app.SIGN['heightSrc']) * self.s_pt
+        x0, x1, y0, y1 = self.px(left_pt), self.px(left_pt + w_pt), self.px(top_pt), self.px(top_pt + h_pt)
+        return dict(x0=x0, x1=x1, y0=y0, y1=y1, w=x1 - x0, h=y1 - y0, top_pt=top_pt, h_pt=h_pt, w_pt=w_pt)
+
+    def sign_image(self, w, h):
+        return self.layer(self.app.SIGN['image'], w, h)
+
+    def draw_sign(self, canvas, shelf_index, text_font=None):
+        """the sign of one shelf; with text_font (a PIL font path) the family name is engraved the way the app does it (for synthetic shots)"""
+        box = self.sign_box(shelf_index)
+        canvas.alpha_composite(self.sign_image(box['w'], box['h']), (box['x0'], box['y0']))
+        if text_font:
+            from PIL import ImageDraw, ImageFont
+            tf = self.app.SIGN['textField']
+            fw, fh = box['w'] * (tf['right'] - tf['left']), box['h'] * (tf['bottom'] - tf['top'])
+            cx, cy = box['x0'] + box['w'] * (tf['left'] + tf['right']) / 2, box['y0'] + box['h'] * (tf['top'] + tf['bottom']) / 2
+            size = int(round(box['h'] * self.app.SIGN_FONT_RATIO))
+            text = self.app.SIGN_NAME[shelf_index]
+            def measure(sz):
+                f = ImageFont.truetype(text_font, sz)
+                sp = sz * self.app.SIGN_LETTER_SPACING_RATIO
+                ws = [f.getlength(ch) for ch in text]
+                return f, sp, ws, sum(ws) + sp * (len(text) - 1)
+            f, sp, ws, total = measure(size)
+            if total > fw:                               # adjustsFontSizeToFit
+                size = max(int(size * self.app.SIGN_MIN_FONT_SCALE), int(size * fw / total))
+                f, sp, ws, total = measure(size)
+            x = cx - total / 2
+            asc, desc = f.getmetrics()          # PIL draws the line box from y: ascender line at y, baseline at y + asc, bottom at y + asc + desc
+            y = cy - (asc + desc) / 2           # centre the line box on the field, as a centred <Text> does; caps then sit ~0.03em low (EB Garamond metrics)
+            d = ImageDraw.Draw(canvas, 'RGBA')
+            for ch, wch in zip(text, ws):
+                d.text((x, y - 1.5), ch, font=f, fill=(255, 236, 205, 153))
+                d.text((x, y), ch, font=f, fill=(38, 24, 12, 224))
+                x += wch + sp
+        box.update(shelf=shelf_index, name=self.app.SIGN_NAME[shelf_index])
+        return box
+
     def bottle_box(self, placed, shelf_index):
         """device-px box of a placed bottle, the way Yoga snaps it"""
         b = self.app.BOTTLES[placed['type']]
