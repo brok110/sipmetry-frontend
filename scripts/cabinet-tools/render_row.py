@@ -114,16 +114,38 @@ class Renderer:
                 out.alpha_composite(Image.fromarray(row, 'RGBA'), (0, level))
         return out
 
-    def draw_bottle(self, canvas, placed, shelf_index):
+    def halo_box(self, type_name, box):
+        """the halo layer drawn at bottle size x (halo size / glass size), centred on the bottle — as PhotoBottle.LowHalo does (pt, then snapped)"""
+        b = self.app.BOTTLES[type_name]
+        w_pt, h_pt = box['w'] / self.dpr, box['h'] / self.dpr
+        hw_pt, hh_pt = w_pt * b['haloWidth'] / b['sourceWidth'], h_pt * b['haloHeight'] / b['sourceHeight']
+        x0 = self.px(box['x0'] / self.dpr - (hw_pt - w_pt) / 2)
+        y0 = self.px(box['y0'] / self.dpr - (hh_pt - h_pt) / 2)
+        return dict(x0=x0, y0=y0, w=self.px(x0 / self.dpr + hw_pt) - x0, h=self.px(y0 / self.dpr + hh_pt) - y0)
+
+    def halo_image(self, type_name, hw, hh, opacity):
+        """the type's halo layer (white + alpha) tinted crimsonTint at the given opacity"""
+        img = self.layer(self.app.BOTTLES[type_name]['halo'], hw, hh)
+        arr = np.asarray(img).copy()
+        arr[..., :3] = self.app.HALO_RGB
+        arr[..., 3] = (arr[..., 3].astype(float) * opacity).clip(0, 255).astype(np.uint8)
+        return Image.fromarray(arr, 'RGBA')
+
+    def draw_bottle(self, canvas, placed, shelf_index, halo_opacity=None):
         box = self.bottle_box(placed, shelf_index)
         pct = max(0.0, min(100.0, float(placed['unit']['pct'])))
+        is_low = bool(placed['unit'].get('isLow', self.app.is_low(pct)))
+        if is_low:
+            op = halo_opacity if halo_opacity is not None else (self.app.LOW_HALO_OPACITY_LOW + self.app.LOW_HALO_OPACITY_HIGH) / 2
+            hb = self.halo_box(placed['type'], box)
+            canvas.alpha_composite(self.halo_image(placed['type'], hb['w'], hb['h'], op), (hb['x0'], hb['y0']))
         level, line = None, False
         if pct > 0:
             level = self.px(box['top_pt'] + box['h_pt'] * self.app.liquid_frac(placed['type'], pct)) - box['y0']
             line = self.app.line_expected(placed['type'], pct)
         img = self.bottle_image(placed['type'], placed['layer_colour'], box['w'], box['h'], level, line)
         canvas.alpha_composite(img, (box['x0'], box['y0']))
-        box.update(type=placed['type'], colour=placed['layer_colour'], colour_rule=placed['colour'], pct=pct, level_y=None if level is None else box['y0'] + level, line=line,
+        box.update(type=placed['type'], colour=placed['layer_colour'], colour_rule=placed['colour'], pct=pct, is_low=is_low, level_y=None if level is None else box['y0'] + level, line=line,
                    bottleId=placed['unit']['bottleId'])
         return box
 

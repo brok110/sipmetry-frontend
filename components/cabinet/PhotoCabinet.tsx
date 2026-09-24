@@ -119,6 +119,7 @@ const SIGN_WIDTH_SRC = CABINET_PHOTO_SIGN.heightSrc * CABINET_PHOTO_SIGN.aspect
 const SIGN_LEFT_SRC = CABINET_PHOTO.shelfRightX - SIGN_RIGHT_INSET_SRC - SIGN_WIDTH_SRC
 // 刻字:字高先取牌高的 40%,放不進牌面空白區的長名(LIQUEURS)由 iOS 縮到剛好放得下;字距 = 字高 × 0.12。
 // 暗字 + 上緣 0.5pt 亮邊 = 刻進金屬的凹槽(光從下方來,凹槽的上壁受光);兩個色在 CabinetTokens。
+// iOS 把字距也加在最後一個字之後,字會左偏半個字距(4(三)量到 2.7px);marginLeft 補一個字距,居中就回到 0。
 const SIGN_FONT_RATIO = 0.4
 const SIGN_LETTER_SPACING_RATIO = 0.12
 const SIGN_MIN_FONT_SCALE = 0.5
@@ -291,7 +292,14 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
                   numberOfLines={1}
                   adjustsFontSizeToFit
                   minimumFontScale={SIGN_MIN_FONT_SCALE}
-                  style={[styles.signText, { fontSize: signFontSize, letterSpacing: signFontSize * SIGN_LETTER_SPACING_RATIO }]}
+                  style={[
+                    styles.signText,
+                    {
+                      fontSize: signFontSize,
+                      letterSpacing: signFontSize * SIGN_LETTER_SPACING_RATIO,
+                      marginLeft: signFontSize * SIGN_LETTER_SPACING_RATIO,
+                    },
+                  ]}
                 >
                   {PHOTO_SHELF_SIGN_NAME[index]}
                 </Text>
@@ -303,7 +311,7 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
                 pointerEvents="none"
                 style={[styles.bottle, { left: xSrc * scale, top: (shelfTopSrc - heightSrc) * scale }]}
               >
-                <PhotoBottle type={type} colour={liquidColourFor(unit, index)} heightPt={heightSrc * scale} pct={unit.pct} />
+                <PhotoBottle type={type} colour={liquidColourFor(unit, index)} heightPt={heightSrc * scale} pct={unit.pct} isLow={unit.isLow} />
               </View>
             ))}
             {overflow > 0 && (

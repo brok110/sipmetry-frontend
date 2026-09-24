@@ -57,11 +57,14 @@ class Measurer:
         return wall_patch * (1 - a) + img[..., :3] * a, img[..., 3] / 255
 
     # ── detection ──
-    def detect_boxes(self, img, wall, y_shelf, s_px, thr=22, min_w=20):      # bitters_150 is ~28px wide at 1320px
+    def detect_boxes(self, img, wall, y_shelf, s_px, thr=14, min_w=20):      # bitters_150 is ~28px wide at 1320px
+        """bottle boxes = where the residual (screenshot minus wall) has EDGES. A low-stock halo is a large, very smooth tint around the
+        bottle: it changes the residual a lot but has almost no gradient, so an edge map ignores it and the boxes stay the bottle's own."""
         cell_h = int(round(self.app.MAX_BOTTLE_SRC * s_px)) + 6
         cell = slice(max(0, y_shelf - cell_h), y_shelf)
-        diff = np.abs(img[cell] - wall[cell]).max(axis=2)
-        mask = diff > thr
+        resid = lum(img[cell] - wall[cell])
+        edge = np.hypot(ndimage.sobel(resid, axis=0), ndimage.sobel(resid, axis=1)) / 8
+        mask = edge > thr
         mask[:, int((self.app.SIGN_LEFT_SRC - 8) * s_px):] = False     # the sign stands there, it is not a bottle
         on = mask.sum(axis=0) >= 6
         on = ndimage.binary_closing(on, structure=np.ones(9))
@@ -90,7 +93,7 @@ class Measurer:
         for t, b in self.app.BOTTLES.items():
             h_pt = b['heightSrc'] * s_px / dpr
             cands.append((t, h_pt, h_pt * b['aspect'], abs(h_pt * dpr - box_h)))
-        near = [c for c in cands if c[3] <= 20] or cands
+        near = [c for c in cands if c[3] <= 24] or cands
         best = None
         for t, h_pt, w_pt, _ in near:
             b = self.app.BOTTLES[t]
@@ -98,7 +101,7 @@ class Measurer:
                 for h in (int(np.floor(h_pt * dpr)), int(np.ceil(h_pt * dpr))):
                     fixed = np.ones(h, bool)
                     fixed[int(h * b['liquidTopFrac']) - 2:int(h * b['liquidBaseFrac']) + 3] = False   # rows that look the same at any fill
-                    for x0 in range(box['x0'] - 4, box['x0'] + 5):
+                    for x0 in range(box['x0'] - 5, box['x0'] + 6):
                         for y0 in range(y_shelf - h - 4, y_shelf - h + 5):
                             if y0 < 0 or x0 < 0 or x0 + w > shot.shape[1]:
                                 continue
@@ -258,7 +261,18 @@ class Measurer:
                 frac = None if r['level'] is None else r['level'] / h
                 rule_pct = 100.0 if r['pct'] >= 99.5 else (0.0 if r['pct'] <= 0.5 else r['pct'])   # one liquid row is ~0.7%: the app's 100 / 0 come out as 99.x / 0.x
                 in_label = (frac is not None and b['labelTopFrac'] is not None and b['labelTopFrac'] <= frac <= b['labelBaseFrac'])
-                item = dict(i=i + 1, type=t, colour=r['colour'], x0=x0, x1=x0 + w, y0=y0, y1=y0 + h, w=w, h=h,
+                # low-stock halo: the residual (screenshot minus expected bottle-on-wall) in the halo box outside the silhouette; red minus blue
+                hb = self.r.halo_box(t, dict(x0=x0, y0=y0, w=w, h=h))
+                hx0, hy0, hx1, hy1 = max(0, hb['x0']), max(0, hb['y0']), min(shot.shape[1], hb['x0'] + hb['w']), min(shot.shape[0], hb['y0'] + hb['h'])
+                resid = shot[hy0:hy1, hx0:hx1] - wall[hy0:hy1, hx0:hx1]
+                # weight by where the halo layer would put its alpha, so the far corners of its canvas do not dilute the measure
+                halo_alpha = np.asarray(self.r.layer(b['halo'], hb['w'], hb['h']))[..., 3].astype(float) / 255
+                wgt = halo_alpha[hy0 - hb['y0']:hy1 - hb['y0'], hx0 - hb['x0']:hx1 - hb['x0']].copy()
+                wgt[y0 - hy0:y0 - hy0 + h, x0 - hx0:x0 - hx0 + w] = 0               # outside the bottle box only
+                wgt[lum(resid) >= 60] = 0                                          # a neighbouring bottle, not a halo
+                halo_drb = float(((resid[..., 0] - resid[..., 2]) * wgt).sum() / wgt.sum()) if wgt.sum() > 0 else 0.0
+                halo = dict(red_minus_blue=round(halo_drb, 1), present=bool(halo_drb > 8))
+                item = dict(i=i + 1, type=t, colour=r['colour'], x0=x0, x1=x0 + w, y0=y0, y1=y0 + h, w=w, h=h, halo=halo,
                             bottom_vs_shelf=(y0 + h) - y_shelf, pos_err=round(r['pos_err'], 2), fit_err=round(r['fit_err'], 2),
                             level_row=None if r['level'] is None else y0 + r['level'], surface_frac=None if frac is None else round(frac, 4),
                             surface_in_label_band=bool(in_label), line=r['line'], line_expected=self.app.line_expected(t, rule_pct), pct=round(r['pct'], 1),
@@ -284,7 +298,9 @@ class Measurer:
                 for item, e in zip(items, exp_list):
                     item['truth'] = dict(bottleId=e['bottleId'], type=e['type'], colour=e['colour'], x0=e['x0'], y0=e['y0'] + dy, w=e['w'], h=e['h'],
                                          level_row=None if e['level_y'] is None else e['level_y'] + dy, line=e['line'], pct=round(e['pct'], 1))
+                    item['truth']['is_low'] = e['is_low']
                     item['vs_truth'] = dict(type_ok=item['type'] == e['type'], colour_ok=(item['colour'] == e['colour']) or (e['pct'] == 0 and item['colour'] is None),
+                                            halo_ok=item['halo']['present'] == e['is_low'],
                                             dx=item['x0'] - e['x0'], dy=item['y1'] - (e['y1'] + dy), dw=item['w'] - e['w'], dh=item['h'] - e['h'],
                                             level_diff=None if (item['level_row'] is None or e['level_y'] is None) else item['level_row'] - (e['level_y'] + dy),
                                             line_ok=item['line'] == e['line'], pct_diff=round(item['pct'] - e['pct'], 1))
@@ -327,11 +343,12 @@ def summarize(rep, app):
                 ' (in label band)' if it['surface_in_label_band'] else '', 'Y' if it['line'] else 'N', 'Y' if it['line_expected'] else 'N',
                 '' if 'gap_px' not in it else ' | gap %dpx = %.1f src = step %.2f%s' % (it['gap_px'], it['gap_src'], it['gap_step'], ' OVERLAP' if it['overlap'] else ''),
                 it['pos_err'], it['fit_err'], it['body_lum'], it['wall_lum'], it['diff_vs_expected'] or 0, it['diff_vs_expected_blur'] or 0)
+            s += ' | halo %s (R-B %+.1f)' % ('Y' if it['halo']['present'] else 'N', it['halo']['red_minus_blue'])
             if 'vs_truth' in it:
                 v = it['vs_truth']
-                s += ' || truth %s %s pct %.1f: type %s colour %s dx %+d dy %+d dw %+d dh %+d level %s line %s pct %+.1f' % (
-                    it['truth']['type'], it['truth']['colour'], it['truth']['pct'], 'OK' if v['type_ok'] else 'MISMATCH', 'OK' if v['colour_ok'] else 'MISMATCH',
-                    v['dx'], v['dy'], v['dw'], v['dh'], v['level_diff'], 'OK' if v['line_ok'] else 'MISMATCH', v['pct_diff'])
+                s += ' || truth %s %s pct %.1f%s: type %s colour %s dx %+d dy %+d dw %+d dh %+d level %s line %s halo %s pct %+.1f' % (
+                    it['truth']['type'], it['truth']['colour'], it['truth']['pct'], ' LOW' if it['truth'].get('is_low') else '', 'OK' if v['type_ok'] else 'MISMATCH', 'OK' if v['colour_ok'] else 'MISMATCH',
+                    v['dx'], v['dy'], v['dw'], v['dh'], v['level_diff'], 'OK' if v['line_ok'] else 'MISMATCH', 'OK' if v['halo_ok'] else 'MISMATCH', v['pct_diff'])
             lines.append(s)
     return '\n'.join(lines)
 

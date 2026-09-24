@@ -31,7 +31,7 @@ spec = {
     0: [('gin', 'gin', 750, 5.07), ('gin', 'gin', 1000, 60), ('gin', 'gin', 148, 50)],          # 148ml gin -> bitters_150 has no clear layer -> app falls back to amber
     1: [('vodka', 'vodka', 375, 22.4), ('vanilla_vodka', 'vodka', 750, 100), ('vodka', 'vodka', 500, 83.3)],
     2: [('white_rum', 'rum', 750, 41), ('dark_rum', 'rum', 750, 0), ('cachaca', 'cachaca', 1000, 30), ('gold_rum', 'rum', 700, 55), ('aged_rum', 'rum', 118, 90)],
-    3: [('bourbon', 'whiskey', 750, 7), ('rye_whiskey', 'whiskey', 750, 18), ('scotch_whisky', 'whiskey', 1750, 34), ('kirsch', 'brandy', 350, 52), ('cognac', 'brandy', 500, 68), ('whiskey', 'whiskey', 750, 85), ('irish_whiskey', 'whiskey', 750, 100)],
+    3: [('bourbon', 'whiskey', 750, 7), ('rye_whiskey', 'whiskey', 750, 19.4), ('scotch_whisky', 'whiskey', 1750, 19.6), ('kirsch', 'brandy', 350, 52), ('cognac', 'brandy', 500, 68), ('whiskey', 'whiskey', 750, 85), ('irish_whiskey', 'whiskey', 750, 100)],   # 19.4 low, 19.6 not (Math.round)
     4: [('tequila_blanco', 'tequila', 750, 50), ('tequila_anejo', 'tequila', 750, 50), ('mezcal', 'mezcal', 1000, 12), ('tequila_reposado', 'tequila', 500, 36)],
     5: [('campari', 'bitter_liqueur', 1000, 45), ('angostura_bitters', 'aromatic_bitters', 118, 60), ('peychaud_s_bitters', 'aromatic_bitters', 148, 95),
         ('coffee_liqueur', 'coffee_liqueur', 750, 50), ('sweet_vermouth', 'vermouth', 750, 20), ('irish_cream', 'cream_liqueur', 750, 33), ('aperol', 'bitter_liqueur', 700, 77),
@@ -97,6 +97,14 @@ for sh, st in zip(rep['shelves'], sign_truth):
     signs_ok &= good
     print('sign %d %-8s dx %+d bottom %+d text %s' % (sg['shelf'], sg['name'], sg['dx'], sg['bottom_vs_shelf'], 'missing' if t is None else 'centre %+.1f/%+.1f %s' % (t['dx_centre'], t['dy_centre'], 'inside' if t['inside_field'] else 'OUTSIDE')), '' if good else '<-- BAD')
 print('signs: all six at the expected place with the name centred in the field:', signs_ok)
-ok = rep['dy'] == DY and n_found == n_truth and type_ok and colour_ok and line_ok and worst['dx'] == 0 and worst['dy'] == 0 and worst['level'] <= 1 and worst['pct'] <= 1.5 and signs_ok
+halo_ok = True
+n_low = 0
+for sh in rep['shelves']:
+    for it in sh['bottles']:
+        if 'vs_truth' in it:
+            n_low += 1 if it['truth']['is_low'] else 0
+            halo_ok &= it['vs_truth']['halo_ok']
+print('low-stock halos: %d low bottles in truth, every bottle\'s halo present/absent as its isLow: %s' % (n_low, halo_ok))
+ok = rep['dy'] == DY and n_found == n_truth and type_ok and colour_ok and line_ok and worst['dx'] == 0 and worst['dy'] == 0 and worst['level'] <= 1 and worst['pct'] <= 1.5 and signs_ok and halo_ok and n_low >= 4
 print('SYNTH TEST', 'PASSED' if ok else 'FAILED')
 raise SystemExit(0 if ok else 1)

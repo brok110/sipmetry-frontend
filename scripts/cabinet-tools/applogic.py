@@ -86,11 +86,12 @@ class AppLogic:
         for bm in re.finditer(r'^  (\w+): \{\n(.*?)\n  \},$', m.group(1), re.S | re.M):
             name, block = bm.group(1), bm.group(2)
             gm = re.search(r"glass: require\('@/assets/(.*?)'\)", block)
+            hm = re.search(r"halo: require\('@/assets/(.*?)'\)", block)
             liquids = dict(re.findall(r"^      (\w+): require\('@/assets/(.*?)'\),$", block, re.M))
-            if not gm or not liquids or 'amber' not in liquids:
-                raise ValueError('bottle %s: glass / liquids not parsed' % name)
+            if not gm or not hm or not liquids or 'amber' not in liquids:
+                raise ValueError('bottle %s: glass / halo / liquids not parsed' % name)
             self.BOTTLES[name] = dict(
-                glass=gm.group(1), liquids=liquids,
+                glass=gm.group(1), liquids=liquids, halo=hm.group(1), haloWidth=int(_num(block, 'haloWidth', name)), haloHeight=int(_num(block, 'haloHeight', name)),
                 sourceWidth=int(_num(block, 'sourceWidth', name)), sourceHeight=int(_num(block, 'sourceHeight', name)),
                 aspect=_num(block, 'aspect', name), liquidTopFrac=_num(block, 'liquidTopFrac', name), liquidBaseFrac=_num(block, 'liquidBaseFrac', name),
                 labelTopFrac=_num(block, 'labelTopFrac', name), labelBaseFrac=_num(block, 'labelBaseFrac', name), heightSrc=int(_num(block, 'heightSrc', name)))
@@ -117,6 +118,17 @@ class AppLogic:
         # ── PhotoBottle constants ──
         self.LINE_ALPHA = _const(bot, 'SURFACE_LINE_OPACITY', 'PhotoBottle.tsx')
         self.LINE_INSET_FRAC = _const(bot, 'SURFACE_LINE_INSET_RATIO', 'PhotoBottle.tsx')
+        # low-stock halo (Stage 4(四)): the type's pre-rendered halo layer (make_halo.py), tinted crimsonTint, breathing opacity
+        for k in ('LOW_HALO_OPACITY_LOW', 'LOW_HALO_OPACITY_HIGH', 'LOW_HALO_PERIOD_MS'):
+            setattr(self, k, _const(bot, k, 'PhotoBottle.tsx'))
+        cm = re.search(r"crimsonTint: '#([0-9A-Fa-f]{6})'", tok)
+        if not cm:
+            raise ValueError('cannot find crimsonTint in cabinetTokens.ts')
+        self.HALO_RGB = tuple(int(cm.group(1)[i:i + 2], 16) for i in (0, 2, 4))
+        lm = re.search(r'return Math\.round\(Number\(remainingPct\)\) < (\d+)', lib)
+        if not lm:
+            raise ValueError('cannot find isLowStockPct threshold in lib/cabinet.ts')
+        self.LOW_STOCK_BELOW = int(lm.group(1))
 
         # ── PhotoCabinet constants and tables ──
         for k in ('LABEL_RESERVE_RATIO', 'OVERFLOW_TAG_SRC', 'ROW_INSET_SRC', 'GAP_MIN_SRC', 'GAP_STEP_SRC', 'GAP_STEPS', 'OVERFLOW_GAP_SRC'):
@@ -200,6 +212,11 @@ class AppLogic:
         liquids = self.BOTTLES[type_name]['liquids']
         return liquids.get(colour, liquids['amber'])
 
+    def is_low(self, pct):
+        """isLowStockPct mirror: Math.round(pct) < threshold (JS rounds .5 up, Python's round() does not)"""
+        import math
+        return math.floor(float(pct) + 0.5) < self.LOW_STOCK_BELOW
+
     def liquid_frac(self, type_name, pct):
         b = self.BOTTLES[type_name]
         c = max(0.0, min(100.0, float(pct)))
@@ -253,7 +270,7 @@ class AppLogic:
             total = float(r['total_ml']) if r.get('total_ml') not in (None, '') else 0.0
             pct = (float(r['remaining_volume']) / total) * 100 if total > 0 else 0.0
             unit = dict(bottleId=str(r['bottleId']), ingredientKey=r.get('ingredient_key', ''), pct=pct,
-                        totalMl=float(r['total_ml']) if r.get('total_ml') not in (None, '') else None)
+                        totalMl=float(r['total_ml']) if r.get('total_ml') not in (None, '') else None, isLow=self.is_low(pct))
             shelves.setdefault(self.photo_shelf_index(r.get('family_key')), []).append(unit)
         return shelves
 
@@ -267,4 +284,6 @@ if __name__ == '__main__':
                           bottles={k: {kk: vv for kk, vv in v.items() if kk not in ('glass', 'liquids')} for k, v in app.BOTTLES.items()},
                           gaps=dict(ROW_INSET_SRC=app.ROW_INSET_SRC, GAP_MIN_SRC=app.GAP_MIN_SRC, GAP_STEP_SRC=app.GAP_STEP_SRC, GAP_STEPS=app.GAP_STEPS),
                           sign=dict(app.SIGN, leftSrc=app.SIGN_LEFT_SRC, widthSrc=round(app.SIGN_WIDTH_SRC, 2), names=app.SIGN_NAME, rightInset=app.SIGN_RIGHT_INSET_SRC),
-                          line=dict(rgb=app.LINE_RGB, alpha=app.LINE_ALPHA, inset=app.LINE_INSET_FRAC)), indent=1))
+                          line=dict(rgb=app.LINE_RGB, alpha=app.LINE_ALPHA, inset=app.LINE_INSET_FRAC),
+                          low_halo=dict(rgb=app.HALO_RGB, opacity=[app.LOW_HALO_OPACITY_LOW, app.LOW_HALO_OPACITY_HIGH], below_pct=app.LOW_STOCK_BELOW,
+                                        layers={k: '%s (%dx%d)' % (v['halo'], v['haloWidth'], v['haloHeight']) for k, v in app.BOTTLES.items()})), indent=1))

@@ -125,12 +125,18 @@ export function cabinetPhotoScale(renderedWidth: number): number {
 // 不依容量縮放;要改大小 = 用新的 --height-src 重跑 process_bottle.py。大小差異靠不同瓶型,不靠縮放。
 // 酒色(決策 4 的 2026-09-20 修訂):琥珀 / 透明 / 深色 / 紅,六種瓶型共用同一組。每個瓶型一定有 amber;
 // bitters_150 沒做 clear——瓶型沒有的酒色,photoLiquidLayer() 落回 amber。
+// halo(Stage 4(四),Brok 2026-09-24 裁 E):低量光暈圖層 = 這個瓶型的輪廓放大 1.35、模糊、留透明邊(backend make_halo.py 產出,
+// 白色 + alpha,app 染成 crimsonTint);畫布比瓶子大,所以帶自己的尺寸 haloWidth / haloHeight,app 依「光暈尺寸 ÷ 玻璃層尺寸」放大、對瓶子置中。
+// 不在 app 裡用 blurRadius:iOS 的 blur 會把貼邊的輪廓延伸成一塊,不會淡出。
 export const PHOTO_LIQUID_COLOURS = ['amber', 'clear', 'dark', 'red'] as const
 export type PhotoLiquidColour = typeof PHOTO_LIQUID_COLOURS[number]
 export type PhotoBottleType = 'small_350' | 'flask_500' | 'squat_750' | 'round_750' | 'longneck_1000' | 'bitters_150'
 type PhotoBottleSpec = {
   glass: ImageRequireSource
   liquids: { amber: ImageRequireSource } & Partial<Record<PhotoLiquidColour, ImageRequireSource>>
+  halo: ImageRequireSource
+  haloWidth: number
+  haloHeight: number
   sourceWidth: number
   sourceHeight: number
   aspect: number
@@ -150,6 +156,9 @@ export const CABINET_PHOTO_BOTTLES: Record<PhotoBottleType, PhotoBottleSpec> = {
       dark: require('@/assets/images/cabinet/bottles/small_350_dark.png'),
       red: require('@/assets/images/cabinet/bottles/small_350_red.png'),
     },
+    halo: require('@/assets/images/cabinet/bottles/small_350_halo.png'),
+    haloWidth: 290,
+    haloHeight: 438,
     sourceWidth: 130,
     sourceHeight: 240,
     aspect: 0.5421,
@@ -167,6 +176,9 @@ export const CABINET_PHOTO_BOTTLES: Record<PhotoBottleType, PhotoBottleSpec> = {
       dark: require('@/assets/images/cabinet/bottles/flask_500_dark.png'),
       red: require('@/assets/images/cabinet/bottles/flask_500_red.png'),
     },
+    halo: require('@/assets/images/cabinet/bottles/flask_500_halo.png'),
+    haloWidth: 291,
+    haloHeight: 438,
     sourceWidth: 131,
     sourceHeight: 240,
     aspect: 0.547,
@@ -184,6 +196,9 @@ export const CABINET_PHOTO_BOTTLES: Record<PhotoBottleType, PhotoBottleSpec> = {
       dark: require('@/assets/images/cabinet/bottles/squat_750_dark.png'),
       red: require('@/assets/images/cabinet/bottles/squat_750_red.png'),
     },
+    halo: require('@/assets/images/cabinet/bottles/squat_750_halo.png'),
+    haloWidth: 273,
+    haloHeight: 438,
     sourceWidth: 118,
     sourceHeight: 240,
     aspect: 0.4901,
@@ -201,6 +216,9 @@ export const CABINET_PHOTO_BOTTLES: Record<PhotoBottleType, PhotoBottleSpec> = {
       dark: require('@/assets/images/cabinet/bottles/round_750_dark.png'),
       red: require('@/assets/images/cabinet/bottles/round_750_red.png'),
     },
+    halo: require('@/assets/images/cabinet/bottles/round_750_halo.png'),
+    haloWidth: 207,
+    haloHeight: 438,
     sourceWidth: 69,
     sourceHeight: 240,
     aspect: 0.2889,
@@ -218,6 +236,9 @@ export const CABINET_PHOTO_BOTTLES: Record<PhotoBottleType, PhotoBottleSpec> = {
       dark: require('@/assets/images/cabinet/bottles/longneck_1000_dark.png'),
       red: require('@/assets/images/cabinet/bottles/longneck_1000_red.png'),
     },
+    halo: require('@/assets/images/cabinet/bottles/longneck_1000_halo.png'),
+    haloWidth: 210,
+    haloHeight: 438,
     sourceWidth: 71,
     sourceHeight: 240,
     aspect: 0.297,
@@ -234,6 +255,9 @@ export const CABINET_PHOTO_BOTTLES: Record<PhotoBottleType, PhotoBottleSpec> = {
       dark: require('@/assets/images/cabinet/bottles/bitters_150_dark.png'),
       red: require('@/assets/images/cabinet/bottles/bitters_150_red.png'),
     },
+    halo: require('@/assets/images/cabinet/bottles/bitters_150_halo.png'),
+    haloWidth: 200,
+    haloHeight: 438,
     sourceWidth: 64,
     sourceHeight: 240,
     aspect: 0.2681,
