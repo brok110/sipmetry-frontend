@@ -282,9 +282,15 @@ export default function MyBarScreen() {
         <View style={styles.metaRow}>
           <Text style={styles.metaNum}>{totalBottles}</Text>
           <Text style={styles.metaUnit}>{totalBottles === 1 ? 'bottle' : 'bottles'}</Text>
-          <Text style={styles.metaDot}>·</Text>
-          <Text style={styles.metaNum}>{nonEmptyShelves.length}</Text>
-          <Text style={styles.metaUnit}>{nonEmptyShelves.length === 1 ? 'shelf' : 'shelves'}</Text>
+          {/* CABINET-PHOTO Stage 5:照片櫃固定 6 層,「N shelves」數的是舊櫃的 8 類分法,和眼前的 6 層對不上——
+              定案 mockup 第 7 點:只留 N BOTTLES。舊櫃(照片櫃未開時)照舊。 */}
+          {!photoMode && (
+            <React.Fragment>
+              <Text style={styles.metaDot}>·</Text>
+              <Text style={styles.metaNum}>{nonEmptyShelves.length}</Text>
+              <Text style={styles.metaUnit}>{nonEmptyShelves.length === 1 ? 'shelf' : 'shelves'}</Text>
+            </React.Fragment>
+          )}
         </View>
       </View>
 
