@@ -29,7 +29,7 @@ def rid(i):
 # truth rows: (ingredient_key, family_key, total_ml, pct) per shelf, chosen to exercise every type and colour
 spec = {
     0: [('gin', 'gin', 750, 5.07), ('gin', 'gin', 1000, 60), ('gin', 'gin', 148, 50)],          # 148ml gin -> bitters_150 has no clear layer -> app falls back to amber
-    1: [('vodka', 'vodka', 375, 22.4), ('vanilla_vodka', 'vodka', 750, 100), ('vodka', 'vodka', 500, 83.3)],
+    1: [],                                                                                                             # empty shelf -> '+ ADD VODKA' label
     2: [('white_rum', 'rum', 750, 41), ('dark_rum', 'rum', 750, 0), ('cachaca', 'cachaca', 1000, 30), ('gold_rum', 'rum', 700, 55), ('aged_rum', 'rum', 118, 90)],
     3: [('bourbon', 'whiskey', 750, 7), ('rye_whiskey', 'whiskey', 750, 19.4), ('scotch_whisky', 'whiskey', 1750, 19.6), ('kirsch', 'brandy', 350, 52), ('cognac', 'brandy', 500, 68), ('whiskey', 'whiskey', 750, 85), ('irish_whiskey', 'whiskey', 750, 100)],   # 19.4 low, 19.6 not (Math.round)
     4: [('tequila_blanco', 'tequila', 750, 50), ('tequila_anejo', 'tequila', 750, 50), ('mezcal', 'mezcal', 1000, 12), ('tequila_reposado', 'tequila', 500, 36)],
@@ -48,6 +48,8 @@ wall = r.wall()
 import os
 font = args.font or os.path.join(app.repo, 'assets', 'fonts', 'EBGaramond-SemiBold.ttf')
 sign_truth = [r.draw_sign(wall, i, text_font=font) for i in app.ENABLED_SHELVES]
+mono_font = os.path.join(app.repo, 'assets', 'fonts', 'DMMono-Medium.ttf')
+empty_truth = [r.draw_empty_label(wall, i, mono_font) for i in app.ENABLED_SHELVES if not shelves.get(i)]
 truth = r.draw_shelves(wall, shelves)
 DY = -37                                                     # pretend the wall was scrolled up by 37px
 full = Image.new('RGB', (1320, 2868), (7, 6, 14))
@@ -105,6 +107,13 @@ for sh in rep['shelves']:
             n_low += 1 if it['truth']['is_low'] else 0
             halo_ok &= it['vs_truth']['halo_ok']
 print('low-stock halos: %d low bottles in truth, every bottle\'s halo present/absent as its isLow: %s' % (n_low, halo_ok))
-ok = rep['dy'] == DY and n_found == n_truth and type_ok and colour_ok and line_ok and worst['dx'] == 0 and worst['dy'] == 0 and worst['level'] <= 1 and worst['pct'] <= 1.5 and signs_ok and halo_ok and n_low >= 4
+empty_ok = True
+for et in empty_truth:
+    el = rep['shelves'][et['shelf']].get('empty_label')
+    good = el is not None and el['found'] and abs(el['dx_centre']) <= 2.5 and abs(el['dy_centre']) <= 3.5
+    empty_ok &= good
+    print('empty shelf %d: label %s' % (et['shelf'], 'missing' if not (el and el['found']) else 'centre %+.1f/%+.1f' % (el['dx_centre'], el['dy_centre'])), '' if good else '<-- BAD')
+print('empty shelves: %d, label found and centred: %s' % (len(empty_truth), empty_ok))
+ok = rep['dy'] == DY and n_found == n_truth and type_ok and colour_ok and line_ok and worst['dx'] == 0 and worst['dy'] == 0 and worst['level'] <= 1 and worst['pct'] <= 1.5 and signs_ok and halo_ok and n_low >= 4 and empty_ok and len(empty_truth) >= 1
 print('SYNTH TEST', 'PASSED' if ok else 'FAILED')
 raise SystemExit(0 if ok else 1)

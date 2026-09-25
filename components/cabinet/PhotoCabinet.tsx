@@ -126,6 +126,13 @@ const SIGN_MIN_FONT_SCALE = 0.5
 const SIGN_INK_ALPHA = 0.88
 const SIGN_EDGE_ALPHA = 0.6
 const SIGN_EDGE_OFFSET_PT = -0.5
+// Stage 4(五)(Brok 2026-09-24 裁 B):空層在瓶子區正中放淡字「+ ADD {家族}」,和右邊名牌的字對齊同一條線;點整層 → Smart Restock
+// (網址帶 family=<家族>,cart.tsx 讀它做篩選另做)。字用 V3 的 mono medium(同 +N、標頭 SCAN),parchment 75%。
+const EMPTY_LABEL_PREFIX = '+ ADD '
+const EMPTY_LABEL_FONT_SIZE = 13
+const EMPTY_LABEL_LETTER_SPACING = 2.6
+const EMPTY_LABEL_ALPHA = 0.75
+const EMPTY_LABEL_HEIGHT_PT = 24
 // 每層牌子上的字(Brok 2026-09-23:只寫家族名的英文大寫,數量留在標頭)
 const PHOTO_SHELF_SIGN_NAME: Record<PhotoShelfIndex, string> = {
   0: 'GIN',
@@ -250,6 +257,12 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
   const signWidthPt = signHeightPt * CABINET_PHOTO_SIGN.aspect
   const signFontSize = signHeightPt * SIGN_FONT_RATIO
   const field = CABINET_PHOTO_SIGN.textField
+  // 空層淡字:x 置中在瓶子區(左內縮 → 排列區右界),y 對齊名牌刻字的中心線
+  const shelfWidthSrc = CABINET_PHOTO.shelfRightX - CABINET_PHOTO.shelfLeftX
+  const bottleLimitSrc = CABINET_PHOTO.shelfRightX - shelfWidthSrc * LABEL_RESERVE_RATIO
+  const emptyLabelLeftPt = (CABINET_PHOTO.shelfLeftX + ROW_INSET_SRC) * scale
+  const emptyLabelWidthPt = bottleLimitSrc * scale - emptyLabelLeftPt
+  const signTextCentreSrc = CABINET_PHOTO_SIGN.heightSrc * (1 - (field.top + field.bottom) / 2)
 
   return (
     <View style={{ width, height }}>
@@ -314,6 +327,22 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
                 <PhotoBottle type={type} colour={liquidColourFor(unit, index)} heightPt={heightSrc * scale} pct={unit.pct} isLow={unit.isLow} />
               </View>
             ))}
+            {entries.length === 0 && (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.emptyLabelBox,
+                  {
+                    left: emptyLabelLeftPt,
+                    width: emptyLabelWidthPt,
+                    top: (shelfTopSrc - signTextCentreSrc) * scale - EMPTY_LABEL_HEIGHT_PT / 2,
+                    height: EMPTY_LABEL_HEIGHT_PT,
+                  },
+                ]}
+              >
+                <Text style={styles.emptyLabel}>{`${EMPTY_LABEL_PREFIX}${PHOTO_SHELF_SIGN_NAME[index]}`}</Text>
+              </View>
+            )}
             {overflow > 0 && (
               <Text
                 style={[
@@ -322,11 +351,18 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
                 ]}
               >{`+${overflow}`}</Text>
             )}
-            {entries.length > 0 && (
-              <Pressable
-                onPress={() => router.push(`/shelf/${PHOTO_SHELF_DETAIL[index]}`)}
+            <Pressable
+                onPress={() =>
+                  entries.length > 0
+                    ? router.push(`/shelf/${PHOTO_SHELF_DETAIL[index]}`)
+                    : router.push({ pathname: '/(tabs)/cart', params: { family: PHOTO_SHELF_DETAIL[index] } })
+                }
                 accessibilityRole="button"
-                accessibilityLabel={`${PHOTO_SHELF_DETAIL[index]} shelf, ${entries.length} bottles`}
+                accessibilityLabel={
+                  entries.length > 0
+                    ? `${PHOTO_SHELF_DETAIL[index]} shelf, ${entries.length} bottles`
+                    : `${PHOTO_SHELF_DETAIL[index]} shelf is empty, add ${PHOTO_SHELF_DETAIL[index]} in Smart Restock`
+                }
                 style={[
                   styles.shelfHit,
                   {
@@ -337,7 +373,6 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
                   },
                 ]}
               />
-            )}
           </React.Fragment>
         )
       })}
@@ -390,6 +425,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
     color: OaklandDusk.text.secondary,
+  },
+  emptyLabelBox: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyLabel: {
+    fontFamily: V3.fonts.monoMedium,
+    fontSize: EMPTY_LABEL_FONT_SIZE,
+    letterSpacing: EMPTY_LABEL_LETTER_SPACING,
+    marginLeft: EMPTY_LABEL_LETTER_SPACING,
+    color: withAlpha(OaklandDusk.text.secondary, EMPTY_LABEL_ALPHA),
+    textAlign: 'center',
   },
   debugLine: {
     position: 'absolute',

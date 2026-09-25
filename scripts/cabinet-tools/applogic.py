@@ -140,6 +140,14 @@ class AppLogic:
         self.SIGN_WIDTH_SRC = self.SIGN['heightSrc'] * self.SIGN['aspect']
         self.SIGN_LEFT_SRC = self.CABINET_PHOTO['shelfRightX'] - self.SIGN_RIGHT_INSET_SRC - self.SIGN_WIDTH_SRC
         self.SIGN_NAME = {int(k): v for k, v in _kv_table(cab, 'PHOTO_SHELF_SIGN_NAME', 'PhotoCabinet.tsx', key_pattern=r'\d+', val_pattern=r"'([A-Z]+)'").items()}
+        # empty shelf label (Stage 4(五)): '+ ADD <family>' centred in the bottle zone, on the sign text's centre line
+        em = re.search(r"^const EMPTY_LABEL_PREFIX = '(.*?)'$", cab, re.M)
+        if not em:
+            raise ValueError('cannot find EMPTY_LABEL_PREFIX in PhotoCabinet.tsx')
+        self.EMPTY_LABEL_PREFIX = em.group(1)
+        for k in ('EMPTY_LABEL_FONT_SIZE', 'EMPTY_LABEL_LETTER_SPACING', 'EMPTY_LABEL_ALPHA', 'EMPTY_LABEL_HEIGHT_PT'):
+            setattr(self, k, _const(cab, k, 'PhotoCabinet.tsx'))
+        self.EMPTY_LABEL_CENTRE_ABOVE_SHELF_SRC = self.SIGN['heightSrc'] * (1 - (self.SIGN['textField']['top'] + self.SIGN['textField']['bottom']) / 2)
         m = re.search(r'const BOTTLE_TYPES_BY_SIZE[^\n]*= \{\n(.*?)\n\}', cab, re.S)
         if not m:
             raise ValueError('cannot find BOTTLE_TYPES_BY_SIZE')
@@ -284,6 +292,8 @@ if __name__ == '__main__':
                           bottles={k: {kk: vv for kk, vv in v.items() if kk not in ('glass', 'liquids')} for k, v in app.BOTTLES.items()},
                           gaps=dict(ROW_INSET_SRC=app.ROW_INSET_SRC, GAP_MIN_SRC=app.GAP_MIN_SRC, GAP_STEP_SRC=app.GAP_STEP_SRC, GAP_STEPS=app.GAP_STEPS),
                           sign=dict(app.SIGN, leftSrc=app.SIGN_LEFT_SRC, widthSrc=round(app.SIGN_WIDTH_SRC, 2), names=app.SIGN_NAME, rightInset=app.SIGN_RIGHT_INSET_SRC),
+                          empty_label=dict(prefix=app.EMPTY_LABEL_PREFIX, font_pt=app.EMPTY_LABEL_FONT_SIZE, spacing_pt=app.EMPTY_LABEL_LETTER_SPACING, alpha=app.EMPTY_LABEL_ALPHA,
+                                           centre_above_shelf_src=round(app.EMPTY_LABEL_CENTRE_ABOVE_SHELF_SRC, 2)),
                           line=dict(rgb=app.LINE_RGB, alpha=app.LINE_ALPHA, inset=app.LINE_INSET_FRAC),
                           low_halo=dict(rgb=app.HALO_RGB, opacity=[app.LOW_HALO_OPACITY_LOW, app.LOW_HALO_OPACITY_HIGH], below_pct=app.LOW_STOCK_BELOW,
                                         layers={k: '%s (%dx%d)' % (v['halo'], v['haloWidth'], v['haloHeight']) for k, v in app.BOTTLES.items()})), indent=1))

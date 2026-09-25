@@ -184,6 +184,22 @@ class Measurer:
                     diff_outside_text=round(float(np.abs(real - pred).mean(axis=2)[(alpha[..., 0] > 0.5) & outside_field].mean()), 2),
                     text=text, field=dict(x0=fx0, x1=fx1, y0=fy0, y1=fy1))
 
+    # ── empty shelf: the '+ ADD <family>' label, as a bright ink box in the bottle zone around the expected centre ──
+    def measure_empty_label(self, shot, wall, shelf_index, s_px, dy):
+        cx, cy = self.r.empty_label_centre(shelf_index)
+        cy += dy
+        cp = self.CP
+        limit = cp['shelfRightX'] - (cp['shelfRightX'] - cp['shelfLeftX']) * self.app.LABEL_RESERVE_RATIO
+        x0, x1 = int((cp['shelfLeftX'] + self.app.ROW_INSET_SRC) * s_px), int(limit * s_px)
+        y0, y1 = int(cy - 40), int(cy + 40)
+        resid = lum(shot[y0:y1, x0:x1] - wall[y0:y1, x0:x1])
+        ink = ndimage.binary_opening(resid > 40, structure=np.ones((2, 2)))
+        if ink.sum() < 20:
+            return dict(found=False, expected_centre=[round(cx, 1), round(cy, 1)])
+        ys, xs = np.where(ink)
+        return dict(found=True, expected_centre=[round(cx, 1), round(cy, 1)], x0=int(xs.min()) + x0, x1=int(xs.max()) + 1 + x0, y0=int(ys.min()) + y0, y1=int(ys.max()) + 1 + y0,
+                    dx_centre=round(float((xs.min() + xs.max() + 1) / 2 + x0 - cx), 1), dy_centre=round(float((ys.min() + ys.max() + 1) / 2 + y0 - cy), 1))
+
     # ── expected placement from truth; equal-pct bottles: the app keeps the API's order (stable sort), which we do not have ──
     def match_order(self, items, units, shelf_index, dy):
         """Try every permutation inside each equal-pct group; keep the order whose expected render agrees best with the measured
@@ -288,6 +304,8 @@ class Measurer:
                 k = (gap_src - self.app.GAP_MIN_SRC) / self.app.GAP_STEP_SRC
                 a_.update(gap_px=gap_px, gap_src=round(gap_src, 1), gap_step=round(k, 2), overlap=gap_px < self.app.GAP_MIN_SRC * s_px - 1.5)
             shelf_rep = dict(shelf=shelf_index, y_shelf=y_shelf, bottles=items, sign=self.measure_sign(shot, wall, shelf_index, s_px, dy))
+            if not items:
+                shelf_rep['empty_label'] = self.measure_empty_label(shot, wall, shelf_index, s_px, dy)
             if truth_rows is not None:
                 exp_all, tie_info = self.match_order(items, truth_shelves.get(shelf_index, []), shelf_index, dy)
                 exp_list = [e for e in exp_all if 'overflow' not in e]
@@ -331,6 +349,9 @@ def summarize(rep, app):
         bs = sh['bottles']
         lines.append('shelf %d (top row %d): %d bottle(s)%s' % (sh['shelf'], sh['y_shelf'], len(bs), '' if 'expected_count' not in sh else ' | expected %d (+%d) | equal-pct groups %s, %d order(s) tried, best score %s' % (
             sh['expected_count'], sh['expected_overflow'], sh['tie_orders_tried']['groups'], sh['tie_orders_tried']['orders'], sh['tie_orders_tried']['score'])))
+        el = sh.get('empty_label')
+        if el is not None:
+            lines.append('  empty label: %s' % ('NOT FOUND (expected centre %s)' % el['expected_centre'] if not el['found'] else 'x %d-%d y %d-%d, centre dx %+.1f dy %+.1f' % (el['x0'], el['x1'], el['y0'], el['y1'], el['dx_centre'], el['dy_centre'])))
         sg = sh.get('sign')
         if sg:
             t = sg['text']

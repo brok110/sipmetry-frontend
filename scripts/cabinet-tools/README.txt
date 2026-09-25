@@ -1,6 +1,6 @@
 cabinet-tools — CABINET-PHOTO measuring tools. Written 2026-09-19 (Stage 3, one bottle type, WHISKEY only), generalised
 2026-09-22 (Stage 4(二)): six bottle types x four liquid colours, all six shelves; 2026-09-24 (Stage 4(三)): the shelf signs;
-2026-09-24 (Stage 4(四)): the low-stock halo.
+2026-09-24 (Stage 4(四)): the low-stock halo; 2026-09-24 (Stage 4(五)): the empty-shelf label.
 Lives in frontend scripts/cabinet-tools/.
 
 applogic.py      mirror of the app's logic in source px — parses the numbers straight out of constants/cabinetTokens.ts,
@@ -18,6 +18,7 @@ measure_shot.py  measures a simulator screenshot: wall offset, every bottle's ty
                  and whether the engraved name sits inside the blank field and centred (ink box; the Q of TEQUILA / LIQUEURS pulls
                  the vertical centre down a few px — that is the letter, not misalignment); per bottle whether a low-stock halo is
                  there (red-minus-blue of the residual around the silhouette; the breathing phase at capture does not matter);
+                 for a shelf with no bottles, whether the '+ ADD <family>' label is there and centred (bright ink box in the bottle zone);
                  with --truth (rows from the DB) compares each bottle
                  to the placement the app logic predicts (type by hashId, colour by ingredient, x by gaps, liquid row by pct).
                  Equal-pct bottles: the app's sort is stable (API order) — the tool tries the permutations inside each
@@ -25,7 +26,8 @@ measure_shot.py  measures a simulator screenshot: wall offset, every bottle's ty
 compare_look.py  prints the look comparison from a report json
 synth_test.py    validates measure_shot.py on a synthetic screenshot with known truth (six shelves, all types, all colours,
                  label-band cases, 0% / 100%, an overflowing shelf, six signs with engraved names, five low-stock halos incl. the
-                 19.4 / 19.6 rounding boundary, scroll, UI overlays, noise). Run this first.
+                 19.4 / 19.6 rounding boundary, one empty shelf with its label (assets/fonts/DMMono-Medium.ttf), scroll, UI overlays,
+                 noise). Run this first.
 
 Needs python3 with pillow, numpy, scipy — use /tmp/cabinet-venv (see ROUND_4_BACKLOG.md CABINET-PHOTO 操作備忘).
 Defaults: --repo = this repo (two levels up), --assets = <repo>/assets (background + bottles/*.png from the tokens' require paths).

@@ -87,6 +87,33 @@ class Renderer:
         box.update(shelf=shelf_index, name=self.app.SIGN_NAME[shelf_index])
         return box
 
+    def empty_label_centre(self, shelf_index):
+        """device px centre of the '+ ADD <family>' label of an empty shelf (x: middle of the bottle zone; y: the sign text's centre line)"""
+        cp = self.app.CABINET_PHOTO
+        limit = cp['shelfRightX'] - (cp['shelfRightX'] - cp['shelfLeftX']) * self.app.LABEL_RESERVE_RATIO
+        left = cp['shelfLeftX'] + self.app.ROW_INSET_SRC
+        cx = (left + limit) / 2 * self.s_pt * self.dpr
+        cy = (cp['shelfTopY'][shelf_index] - self.app.EMPTY_LABEL_CENTRE_ABOVE_SHELF_SRC) * self.s_pt * self.dpr
+        return cx, cy
+
+    def draw_empty_label(self, canvas, shelf_index, text_font):
+        """for synthetic shots: the empty-shelf label with the app's mono font (assets/fonts/DMMono-Medium.ttf)"""
+        from PIL import ImageDraw, ImageFont
+        text = self.app.EMPTY_LABEL_PREFIX + self.app.SIGN_NAME[shelf_index]
+        f = ImageFont.truetype(text_font, int(round(self.app.EMPTY_LABEL_FONT_SIZE * self.dpr)))
+        sp = self.app.EMPTY_LABEL_LETTER_SPACING * self.dpr
+        ws = [f.getlength(ch) for ch in text]
+        total = sum(ws) + sp * (len(text) - 1)
+        cx, cy = self.empty_label_centre(shelf_index)
+        asc, desc = f.getmetrics()
+        x, y = cx - total / 2, cy - (asc + desc) / 2
+        d = ImageDraw.Draw(canvas, 'RGBA')
+        rgb = (200, 180, 150)   # OaklandDusk.text.secondary stand-in for the synthetic shot; the tool measures position, not colour
+        for ch, w in zip(text, ws):
+            d.text((x, y), ch, font=f, fill=rgb + (int(self.app.EMPTY_LABEL_ALPHA * 255),))
+            x += w + sp
+        return dict(shelf=shelf_index, cx=cx, cy=cy, text=text)
+
     def bottle_box(self, placed, shelf_index):
         """device-px box of a placed bottle, the way Yoga snaps it"""
         b = self.app.BOTTLES[placed['type']]
