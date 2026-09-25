@@ -94,8 +94,9 @@ export function tierForMl(totalMl: number | null | undefined): BottleSizeTier {
 // 渲染契約:背景以 width = 螢幕寬、height = 寬 × sourceHeight / sourceWidth、
 // 頂端對齊渲染;禁用 resizeMode cover / contain(置中裁切會讓座標全錯)。
 // 元件檔不得出現裸座標,一律經 cabinetPhotoScale() 換算成 pt。
-// CABINET_PHOTO_PREVIEW:開發模式看新櫃,正式 build / OTA 一律舊櫃;Stage 5 才對線上開。
-export const CABINET_PHOTO_PREVIEW = __DEV__
+// CABINET_PHOTO_PREVIEW:Stage 2 起 = __DEV__(只有開發版看照片櫃);Stage 5(二)2026-09-24 Brok 裁 B 開閘 → 一律 true:
+// 之後每個 build / OTA,有酒的使用者都看到照片櫃。舊櫃只剩空庫存 / 錯誤時的畫面(inventory.tsx 的 photoMode 條件),等 5(四)退場。
+export const CABINET_PHOTO_PREVIEW = true
 export const CABINET_PHOTO = {
   background: require('@/assets/images/cabinet/cabinet-background-r3.jpg'),
   sourceWidth: 1168,
