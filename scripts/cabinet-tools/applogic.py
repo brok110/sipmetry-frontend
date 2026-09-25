@@ -131,7 +131,7 @@ class AppLogic:
         self.LOW_STOCK_BELOW = int(lm.group(1))
 
         # ── PhotoCabinet constants and tables ──
-        for k in ('LABEL_RESERVE_RATIO', 'OVERFLOW_TAG_SRC', 'ROW_INSET_SRC', 'GAP_MIN_SRC', 'GAP_STEP_SRC', 'GAP_STEPS', 'OVERFLOW_GAP_SRC'):
+        for k in ('LABEL_RESERVE_RATIO', 'ROW_INSET_SRC', 'GAP_MIN_SRC', 'GAP_STEP_SRC', 'GAP_STEPS'):
             setattr(self, k, _const(cab, k, 'PhotoCabinet.tsx'))
         self.GAP_STEPS = int(self.GAP_STEPS)
         self.ENABLED_SHELVES = _int_list(cab, 'ENABLED_PHOTO_SHELVES', 'PhotoCabinet.tsx')
@@ -263,9 +263,7 @@ class AppLogic:
             units = sorted(units, key=lambda u: u['pct'])
         width = self.CABINET_PHOTO['shelfRightX'] - self.CABINET_PHOTO['shelfLeftX']
         limit = self.CABINET_PHOTO['shelfRightX'] - width * self.LABEL_RESERVE_RATIO
-        placed, last = self.fit_row(units, limit)
-        if len(placed) != len(units):
-            placed, last = self.fit_row(units, limit - self.OVERFLOW_TAG_SRC)
+        placed, last = self.fit_row(units, limit)      # bottles that do not fit are simply not drawn (no overflow tag since 2026-09-24)
         for p in placed:
             p['colour'] = self.colour_for(p['unit'], shelf_index)
             p['layer_colour'] = p['colour'] if p['colour'] in self.BOTTLES[p['type']]['liquids'] else 'amber'   # photoLiquidLayer() fallback

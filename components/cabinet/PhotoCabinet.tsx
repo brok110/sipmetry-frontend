@@ -26,11 +26,10 @@ import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'r
 
 // Stage 4:六層全鋪(GIN / VODKA / RUM / WHISKEY / TEQUILA / LIQUEURS;Stage 3 只鋪 WHISKEY 那一層)
 const ENABLED_PHOTO_SHELVES: readonly PhotoShelfIndex[] = [0, 1, 2, 3, 4, 5]
-// T3(Brok 2026-09-18 裁):不設固定瓶數上限 —— 一層放得下幾瓶就放幾瓶,放不下的才收進 +N。
+// T3(Brok 2026-09-18 裁):不設固定瓶數上限 —— 一層放得下幾瓶就放幾瓶。放不下的不畫、也不標(Brok 2026-09-24:
+// `+N` 讓人困惑、改成總數 `N ›` 又太醜且非必要,溢出標整個拿掉);完整清單在點層進去的 detail 頁。
 // 層板右側這一段保留給名牌(Stage 4(三)接上;整頁 mockup:瓶子靠左、名牌靠右)
 const LABEL_RESERVE_RATIO = 0.3
-// 有 +N 時,要替它在瓶子後面留的寬度
-const OVERFLOW_TAG_SRC = 70
 // Stage 2 的渲染契約驗收用;已驗過,預設關。要重驗就改 true
 const SHOW_DEBUG_LINES = false
 // 每一層點下去進哪個 shelf detail。合併層(whiskey+brandy、liqueurs+others)先進主家族那一頁;
@@ -127,7 +126,7 @@ const SIGN_INK_ALPHA = 0.88
 const SIGN_EDGE_ALPHA = 0.6
 const SIGN_EDGE_OFFSET_PT = -0.5
 // Stage 4(五)(Brok 2026-09-24 裁 B):空層在瓶子區正中放淡字「+ ADD {家族}」,和右邊名牌的字對齊同一條線;點整層 → Smart Restock
-// (網址帶 family=<家族>,cart.tsx 讀它做篩選另做)。字用 V3 的 mono medium(同 +N、標頭 SCAN),parchment 75%。
+// (網址帶 family=<家族>,cart.tsx 讀它做篩選另做)。字用 V3 的 mono medium(同標頭 SCAN),parchment 75%。
 const EMPTY_LABEL_PREFIX = '+ ADD '
 const EMPTY_LABEL_FONT_SIZE = 13
 const EMPTY_LABEL_LETTER_SPACING = 2.6
@@ -145,8 +144,6 @@ const PHOTO_SHELF_SIGN_NAME: Record<PhotoShelfIndex, string> = {
 const GAP_MIN_SRC = 28
 const GAP_STEP_SRC = 7
 const GAP_STEPS = 5
-const OVERFLOW_GAP_SRC = 24
-const OVERFLOW_LIFT_PT = 22
 
 type PlacedBottle = {
   unit: BottleUnit
@@ -196,12 +193,12 @@ function groupByPhotoShelf(shelves: Map<ShelfId, BottleUnit[]>): Map<PhotoShelfI
   return grouped
 }
 
-type PlacedRow = { placed: PlacedBottle[]; lastRightSrc: number }
-
-function fitRow(entries: { unit: BottleUnit; shelfId: ShelfId }[], limitSrc: number): PlacedRow {
+// 從左往右排,放不下的就停(不畫、不標)
+function placeRow(entries: { unit: BottleUnit; shelfId: ShelfId }[]): PlacedBottle[] {
+  const shelfWidthSrc = CABINET_PHOTO.shelfRightX - CABINET_PHOTO.shelfLeftX
+  const limitSrc = CABINET_PHOTO.shelfRightX - shelfWidthSrc * LABEL_RESERVE_RATIO
   const placed: PlacedBottle[] = []
   let xSrc = CABINET_PHOTO.shelfLeftX + ROW_INSET_SRC
-  let lastRightSrc = xSrc
   for (const { unit } of entries) {
     const type = bottleTypeFor(unit)
     // 高度一律用瓶型自己的 heightSrc(色調校正是照這個高度做的),不依容量縮放
@@ -209,10 +206,9 @@ function fitRow(entries: { unit: BottleUnit; shelfId: ShelfId }[], limitSrc: num
     const widthSrc = photoBottleWidth(type, heightSrc)
     if (xSrc + widthSrc > limitSrc) break
     placed.push({ unit, type, xSrc, heightSrc })
-    lastRightSrc = xSrc + widthSrc
-    xSrc = lastRightSrc + GAP_MIN_SRC + (hashId(unit.bottleId) % GAP_STEPS) * GAP_STEP_SRC
+    xSrc = xSrc + widthSrc + GAP_MIN_SRC + (hashId(unit.bottleId) % GAP_STEPS) * GAP_STEP_SRC
   }
-  return { placed, lastRightSrc }
+  return placed
 }
 
 // 玻璃內部不透明(T1 修訂 2026-09-19):兩支瓶子一重疊,前面的就會蓋掉後面的。
@@ -233,14 +229,6 @@ function assertRowHasNoOverlap(placed: PlacedBottle[]) {
     }
     previousRightSrc = xSrc + photoBottleWidth(type, heightSrc)
   }
-}
-// 先試全部放;放不下才重排一次,這次替 +N 留位置
-function placeRow(entries: { unit: BottleUnit; shelfId: ShelfId }[]): PlacedRow {
-  const shelfWidthSrc = CABINET_PHOTO.shelfRightX - CABINET_PHOTO.shelfLeftX
-  const limitSrc = CABINET_PHOTO.shelfRightX - shelfWidthSrc * LABEL_RESERVE_RATIO
-  const everything = fitRow(entries, limitSrc)
-  if (everything.placed.length === entries.length) return everything
-  return fitRow(entries, limitSrc - OVERFLOW_TAG_SRC)
 }
 
 export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, BottleUnit[]> }) {
@@ -269,10 +257,9 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
       <Image source={CABINET_PHOTO.background} style={{ width, height }} resizeMode="stretch" />
       {ENABLED_PHOTO_SHELVES.map((index) => {
         const entries = grouped.get(index) ?? []
-        const { placed, lastRightSrc } = placeRow(entries)
+        const placed = placeRow(entries)
         if (__DEV__) assertRowHasNoOverlap(placed)
         const shelfTopSrc = CABINET_PHOTO.shelfTopY[index]
-        const overflow = entries.length - placed.length
         // 點擊範圍 = 這一格(上一片層板的底面以下 → 這片層板的正面為止),整片層板寬
         const pitchSrc = index === 0 ? CABINET_PHOTO_MAX_BOTTLE_SRC : shelfTopSrc - CABINET_PHOTO.shelfTopY[index - 1]
         const cellTopSrc =
@@ -343,14 +330,6 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
                 <Text style={styles.emptyLabel}>{`${EMPTY_LABEL_PREFIX}${PHOTO_SHELF_SIGN_NAME[index]}`}</Text>
               </View>
             )}
-            {overflow > 0 && (
-              <Text
-                style={[
-                  styles.overflowTag,
-                  { left: (lastRightSrc + OVERFLOW_GAP_SRC) * scale, top: shelfTopSrc * scale - OVERFLOW_LIFT_PT },
-                ]}
-              >{`+${overflow}`}</Text>
-            )}
             <Pressable
                 onPress={() =>
                   entries.length > 0
@@ -418,13 +397,6 @@ const styles = StyleSheet.create({
     textShadowColor: withAlpha(CabinetTokens.signEdge, SIGN_EDGE_ALPHA),
     textShadowOffset: { width: 0, height: SIGN_EDGE_OFFSET_PT },
     textShadowRadius: 0,
-  },
-  overflowTag: {
-    position: 'absolute',
-    fontFamily: V3.fonts.mono,
-    fontSize: 12,
-    letterSpacing: 1,
-    color: OaklandDusk.text.secondary,
   },
   emptyLabelBox: {
     position: 'absolute',

@@ -35,5 +35,6 @@ Defaults: --repo = this repo (two levels up), --assets = <repo>/assets (backgrou
   python3 scripts/cabinet-tools/measure_shot.py SHOT.png --truth truth.json --out report.json --png overlay.png
 truth.json: [{"bottleId": "...", "ingredient_key": "gin", "family_key": "gin", "total_ml": 750, "remaining_volume": 450}, ...]
   (SQL: user_inventory i left join user_bottles b on b.inventory_id = i.id, coalesce(b.id, i.id) as "bottleId", …)
-Screenshots are measured against the wall and the layers only; the +N overflow tag is not detected — check it by eye.
+Bottles that do not fit a shelf are not drawn and not tagged (the overflow tag was removed 2026-09-24); with --truth the report
+shows how many the app hides per shelf (expected N (+hidden)).
 The sign's text is measured as an ink box (dark pixels inside the field), not read: the tool checks position, not spelling.
