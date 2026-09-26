@@ -13,7 +13,7 @@ import {
 import { useInventory } from "@/context/inventory";
 
 import * as Sentry from "@sentry/react-native";
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams, useSegments } from "expo-router";
 import { useAuth } from "@/context/auth";
 import Masthead from "@/components/Masthead";
 import { useFavorites } from "@/context/favorites";
@@ -26,7 +26,7 @@ import Type from "@/constants/typography";
 import { R } from "@/constants/radius";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import { Monogram, RailCard } from "@/components/restock/RailCard";
-import { BundleRailCard, type BundleItem } from "@/components/restock/BundleRailCard";
+import { isShelfId, photoShelfIndexFor, shelfFor, type ShelfId } from "@/lib/cabinet";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -58,6 +58,7 @@ type TargetResult = {
 type Suggestion = {
   ingredient_key: string;
   display_name: string;
+  image_url?: string | null;
   unlocks_count: number;
   avg_pref_match: number;
   score: number;
@@ -99,20 +100,31 @@ type RailItem = {
   on_list: boolean;
   next_step_count: number;
   next_step: RailNextStep[];
+  classics_count?: number;
 };
 
-// PLUS-RAILS B2:rail 依 kind 分流(single | bundle);tier 由 backend spec 帶出
-// (B1.2),tier === "plus" 的 rail 標題旁畫 PLUS 小標(裁決 b)。
+// PLUS-RAILS B2:tier 由 backend spec 帶出(B1.2),tier === "plus" 的 rail 標題旁畫 PLUS 小標(裁決 b)。
+// 2026-09-25 BUY TOGETHER 移除(Brok 裁):後端不再回 kind "bundle" 的 rail;前端只收 single(舊後端回來的 bundle 直接濾掉)。
 type RailBase = {
   key: string;
-  kind: "single" | "bundle";
+  kind: "single";
   tier: "free" | "plus";
   title: string;
   subtitle: string;
 };
 type SingleRail = RailBase & { kind: "single"; items: RailItem[] };
-type BundleRail = RailBase & { kind: "bundle"; items: BundleItem[] };
-type Rail = SingleRail | BundleRail;
+type Rail = SingleRail;
+
+// CABINET-PHOTO Stage 5(三):/restock-suggestions 的 focus.items(backend buildFocusShelf)
+type FocusItem = {
+  ingredient_key: string;
+  display_name: string;
+  image_url: string | null;
+  family_key: string | null;
+  category_key: string | null;
+  unlocks_count: number;
+  classics_count: number;
+};
 
 type RailsMeta = {
   tier: "free" | "plus";
@@ -261,7 +273,16 @@ export default function CartScreen() {
   const { session } = useAuth();
   const { favoritesByKey } = useFavorites();
   const feedback = useFeedback() as any;
-  const params = useLocalSearchParams<{ autoFetch?: string }>();
+  const params = useLocalSearchParams<{ autoFetch?: string; family?: string }>();
+  // CABINET-PHOTO Stage 5(三)(Brok 2026-09-25):從 My Bar 的空層點「+ ADD VODKA」進來時網址帶 family=vodka →
+  // 這一趟在 #1 PICK 下方多一排「START YOUR VODKA SHELF」,其餘 rail 一個不少、順序不變(優先、不篩掉)。
+  // 參數一進來就收進 state 並清掉(同 autoFetch 的做法);使用者切到別的 tab 時把 state 清掉,之後從 tab 進來就是正常排列。
+  // 點卡片進 /ingredient-info 再返回不算離開(那是疊在上面的頁),那一排要還在。
+  const [focusFamily, setFocusFamily] = useState<ShelfId | null>(null);
+  // 後端 focus(body.focus_shelf 時回):那一層的酒,各出現在幾款酒譜(不限差一瓶、不受前 10 名)。
+  // 只有帶了 focus_shelf 的回應會寫它——同時在飛的一般請求(tab 首次載入)回來較晚也不會把它蓋成 null。
+  const [focusShelfData, setFocusShelfData] = useState<{ shelf: string; items: FocusItem[] } | null>(null);
+  const segments = useSegments();
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -304,8 +325,7 @@ export default function CartScreen() {
   const [railsMeta, setRailsMeta] = useState<RailsMeta | null>(null);
 
   // B-3:detail sheet(rail 卡 / hero / WHATIF target 共用)
-  // RESTOCK-SIMPLIFY S3:detail sheet / bundle sheet 退場,點擊改 push 頁
-  // (handleOpenRailItem → /ingredient-info,handleOpenBundle → /bundle-info)
+  // RESTOCK-SIMPLIFY S3:detail sheet / bundle sheet 退場,點擊改 push 頁(handleOpenRailItem → /ingredient-info)
 
   // WHATIF typeahead 的「IN MY BAR」判定來源(S1 曾移除 useInventory,S4 重新需要)
   const ownedKeys = useMemo(
@@ -326,6 +346,23 @@ export default function CartScreen() {
       router.setParams({ autoFetch: undefined });
     }
   }, [params.autoFetch]);
+
+  // Stage 5(三):family 參數只認 lib/cabinet 的 ShelfId(gin / vodka / rum / whiskey / tequila / liqueurs / …),其他值忽略
+  useEffect(() => {
+    const family = params.family;
+    if (typeof family === "string" && family.length > 0) {
+      if (isShelfId(family)) setFocusFamily(family);
+      router.setParams({ family: undefined });
+    }
+  }, [params.family]);
+  useEffect(() => {
+    // 切到 (tabs) 底下別的 tab → 清;推到 /ingredient-info 之類的 stack 頁(segments[0] 不是 (tabs))→ 不清
+    if (segments[0] === "(tabs)" && segments[1] !== "cart") setFocusFamily(null);
+  }, [segments]);
+  // 帶著 family 進來 → 用 focus_shelf 重抓一次(fetchSuggestions 已隨 focusFamily 更新)
+  useEffect(() => {
+    if (focusFamily) fetchSuggestions();
+  }, [focusFamily]);
 
   // Build user interactions payload for preference-aware scoring
   const userInteractions = useMemo(() => {
@@ -348,39 +385,84 @@ export default function CartScreen() {
   );
 
   // Split into primary (true must-buys) vs explore (user already has a substitute)
-  const primarySuggestions = useMemo(
-    () => filteredSuggestions.filter((s) => !s.is_alternative_upgrade),
-    [filteredSuggestions]
-  );
+  // Stage 5(三):沒有 rails 的舊版面沒有標題可放,focusFamily 時把同一層的建議提到最前(穩定排序,其餘順序不變)
+  const primarySuggestions = useMemo(() => {
+    const primary = filteredSuggestions.filter((s) => !s.is_alternative_upgrade);
+    if (!focusFamily) return primary;
+    const targetIndex = photoShelfIndexFor(focusFamily);
+    const matches = (s: Suggestion) => {
+      const shelf = shelfFor(s.family_key ?? null);
+      return shelf !== "others" && photoShelfIndexFor(shelf) === targetIndex;
+    };
+    return [...primary.filter(matches), ...primary.filter((s) => !matches(s))];
+  }, [filteredSuggestions, focusFamily]);
 
   // ── RESTOCK-EXPLORE B-2:rails 呈現層 ─────────────────────────────
   // hero = make_tonight 首卡(v5 拍板:monogram hero 卡取代 48px 數字,
   // 2026-08-26 Brok 裁;聚合「全解鎖」入口隨舊 hero 退場,已知取捨)。
   // rails 缺席(fail-soft)→ 下方全部條件回落現行版面。
   // PLUS-RAILS B2:staples 過濾補到 rails(Stage A 起的既有缺口)——single item ∈
-  // staples 濾掉;bundle 任一 member ∈ staples 整對濾掉;濾空的 rail 不畫;hero 亦
+  // staples 濾掉;濾空的 rail 不畫;hero 亦
   // 取濾後首張。railsActive 看濾後,全濾空時回落舊清單而非空白。
   const railsFiltered = useMemo<Rail[]>(() => {
     if (!rails) return [];
     return rails
-      .map((r): Rail =>
-        r.kind === "bundle"
-          ? { ...r, items: r.items.filter((b) => !b.members.some((m) => staplesKeys.has(m.ingredient_key))) }
-          : { ...r, items: r.items.filter((it) => !staplesKeys.has(it.ingredient_key)) }
-      )
+      .filter((r) => r.kind === "single")
+      .map((r): Rail => ({ ...r, items: r.items.filter((it) => !staplesKeys.has(it.ingredient_key)) }))
       .filter((r) => r.items.length > 0);
   }, [rails, staplesKeys]);
   const railsActive = railsFiltered.length > 0;
   const heroItem = useMemo(() => {
     const mt = railsFiltered.find((r) => r.key === "make_tonight");
-    return mt && mt.kind !== "bundle" ? mt.items[0] ?? null : null;
+    return mt ? mt.items[0] ?? null : null;
   }, [railsFiltered]);
-  const railsForRender = useMemo<Rail[]>(() => {
+  const railsAfterHero = useMemo<Rail[]>(() => {
     if (!heroItem) return railsFiltered;
     return railsFiltered
-      .map((r): Rail => (r.key === "make_tonight" && r.kind !== "bundle" ? { ...r, items: r.items.slice(1) } : r))
+      .map((r): Rail => (r.key === "make_tonight" ? { ...r, items: r.items.slice(1) } : r))
       .filter((r) => r.items.length > 0);
   }, [railsFiltered, heroItem]);
+  // Stage 5(三):focusFamily 那一排 = 後端 focus.items(那一層的酒:酒類、你沒有的、至少在 1 款酒譜裡),
+  // 卡片照其他 rail 的 RailCard;小字:差一瓶就能做的寫 +N cocktails,其餘寫 in N classics(RailCard 處理)。
+  const focusItems = useMemo<RailItem[]>(() => {
+    if (!focusFamily || !focusShelfData || focusShelfData.shelf !== focusFamily) return [];
+    return focusShelfData.items
+      .filter((it) => !staplesKeys.has(it.ingredient_key))
+      .map((it): RailItem => ({
+        ingredient_key: it.ingredient_key,
+        display_name: it.display_name,
+        image_url: it.image_url ?? null,
+        unlocks_count: it.unlocks_count,
+        classics_count: it.classics_count,
+        avg_pref_match: 0,
+        score: 0,
+        category_key: it.category_key ?? null,
+        family_key: it.family_key ?? null,
+        recipes: [],
+        is_alternative_upgrade: false,
+        on_list: listedKeys.has(it.ingredient_key),
+        next_step_count: 0,
+        next_step: [],
+      }));
+  }, [focusFamily, focusShelfData, staplesKeys, listedKeys]);
+  const railsForRender = useMemo<Rail[]>(() => {
+    if (!focusFamily) return railsAfterHero;
+    const familyUpper = focusFamily.toUpperCase();
+    // 比整個字:GIN 不能配到 GINGER
+    const familyWord = new RegExp(`\\b${familyUpper}\\b`);
+    const existing = railsAfterHero.find((r) => familyWord.test(r.title.toUpperCase()));
+    if (existing) return [existing, ...railsAfterHero.filter((r) => r !== existing)];
+    if (focusItems.length === 0) return railsAfterHero;
+    const startRail: SingleRail = {
+      key: `start_${focusFamily}`,
+      kind: "single",
+      tier: "free",
+      title: `START YOUR ${familyUpper} SHELF`,
+      subtitle: "your shelf is empty — pick a first bottle",
+      items: focusItems,
+    };
+    return [startRail, ...railsAfterHero];
+  }, [focusFamily, focusItems, railsAfterHero]);
   // RESTOCK-SIMPLIFY S3:rail 卡 / hero / WHATIF target 點擊 → /ingredient-info
   // (08-15「凡名字皆入口」;頁面自取個人化段,只帶 key / name / listed / from)
   const handleOpenRailItem = useCallback((it: { display_name: string } & Partial<RailItem>) => {
@@ -391,10 +473,6 @@ export default function CartScreen() {
       params: { key, name: it.display_name, listed: listedKeys.has(key) ? "1" : "0", from: "restock" },
     });
   }, [listedKeys]);
-  // RESTOCK-SIMPLIFY S3:瓶對卡點擊 → /bundle-info(params 帶 JSON,bundle 無 key 可查)
-  const handleOpenBundle = useCallback((b: BundleItem) => {
-    router.push({ pathname: "/bundle-info", params: { bundle: JSON.stringify(b), from: "restock" } });
-  }, []);
 
   // SHOP-LIST 3b: refresh the badge whenever the tab regains focus (e.g.
   // returning from the list page after checking items off).
@@ -422,11 +500,16 @@ export default function CartScreen() {
     if (!session?.access_token) return;
     setLoading(true);
     setError(null);
+    const requestedFocus = focusFamily;
     try {
       const resp = await apiFetch("/restock-suggestions", {
         session,
         method: "POST",
-        body: { user_interactions: userInteractions, include_rails: true },
+        body: {
+          user_interactions: userInteractions,
+          include_rails: true,
+          ...(requestedFocus ? { focus_shelf: requestedFocus } : {}),
+        },
       });
 
       if (!resp.ok) {
@@ -439,6 +522,9 @@ export default function CartScreen() {
       setMeta(data.meta ?? null);
       setRails(Array.isArray(data.rails) ? data.rails : null);
       setRailsMeta(data.rails_meta ?? null);
+      if (requestedFocus) {
+        setFocusShelfData(data.focus && Array.isArray(data.focus.items) ? data.focus : null);
+      }
       if (__DEV__ && Array.isArray(data.rails)) {
         console.log(
           `[restock] rails=${data.rails.length} keys=${data.rails.map((r: Rail) => r.key).join(",")} ` +
@@ -461,7 +547,7 @@ export default function CartScreen() {
     } finally {
       setLoading(false);
     }
-  }, [session, userInteractions]);
+  }, [session, userInteractions, focusFamily]);
 
   // ── WHATIF(S4):typeahead 串既有 /search-suggestions,只取 ingredient ──
   useEffect(() => {
@@ -942,26 +1028,15 @@ export default function CartScreen() {
                 style={{ marginHorizontal: -24 }}
                 contentContainerStyle={{ paddingHorizontal: 24, gap: 10 }}
               >
-                {/* PLUS-RAILS B2:依 rail.kind 分流——bundle 走瓶對卡,single 照舊 */}
-                {rail.kind === "bundle"
-                  ? rail.items.map((it) => (
-                      <BundleRailCard
-                        key={it.bundle_key}
-                        item={it}
-                        listedKeys={listedKeys}
-                        onAdd={handleAddToList}
-                        onPress={handleOpenBundle}
-                      />
-                    ))
-                  : rail.items.map((it) => (
-                      <RailCard
-                        key={it.ingredient_key}
-                        item={it}
-                        listed={listedKeys.has(it.ingredient_key)}
-                        onAdd={handleAddToList}
-                        onPress={handleOpenRailItem}
-                      />
-                    ))}
+                {rail.items.map((it) => (
+                  <RailCard
+                    key={it.ingredient_key}
+                    item={it}
+                    listed={listedKeys.has(it.ingredient_key)}
+                    onAdd={handleAddToList}
+                    onPress={handleOpenRailItem}
+                  />
+                ))}
               </ScrollView>
             </View>
           ))}

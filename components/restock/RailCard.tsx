@@ -14,7 +14,17 @@ export type RailCardItem = {
   unlocks_count: number;
   is_alternative_upgrade?: boolean;
   alt_description?: string | null;
+  // CABINET-PHOTO Stage 5(三):START YOUR … SHELF 的卡(空層進來)才有——這支酒出現在幾款酒譜
+  classics_count?: number;
 };
+
+// 小字:差一瓶就能做的寫 +N cocktails;做不出來、但有 classics_count 的(空層那排)寫 in N classics,不寫 +0
+function unlocksLine(item: RailCardItem): string {
+  if (item.unlocks_count <= 0 && item.classics_count && item.classics_count > 0) {
+    return `in ${item.classics_count} classic${item.classics_count === 1 ? "" : "s"}`;
+  }
+  return `+${item.unlocks_count} cocktail${item.unlocks_count === 1 ? "" : "s"}`;
+}
 
 // 圖(ingredients.image_url,09-09 photo 路線落地)優先;無圖或載入失敗回退字母 monogram。
 export function Monogram({ label, size, imageUrl }: { label: string; size: number; imageUrl?: string | null }) {
@@ -55,7 +65,7 @@ export const RailCard = memo(function RailCard({
     <Pressable
       onPress={() => onPress(item)}
       accessibilityRole="button"
-      accessibilityLabel={`${item.display_name}, unlocks ${item.unlocks_count}`}
+      accessibilityLabel={`${item.display_name}, ${unlocksLine(item)}`}
       style={[styles.card, upgrade && styles.cardDim]}
     >
       {upgrade && (
@@ -66,7 +76,7 @@ export const RailCard = memo(function RailCard({
       <Monogram label={item.display_name} size={42} imageUrl={item.image_url} />
       <Text style={styles.name} numberOfLines={2}>{item.display_name}</Text>
       <Text style={styles.unlocks} numberOfLines={2}>
-        +{item.unlocks_count} cocktail{item.unlocks_count === 1 ? "" : "s"}
+        {unlocksLine(item)}
         {upgrade && item.alt_description ? ` · ${item.alt_description}` : ""}
       </Text>
       <Pressable
