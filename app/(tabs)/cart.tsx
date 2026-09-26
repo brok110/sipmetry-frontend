@@ -26,7 +26,7 @@ import Type from "@/constants/typography";
 import { R } from "@/constants/radius";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import { Monogram, RailCard } from "@/components/restock/RailCard";
-import { isShelfId, photoShelfIndexFor, shelfFor, type ShelfId } from "@/lib/cabinet";
+import { isShelfId, knownShelfFor, type ShelfId } from "@/lib/cabinet";
 
 // Stage 0: Business Validation — Smart Restock with Buy CTA
 // Shows bottle recommendations based on user inventory + preferences.
@@ -389,11 +389,8 @@ export default function CartScreen() {
   const primarySuggestions = useMemo(() => {
     const primary = filteredSuggestions.filter((s) => !s.is_alternative_upgrade);
     if (!focusFamily) return primary;
-    const targetIndex = photoShelfIndexFor(focusFamily);
-    const matches = (s: Suggestion) => {
-      const shelf = shelfFor(s.family_key ?? null);
-      return shelf !== "others" && photoShelfIndexFor(shelf) === targetIndex;
-    };
+    // 只認得的家族才算(soda、juice 這類不認得的不會被當成 LIQUEURS 的建議)
+    const matches = (s: Suggestion) => knownShelfFor(s.family_key ?? null) === focusFamily;
     return [...primary.filter(matches), ...primary.filter((s) => !matches(s))];
   }, [filteredSuggestions, focusFamily]);
 

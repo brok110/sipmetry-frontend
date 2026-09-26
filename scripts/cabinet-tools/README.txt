@@ -1,6 +1,7 @@
 cabinet-tools — CABINET-PHOTO measuring tools. Written 2026-09-19 (Stage 3, one bottle type, WHISKEY only), generalised
 2026-09-22 (Stage 4(二)): six bottle types x four liquid colours, all six shelves; 2026-09-24 (Stage 4(三)): the shelf signs;
-2026-09-24 (Stage 4(四)): the low-stock halo; 2026-09-24 (Stage 4(五)): the empty-shelf label.
+2026-09-24 (Stage 4(四)): the low-stock halo; 2026-09-24 (Stage 4(五)): the empty-shelf label;
+2026-09-26 (Stage 5(四)3b): lib/cabinet.ts has 6 shelves only (no brandy / others), shelf_for mirrors it.
 Lives in frontend scripts/cabinet-tools/.
 
 applogic.py      mirror of the app's logic in source px — parses the numbers straight out of constants/cabinetTokens.ts,

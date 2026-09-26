@@ -31,8 +31,7 @@ const ENABLED_PHOTO_SHELVES: readonly PhotoShelfIndex[] = [0, 1, 2, 3, 4, 5]
 const LABEL_RESERVE_RATIO = 0.3
 // Stage 2 的渲染契約驗收用;已驗過,預設關。要重驗就改 true
 const SHOW_DEBUG_LINES = false
-// 每一層點下去進哪個 shelf detail。合併層(whiskey+brandy、liqueurs+others)先進主家族那一頁;
-// 舊的 8 層映射要到 Stage 5 才收成 6 層,在那之前 brandy / others 的瓶子不會出現在主家族的 detail 裡
+// 每一層點下去進哪個 shelf detail(清單頁列出站在這一層的所有家族,例如 WHISKEY 含 brandy)
 const PHOTO_SHELF_DETAIL: Record<PhotoShelfIndex, ShelfId> = {
   0: 'gin',
   1: 'vodka',

@@ -9,7 +9,7 @@ import { V3 } from '@/constants/v3DesignTokens'
 import { useIngredientKeys } from '@/context/ingredientKeys'
 import { InventoryBottle, InventoryItem, useInventory } from '@/context/inventory'
 import { usePurchaseIntent } from '@/hooks/usePurchaseIntent'
-import { isShelfId, photoShelfIndexFor, shelfFor, type ShelfId } from '@/lib/cabinet'
+import { isShelfId, shelfFor, type ShelfId } from '@/lib/cabinet'
 import { isBlindKey } from '@/lib/isBlindKey'
 import { openUrl } from '@/lib/openUrl'
 import FontAwesome from '@expo/vector-icons/FontAwesome'
@@ -712,7 +712,7 @@ export default function ShelfDetailScreen() {
   const shelfKey = typeof shelfParam === 'string' ? shelfParam.toLowerCase() : ''
   const validShelf = isShelfId(shelfKey)
   // 非法 param 時仍需維持 hook 順序;實際渲染前會 redirect
-  const shelfId: ShelfId = validShelf ? shelfKey : 'others'
+  const shelfId: ShelfId = validShelf ? shelfKey : 'liqueurs'
 
   const { trackAndOpenPurchaseLink } = usePurchaseIntent()
   const {
@@ -761,10 +761,9 @@ export default function ShelfDetailScreen() {
     }, [refreshInventory])
   )
 
-  // CABINET-PHOTO Stage 5:照片櫃是 6 層(brandy 併 WHISKEY、others 併 LIQUEURS,決策 2),清單要列站在同一層的所有家族,
-  // 不然 cognac 站在 WHISKEY 層、點進來卻找不到。(Stage 5(四)舊櫃退場,8 層各自清單的分支拿掉)
+  // 清單 = 站在這一層的所有家族(shelfFor 已把 brandy 放 WHISKEY、不認得的家族放 LIQUEURS,和酒櫃一致)
   const shelfItems = useMemo(
-    () => inventory.filter((item) => photoShelfIndexFor(shelfFor(item.family_key)) === photoShelfIndexFor(shelfId)),
+    () => inventory.filter((item) => shelfFor(item.family_key) === shelfId),
     [inventory, shelfId]
   )
 

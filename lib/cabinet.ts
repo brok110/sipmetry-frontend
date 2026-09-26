@@ -1,46 +1,50 @@
 import type { InventoryItem } from '@/context/inventory'
 
-// CABINET-3A 資料層:family_key → 貨架的映射與分組。
-// INV-MODEL batch 4-FE-a:一瓶一 glyph — 渲染單位從 inventory 列改為瓶
-// (item.bottles),列僅提供 family_key / ingredient_key 身分。
+// My Bar 資料層:family_key → 酒櫃的層、分組。
+// INV-MODEL batch 4-FE-a:一瓶一張 — 渲染單位是瓶(item.bottles),列只提供 family_key / ingredient_key 身分。
+// Stage 5(四)3b(Brok 2026-09-26):舊櫃的 8 類分法(多了 BRANDY、OTHERS)收掉,直接分成照片酒櫃的 6 層。
 
-// 貨架 id 順序即渲染順序(P2);空層不渲染
-export const SHELF_ORDER = ['gin', 'vodka', 'rum', 'whiskey', 'tequila', 'brandy', 'liqueurs', 'others'] as const
+// 照片酒櫃固定 6 層,順序 = 由上到下
+export const SHELF_ORDER = ['gin', 'vodka', 'rum', 'whiskey', 'tequila', 'liqueurs'] as const
 export type ShelfId = typeof SHELF_ORDER[number]
 
+// 家族 → 層:brandy 站 WHISKEY(決策 2)、mezcal 站 TEQUILA、cachaca 站 RUM(P1);*_liqueur 與 amaro 站 LIQUEURS。
+// 後端 lib/restock-rails.js 的 photoShelfOf 是同一套,改一邊要改另一邊。
 const FAMILY_TO_SHELF: Record<string, ShelfId> = {
-  gin: 'gin', vodka: 'vodka', rum: 'rum', whiskey: 'whiskey',
-  tequila: 'tequila', brandy: 'brandy',
-  mezcal: 'tequila',   // P1
-  cachaca: 'rum',      // P1
+  gin: 'gin', vodka: 'vodka', rum: 'rum', whiskey: 'whiskey', tequila: 'tequila',
+  brandy: 'whiskey',
+  mezcal: 'tequila',
+  cachaca: 'rum',
 }
 
-export function shelfFor(familyKey: string | null): ShelfId {
+/** 認得的家族才回層;沒有家族、或不認得的家族(soda、juice…)回 null */
+export function knownShelfFor(familyKey: string | null): ShelfId | null {
   const f = String(familyKey ?? '').trim().toLowerCase()
-  if (!f) return 'others'
+  if (!f) return null
   if (FAMILY_TO_SHELF[f]) return FAMILY_TO_SHELF[f]
   if (f.endsWith('_liqueur') || f === 'amaro') return 'liqueurs'
-  return 'others'   // 未知 family 安全落點
+  return null
+}
+
+/** 每支酒一定有一層:不認得的家族站 LIQUEURS(照片酒櫃沒有「其他」層) */
+export function shelfFor(familyKey: string | null): ShelfId {
+  return knownShelfFor(familyKey) ?? 'liqueurs'
 }
 
 export function isShelfId(value: string): value is ShelfId {
   return (SHELF_ORDER as readonly string[]).includes(value)
 }
 
-// CABINET-PHOTO:照片櫃固定 6 層(GIN / VODKA / RUM / WHISKEY / TEQUILA / LIQUEURS)。
-// 用加法寫:舊的 8 層 SHELF_ORDER / shelfFor 不動(舊櫃與 shelf detail 照常),
-// 照片櫃另外把 ShelfId 映到 0–5;brandy 併 whiskey、others 併 liqueurs(決策 2)。
-// Record<ShelfId, PhotoShelfIndex>:漏掉任何 ShelfId 或給出 0–5 以外的值,tsc 直接報錯。
+// 層在照片上的位置 0–5(照片櫃的量測座標、色表、名牌都以它為 key)。
+// Record<ShelfId, PhotoShelfIndex>:漏掉任何一層或給出 0–5 以外的值,tsc 直接報錯。
 export type PhotoShelfIndex = 0 | 1 | 2 | 3 | 4 | 5
 const PHOTO_SHELF_INDEX: Record<ShelfId, PhotoShelfIndex> = {
   gin: 0,
   vodka: 1,
   rum: 2,
   whiskey: 3,
-  brandy: 3,
   tequila: 4,
   liqueurs: 5,
-  others: 5,
 }
 export function photoShelfIndexFor(shelfId: ShelfId): PhotoShelfIndex {
   return PHOTO_SHELF_INDEX[shelfId]
@@ -99,7 +103,7 @@ export function bottleUnitsFor(item: InventoryItem): BottleUnit[] {
   })
 }
 
-// 分組:每層都有 entry(空層由渲染端過濾);層內排序 pct 升冪(最少的靠左)
+// 分組:6 層都有 entry(空層照樣畫、寫 + ADD);層內排序 pct 升冪(最少的靠左)
 export function groupBottlesByShelf(items: InventoryItem[]): Map<ShelfId, BottleUnit[]> {
   const map = new Map<ShelfId, BottleUnit[]>()
   for (const shelfId of SHELF_ORDER) map.set(shelfId, [])

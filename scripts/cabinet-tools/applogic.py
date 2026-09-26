@@ -184,14 +184,11 @@ class AppLogic:
         return abs(h)
 
     def shelf_for(self, family_key):
+        """lib/cabinet.ts shelfFor mirror (6 shelves since Stage 5(四)3b): unknown / empty family → 'liqueurs'"""
         f = str(family_key or '').strip().lower()
-        if not f:
-            return 'others'
-        if f in self.FAMILY_TO_SHELF:
+        if f and f in self.FAMILY_TO_SHELF:
             return self.FAMILY_TO_SHELF[f]
-        if f.endswith('_liqueur') or f == 'amaro':
-            return 'liqueurs'
-        return 'others'
+        return 'liqueurs'
 
     def photo_shelf_index(self, family_key):
         return self.PHOTO_SHELF_INDEX[self.shelf_for(family_key)]
