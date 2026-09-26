@@ -50,6 +50,7 @@ function parseBundle(raw: unknown): BundleItem | null {
       members: b.members.map((m: any) => ({
         ingredient_key: m.ingredient_key,
         display_name: m.display_name,
+        image_url: typeof m.image_url === 'string' ? m.image_url : null,
         unlocks_count: Number.isFinite(m.unlocks_count) ? m.unlocks_count : 0,
         on_list: m.on_list === true,
         category_key: m.category_key ?? null,
@@ -216,7 +217,7 @@ export default function BundleInfoScreen() {
             <React.Fragment key={m.ingredient_key}>
               {i > 0 && <Text style={styles.plus}>＋</Text>}
               <Pressable onPress={() => openIngredient(m)} accessibilityRole="button" accessibilityLabel={`About ${m.display_name}`}>
-                <Monogram label={m.display_name} size={48} />
+                <Monogram label={m.display_name} size={48} imageUrl={m.image_url} />
                 {listedKeys.has(m.ingredient_key) && (
                   <View style={styles.onList}>
                     <Text style={styles.onListText}>✓</Text>

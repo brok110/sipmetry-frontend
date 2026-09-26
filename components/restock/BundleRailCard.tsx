@@ -19,6 +19,7 @@ export type BundleRecipe = {
 export type BundleMember = {
   ingredient_key: string;
   display_name: string;
+  image_url?: string | null;
   unlocks_count: number;
   on_list: boolean;
   category_key?: string | null;
@@ -69,7 +70,7 @@ export function BundleMonograms({
         <React.Fragment key={m.ingredient_key}>
           {i > 0 && <Text style={styles.plus}>＋</Text>}
           <View>
-            <Monogram label={m.display_name} size={size} />
+            <Monogram label={m.display_name} size={size} imageUrl={m.image_url} />
             {listedKeys.has(m.ingredient_key) && (
               <View style={styles.onList} accessibilityLabel={`${m.display_name} on list`}>
                 <Text style={styles.onListText}>✓</Text>

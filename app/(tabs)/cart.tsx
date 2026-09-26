@@ -85,6 +85,7 @@ type RailNextStep = {
 type RailItem = {
   ingredient_key: string;
   display_name: string;
+  image_url?: string | null;
   unlocks_count: number;
   avg_pref_match: number;
   score: number;
@@ -740,7 +741,7 @@ export default function CartScreen() {
             {/* Type.label — badge kicker(沿用 #1 pick 樣式,底色 v5 yellow) */}
             <Text style={[Type.label, { color: OaklandDusk.bg.void }]}>#1 pick</Text>
           </View>
-          <Monogram label={heroItem.display_name} size={48} />
+          <Monogram label={heroItem.display_name} size={48} imageUrl={heroItem.image_url} />
           <View style={{ flex: 1 }}>
             {/* Type.heading — hero ingredient name */}
             <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>{heroItem.display_name}</Text>

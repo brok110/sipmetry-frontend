@@ -2,22 +2,36 @@
 // rails 橫向卡(mockup v5 Frame 1)。memo:rails ≤4 條 × ≤8 卡,
 // 配合穩定 handler(onAdd/onPress 傳 item,呼叫端給 useCallback)。
 // upgrade 項:調暗 + UPGRADE 標 + alt 說明(裁決⑥)。
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image } from "expo-image";
 import OaklandDusk from "@/constants/OaklandDusk";
 
 export type RailCardItem = {
   ingredient_key: string;
   display_name: string;
+  image_url?: string | null;
   unlocks_count: number;
   is_alternative_upgrade?: boolean;
   alt_description?: string | null;
 };
 
-// 圖未產前 monogram 為正式樣(裁決⑦;Stage C 圖到位後換 expo-image)
-export function Monogram({ label, size }: { label: string; size: number }) {
+// 圖(ingredients.image_url,09-09 photo 路線落地)優先;無圖或載入失敗回退字母 monogram。
+export function Monogram({ label, size, imageUrl }: { label: string; size: number; imageUrl?: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const radius = size * 0.22;
+  if (imageUrl && !failed) {
+    return (
+      <Image
+        source={{ uri: imageUrl }}
+        style={[styles.mono, { width: size, height: size, borderRadius: radius }]}
+        contentFit="cover"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
   return (
-    <View style={[styles.mono, { width: size, height: size, borderRadius: size * 0.22 }]}>
+    <View style={[styles.mono, { width: size, height: size, borderRadius: radius }]}>
       <Text style={[styles.monoText, { fontSize: size * 0.46 }]}>
         {(label.trim()[0] || "?").toUpperCase()}
       </Text>
@@ -49,7 +63,7 @@ export const RailCard = memo(function RailCard({
           <Text style={styles.upTagText}>UPGRADE</Text>
         </View>
       )}
-      <Monogram label={item.display_name} size={42} />
+      <Monogram label={item.display_name} size={42} imageUrl={item.image_url} />
       <Text style={styles.name} numberOfLines={2}>{item.display_name}</Text>
       <Text style={styles.unlocks} numberOfLines={2}>
         +{item.unlocks_count} cocktail{item.unlocks_count === 1 ? "" : "s"}
