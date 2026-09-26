@@ -1,21 +1,19 @@
 import PhotoCabinet from '@/components/cabinet/PhotoCabinet'
-import Shelf from '@/components/cabinet/Shelf'
 import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import Masthead from '@/components/Masthead'
 import RegistrationPrompt from '@/components/RegistrationPrompt'
 import ScanSourceSheet, { ScanSourceResult } from '@/components/ScanSourceSheet'
 import StaplesModal, { DEFAULT_STAPLES } from '@/components/StaplesModal'
-import CabinetTokens, { CABINET_PHOTO_PREVIEW, withAlpha } from '@/constants/cabinetTokens'
+import { withAlpha } from '@/constants/cabinetTokens'
 import OaklandDusk from '@/constants/OaklandDusk'
 import Type from '@/constants/typography'
 import { V3 } from '@/constants/v3DesignTokens'
 import { useAuth } from '@/context/auth'
 import { useInventory } from '@/context/inventory'
 import { apiFetch } from '@/lib/api'
-import { SHELF_ORDER, groupBottlesByShelf } from '@/lib/cabinet'
+import { groupBottlesByShelf } from '@/lib/cabinet'
 import { pickBottlePhotoFromCamera, pickBottlePhotoFromLibrary } from '@/lib/pickBottlePhoto'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { LinearGradient } from 'expo-linear-gradient'
 import { router, useFocusEffect } from 'expo-router'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -29,7 +27,11 @@ import {
   Text,
   View,
 } from 'react-native'
-import Svg, { Circle, Defs, Path, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg'
+import Svg, { Circle, Path } from 'react-native-svg'
+
+// 開發用:改成 true 可以在自己的帳號上預覽「新使用者的空酒櫃」(只在開發版生效,看完改回 false)——同 PhotoCabinet 的 SHOW_DEBUG_LINES
+const DEV_PREVIEW_EMPTY_BAR = false
+const NO_BOTTLES: ReturnType<typeof useInventory>['inventory'] = []
 
 // ── SCAN 鈕相機 icon(handoff README camera path)─────────────────────────────
 function CameraGlyph() {
@@ -43,40 +45,6 @@ function CameraGlyph() {
         strokeLinejoin="round"
       />
       <Circle cx={12} cy={13} r={3.4} stroke={OaklandDusk.brand.gold} strokeWidth={1.6} />
-    </Svg>
-  )
-}
-
-// 環境暖光(mock:radial 520×520 at top 120,金 0.10→0.03→0)
-function AmbientWash() {
-  return (
-    <View pointerEvents="none" style={styles.ambientWash}>
-      <Svg width={520} height={520}>
-        <Defs>
-          <RadialGradient id="ambient-wash" cx="50%" cy="40%" rx="50%" ry="50%">
-            <Stop offset="0" stopColor={OaklandDusk.brand.gold} stopOpacity={0.1} />
-            <Stop offset="0.42" stopColor={OaklandDusk.brand.gold} stopOpacity={0.03} />
-            <Stop offset="0.66" stopColor={OaklandDusk.brand.gold} stopOpacity={0} />
-            <Stop offset="1" stopColor={OaklandDusk.brand.gold} stopOpacity={0} />
-          </RadialGradient>
-        </Defs>
-        <Rect width={520} height={520} fill="url(#ambient-wash)" />
-      </Svg>
-    </View>
-  )
-}
-
-// 櫃體木紋(README:repeating 91° 細紋;近似即可,grain 很淡)
-function CabinetGrain() {
-  return (
-    <Svg width="100%" height="100%">
-      <Defs>
-        <Pattern id="cabinet-grain" patternUnits="userSpaceOnUse" width={11} height={40}>
-          <Rect x={0.5} y={0} width={1} height={40} fill={withAlpha(CabinetTokens.wood.plankHigh, 0.35)} />
-          <Rect x={1.5} y={0} width={2} height={40} fill={withAlpha(CabinetTokens.black, 0.14)} />
-        </Pattern>
-      </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill="url(#cabinet-grain)" opacity={0.6} />
     </Svg>
   )
 }
@@ -170,18 +138,13 @@ export default function MyBarScreen() {
     refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {})
   }
 
-  // ── Cabinet 分組(lib/cabinet):空層不渲染,層序 = P2;一瓶一 glyph ──────
-  const shelvesById = useMemo(() => groupBottlesByShelf(inventory), [inventory])
-  const nonEmptyShelves = useMemo(
-    () =>
-      SHELF_ORDER.map((id) => ({ id, units: shelvesById.get(id)! })).filter(
-        (shelf) => shelf.units.length > 0
-      ),
-    [shelvesById]
-  )
+  // ── Cabinet 分組(lib/cabinet):一瓶一張照片瓶;PhotoCabinet 再併成 6 層 ──────
+  // 畫面用的庫存(DEV_PREVIEW_EMPTY_BAR 時當作空的;資料與其他邏輯照舊用真的 inventory)
+  const viewInventory = __DEV__ && DEV_PREVIEW_EMPTY_BAR ? NO_BOTTLES : inventory
+  const shelvesById = useMemo(() => groupBottlesByShelf(viewInventory), [viewInventory])
   const totalBottles = useMemo(
-    () => nonEmptyShelves.reduce((n, shelf) => n + shelf.units.length, 0),
-    [nonEmptyShelves]
+    () => [...shelvesById.values()].reduce((n, units) => n + units.length, 0),
+    [shelvesById]
   )
 
   const handleSeeRecipes = async (staplesKeys: string[] = []) => {
@@ -255,15 +218,14 @@ export default function MyBarScreen() {
     )
   }
 
-  // CABINET-PHOTO Stage 2:開發模式 + 有瓶 + 無錯誤 → 照片櫃骨架;其餘一律舊畫面
-  const photoMode = CABINET_PHOTO_PREVIEW && inventory.length > 0 && !error
+  // CABINET-PHOTO Stage 5(四)(Brok 2026-09-26):一律照片酒櫃,舊的畫出來的櫃子退場。
+  // 空庫存(新使用者)= 空的照片酒櫃 + 標頭 YOUR BAR IS EMPTY + 底部 Scan your bottles(引導先拍照);空層不寫 + ADD、點層也是去拍照。
+  // 載入出錯:錯誤訊息疊在標頭下,櫃子照舊畫手上的資料。
+  const barIsEmpty = viewInventory.length === 0 && !error
   return (
     <View style={{ flex: 1, backgroundColor: OaklandDusk.bg.void }}>
-      {!photoMode && <AmbientWash />}
-
-      {/* Masthead:共用元件(logo 24、tap → Bartender),SCAN 鈕走 actions 槽
-          (舊 My Bar 相機鈕同模式);下方僅留 meta 行 */}
-      <View pointerEvents="box-none" style={photoMode ? styles.photoTopOverlay : undefined}>
+      {/* Masthead:共用元件(logo 24、tap → Bartender),SCAN 鈕走 actions 槽;浮在木牆上,下方僅留 meta 行 */}
+      <View pointerEvents="box-none" style={styles.photoTopOverlay}>
         <Masthead
           actions={
             <Pressable
@@ -279,160 +241,65 @@ export default function MyBarScreen() {
             </Pressable>
           }
         />
+        {/* 定案 mockup 第 7 點:只留 N BOTTLES(照片櫃固定 6 層,不數層);空庫存改寫 YOUR BAR IS EMPTY */}
         <View style={styles.metaRow}>
-          <Text style={styles.metaNum}>{totalBottles}</Text>
-          <Text style={styles.metaUnit}>{totalBottles === 1 ? 'bottle' : 'bottles'}</Text>
-          {/* CABINET-PHOTO Stage 5:照片櫃固定 6 層,「N shelves」數的是舊櫃的 8 類分法,和眼前的 6 層對不上——
-              定案 mockup 第 7 點:只留 N BOTTLES。舊櫃(照片櫃未開時)照舊。 */}
-          {!photoMode && (
+          {barIsEmpty ? (
+            <Text style={styles.metaEmpty}>Your bar is empty</Text>
+          ) : (
             <React.Fragment>
-              <Text style={styles.metaDot}>·</Text>
-              <Text style={styles.metaNum}>{nonEmptyShelves.length}</Text>
-              <Text style={styles.metaUnit}>{nonEmptyShelves.length === 1 ? 'shelf' : 'shelves'}</Text>
+              <Text style={styles.metaNum}>{totalBottles}</Text>
+              <Text style={styles.metaUnit}>{totalBottles === 1 ? 'bottle' : 'bottles'}</Text>
             </React.Fragment>
           )}
         </View>
-      </View>
-
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={photoMode ? styles.photoContainer : styles.container}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-      >
         {error ? (
           <View style={styles.errorBox}>
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
+      </View>
 
-        {inventory.length === 0 && !error ? (
-          <View style={styles.emptyBox}>
-            <Text style={styles.emptyTitle}>Your bar is empty</Text>
-            <Text style={styles.emptySubtitle}>
-              Scan your bottles to start building your bar.
-            </Text>
-            <View style={{ width: '100%', marginTop: 12 }}>
-              <HintBubble
-                storageKey={GUIDE_KEYS.MYBAR_EMPTY}
-                visible={guideMyBarEmptyVisible}
-                onDismiss={() => setGuideMyBarEmptyVisible(false)}
-                hintType="tap"
-                hintColor="skyblue"
-              >
-                <Pressable
-                  onPress={() => {
-                    dismissGuide(GUIDE_KEYS.MYBAR_EMPTY)
-                    setGuideMyBarEmptyVisible(false)
-                    promptScanBottles()
-                  }}
-                  style={{
-                    borderWidth: 1.5,
-                    borderColor: OaklandDusk.brand.gold,
-                    borderRadius: 12,
-                    paddingVertical: 12,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Text style={{ fontWeight: '700', color: OaklandDusk.brand.gold }}>
-                    Scan your bottles
-                  </Text>
-                </Pressable>
-              </HintBubble>
-            </View>
-          </View>
-        ) : photoMode ? (
-          <PhotoCabinet shelves={shelvesById} />
-        ) : (
-          <>
-            {/* The Cabinet:one furniture piece(crown / backboard / base rail) */}
-            <View style={styles.cabinet}>
-              <LinearGradient
-                colors={[CabinetTokens.wood.bodyTop, CabinetTokens.wood.bodyMid, CabinetTokens.wood.bodyBottom]}
-                locations={[0, 0.55, 1]}
-                style={[StyleSheet.absoluteFill, { borderRadius: 6 }]}
-              />
-              <View pointerEvents="none" style={styles.grainClip}>
-                <CabinetGrain />
-              </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.photoContainer}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
 
-              {/* crown */}
-              <View style={styles.crown}>
-                <LinearGradient
-                  colors={[CabinetTokens.wood.crownTop, CabinetTokens.wood.crownBottom]}
-                  style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 6, borderTopRightRadius: 6 }]}
-                />
-                <View style={styles.crownTopHighlight} />
-                <LinearGradient
-                  colors={['transparent', withAlpha(CabinetTokens.black, 0.5)]}
-                  style={styles.crownInnerShadow}
-                />
-                <LinearGradient
-                  colors={[
-                    'transparent',
-                    withAlpha(OaklandDusk.brand.gold, 0.28),
-                    withAlpha(OaklandDusk.brand.yellow, 0.5),
-                    withAlpha(OaklandDusk.brand.gold, 0.28),
-                    'transparent',
-                  ]}
-                  locations={[0, 0.2, 0.5, 0.8, 1]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.crownLightLine}
-                />
-                {/* signature emblem:12×12 diamond */}
-                <View style={styles.crownEmblem} />
-              </View>
-
-              {/* backboard(side padding 12 = 櫃柱) */}
-              <View style={styles.backboardWrap}>
-                <View style={styles.backboardPanel}>
-                  <LinearGradient
-                    colors={[CabinetTokens.backboard.top, CabinetTokens.backboard.bottom]}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <LinearGradient
-                    colors={[withAlpha(CabinetTokens.black, 0.8), 'transparent']}
-                    style={styles.backboardInnerShadow}
-                    pointerEvents="none"
-                  />
-                  {nonEmptyShelves.map(({ id, units }) => (
-                    <Shelf key={id} shelfId={id} units={units} />
-                  ))}
-                </View>
-              </View>
-
-              {/* base rail */}
-              <View style={styles.baseRail}>
-                <LinearGradient
-                  colors={[CabinetTokens.wood.baseTop, CabinetTokens.wood.baseBottom]}
-                  style={[StyleSheet.absoluteFill, { borderBottomLeftRadius: 6, borderBottomRightRadius: 6 }]}
-                />
-                <View style={styles.baseRailHighlight} />
-              </View>
-            </View>
-            {/* 0 2px 0 gold@0.06 副陰影 */}
-            <View style={styles.cabinetUnderGlow} />
-          </>
-        )}
+        <PhotoCabinet shelves={shelvesById} onEmptyBarPress={barIsEmpty ? promptScanBottles : undefined} />
       </ScrollView>
 
+      {/* Stage 5(四):空庫存 → 同一個位置放 Scan your bottles(原本空狀態的引導泡泡搬過來) */}
+      {barIsEmpty && (
+        <View style={styles.footer}>
+          <HintBubble
+            storageKey={GUIDE_KEYS.MYBAR_EMPTY}
+            visible={guideMyBarEmptyVisible}
+            onDismiss={() => setGuideMyBarEmptyVisible(false)}
+            hintType="tap"
+            hintColor="skyblue"
+          >
+            <Pressable
+              onPress={() => {
+                dismissGuide(GUIDE_KEYS.MYBAR_EMPTY)
+                setGuideMyBarEmptyVisible(false)
+                promptScanBottles()
+              }}
+              accessibilityRole="button"
+              style={styles.footerButton}
+            >
+              <Text style={styles.footerTitle}>Scan your bottles</Text>
+              <Text style={styles.footerSubtitle}>Start with what you already own</Text>
+            </Pressable>
+          </HintBubble>
+        </View>
+      )}
+
       {/* Sticky footer: Show me recipes */}
-      {inventory.length > 0 && (
-        <View style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          paddingHorizontal: 16,
-          paddingTop: 12,
-          paddingBottom: Platform.OS === 'ios' ? 16 : 12,
-          backgroundColor: photoMode ? 'transparent' : OaklandDusk.bg.void,
-          borderTopWidth: photoMode ? 0 : 0.5,
-          borderTopColor: OaklandDusk.bg.border,
-        }}>
+      {viewInventory.length > 0 && (
+        <View style={styles.footer}>
           <HintBubble
             storageKey={GUIDE_KEYS.MYBAR_CTA}
             visible={guideMyBarCtaVisible}
@@ -521,25 +388,37 @@ const styles = StyleSheet.create({
   photoContainer: {
     padding: 0,
   },
-  container: {
-    paddingTop: 2,
-    paddingHorizontal: 12,
-    paddingBottom: 120,
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 16 : 12,
+  },
+  footerButton: {
+    backgroundColor: OaklandDusk.brand.gold,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+  },
+  footerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: OaklandDusk.bg.void,
+  },
+  footerSubtitle: {
+    fontSize: 12,
+    color: OaklandDusk.bg.void,
+    opacity: 0.7,
+    marginTop: 2,
   },
   centered: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
-  },
-
-  ambientWash: {
-    position: 'absolute',
-    top: 120,
-    left: '50%',
-    marginLeft: -260,
-    width: 520,
-    height: 520,
   },
 
   // Masthead 下的 meta 行(視覺修正批 4 拍板 D:數字金色強調;padding 對齊 Masthead 26)
@@ -564,9 +443,14 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     color: withAlpha(OaklandDusk.text.primary, 0.85),
   },
-  metaDot: {
-    fontSize: 14,
-    color: withAlpha(OaklandDusk.text.primary, 0.32),
+  // 空庫存的 meta 行:同 metaUnit 的字,稍大
+  metaEmpty: {
+    fontFamily: V3.fonts.monoMedium,
+    fontSize: 15,
+    lineHeight: 34,
+    letterSpacing: 2.8,
+    textTransform: 'uppercase',
+    color: withAlpha(OaklandDusk.text.primary, 0.85),
   },
   scanBtn: {
     alignItems: 'center',
@@ -589,120 +473,16 @@ const styles = StyleSheet.create({
     color: OaklandDusk.brand.gold,
   },
 
-  // The Cabinet
-  cabinet: {
-    borderRadius: 6,
-    backgroundColor: CabinetTokens.wood.bodyMid,
-    shadowColor: CabinetTokens.black,
-    shadowOffset: { width: 0, height: 24 },
-    shadowRadius: 48,
-    shadowOpacity: 0.7,
-    elevation: 12,
-  },
-  grainClip: {
-    ...StyleSheet.absoluteFill,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  cabinetUnderGlow: {
-    height: 2,
-    backgroundColor: withAlpha(OaklandDusk.brand.gold, 0.06),
-  },
-
-  crown: {
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  crownTopHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: withAlpha(OaklandDusk.brand.gold, 0.3),
-  },
-  crownInnerShadow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 6,
-  },
-  crownLightLine: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    bottom: 7,
-    height: 1,
-  },
-  crownEmblem: {
-    width: 12,
-    height: 12,
-    transform: [{ rotate: '45deg' }],
-    borderWidth: 1,
-    borderColor: withAlpha(OaklandDusk.brand.yellow, 0.55),
-    backgroundColor: withAlpha(OaklandDusk.brand.gold, 0.1),
-    shadowColor: OaklandDusk.brand.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowRadius: 8,
-    shadowOpacity: 0.35,
-  },
-
-  backboardWrap: {
-    paddingHorizontal: 12,
-  },
-  backboardPanel: {
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: withAlpha(OaklandDusk.brand.gold, 0.1),
-  },
-  backboardInnerShadow: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 26,
-  },
-
-  baseRail: {
-    height: 16,
-  },
-  baseRailHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: withAlpha(OaklandDusk.brand.gold, 0.2),
-  },
-
   errorBox: {
+    marginHorizontal: 16,
     padding: 12,
     borderWidth: 1,
     borderColor: OaklandDusk.semantic.error,
     borderRadius: 14,
-    marginBottom: 8,
+    backgroundColor: OaklandDusk.bg.void,
   },
   errorText: {
     ...Type.body,
     color: OaklandDusk.semantic.error,
-  },
-  emptyBox: {
-    padding: 24,
-    borderWidth: 1,
-    borderColor: OaklandDusk.bg.border,
-    borderRadius: 14,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyTitle: {
-    ...Type.title,
-    color: OaklandDusk.text.primary,
-  },
-  emptySubtitle: {
-    ...Type.body,
-    color: OaklandDusk.text.tertiary,
-    textAlign: 'center',
   },
 })

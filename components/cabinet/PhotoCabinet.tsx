@@ -231,11 +231,20 @@ function assertRowHasNoOverlap(placed: PlacedBottle[]) {
   }
 }
 
-export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, BottleUnit[]> }) {
+// Stage 5(四)(Brok 2026-09-26):整個酒櫃都是空的(新使用者)且給了 onEmptyBarPress → 六層都不寫「+ ADD」,點任何一層都呼叫它(去拍照);
+// 其餘情況照舊(有酒的層進 detail、空層寫 + ADD 去 Smart Restock)。
+export default function PhotoCabinet({
+  shelves,
+  onEmptyBarPress,
+}: {
+  shelves: Map<ShelfId, BottleUnit[]>
+  onEmptyBarPress?: () => void
+}) {
   const { width } = useWindowDimensions()
   const scale = cabinetPhotoScale(width)
   const height = CABINET_PHOTO.sourceHeight * scale
   const grouped = useMemo(() => groupByPhotoShelf(shelves), [shelves])
+  const emptyBarMode = onEmptyBarPress !== undefined && [...grouped.values()].every((list) => list.length === 0)
 
   if (__DEV__) {
     assertAssetMatchesTokens()
@@ -314,7 +323,7 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
                 <PhotoBottle type={type} colour={liquidColourFor(unit, index)} heightPt={heightSrc * scale} pct={unit.pct} isLow={unit.isLow} />
               </View>
             ))}
-            {entries.length === 0 && (
+            {entries.length === 0 && !emptyBarMode && (
               <View
                 pointerEvents="none"
                 style={[
@@ -332,15 +341,19 @@ export default function PhotoCabinet({ shelves }: { shelves: Map<ShelfId, Bottle
             )}
             <Pressable
                 onPress={() =>
-                  entries.length > 0
-                    ? router.push(`/shelf/${PHOTO_SHELF_DETAIL[index]}`)
-                    : router.push({ pathname: '/(tabs)/cart', params: { family: PHOTO_SHELF_DETAIL[index] } })
+                  emptyBarMode
+                    ? onEmptyBarPress?.()
+                    : entries.length > 0
+                      ? router.push(`/shelf/${PHOTO_SHELF_DETAIL[index]}`)
+                      : router.push({ pathname: '/(tabs)/cart', params: { family: PHOTO_SHELF_DETAIL[index] } })
                 }
                 accessibilityRole="button"
                 accessibilityLabel={
-                  entries.length > 0
-                    ? `${PHOTO_SHELF_DETAIL[index]} shelf, ${entries.length} bottles`
-                    : `${PHOTO_SHELF_DETAIL[index]} shelf is empty, add ${PHOTO_SHELF_DETAIL[index]} in Smart Restock`
+                  emptyBarMode
+                    ? `${PHOTO_SHELF_DETAIL[index]} shelf, your bar is empty — scan your bottles`
+                    : entries.length > 0
+                      ? `${PHOTO_SHELF_DETAIL[index]} shelf, ${entries.length} bottles`
+                      : `${PHOTO_SHELF_DETAIL[index]} shelf is empty, add ${PHOTO_SHELF_DETAIL[index]} in Smart Restock`
                 }
                 style={[
                   styles.shelfHit,
