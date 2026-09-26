@@ -1,10 +1,8 @@
-import OaklandDusk from '@/constants/OaklandDusk'
 import type { ImageRequireSource } from 'react-native'
 
-// CABINET-3A:My Bar 酒櫃的衍生色票。
-// handoff README「Design Tokens」的全部衍生 hex 收編於此;
-// 主色(gold/sundown/yellow/ivory/parchment/crimson/rust/void…)一律取 OaklandDusk,
-// 元件檔不得出現任何裸 hex。
+// My Bar 照片酒櫃的衍生色票與量測資料。主色一律取 OaklandDusk,元件檔不得出現任何裸 hex。
+// Stage 5(四)(2026-09-26):舊的畫出來的櫃子退場 → 它專用的色票(木紋 / 背板 / 瓶蓋 / 酒液分家色 / 遮罩)、
+// 三階瓶身尺寸(SIZE_TIER_SCALE / tierForMl)與 CABINET_PHOTO_PREVIEW 開關一起刪除。
 
 /** hex(#RRGGBB)→ rgba() 字串;元件檔一律用這個組 alpha,不散落 rgba 魔法值 */
 export function withAlpha(hex: string, alpha: number): string {
@@ -15,47 +13,7 @@ export function withAlpha(hex: string, alpha: number): string {
 }
 
 const CabinetTokens = {
-  // 技術色(陰影/遮罩用,非設計色;README:no pure white 指可見色)
-  black: '#000000',
-  maskWhite: '#FFFFFF',
-
-  // 木紋/櫃體漸層停點
-  wood: {
-    bodyTop: '#2E1C11',
-    bodyMid: OaklandDusk.bg.border,      // #251810 = README「wood frame」
-    bodyBottom: '#1F150D',
-    crownTop: '#3A2412',
-    crownBottom: '#2A1810',
-    plankTop: '#4A2712',
-    plankHigh: OaklandDusk.brand.tagBg,  // #3A1808 = README「wood plank / highlight」;木紋 grain 同色
-    plankMid: '#2A1810',
-    plankBottom: '#1C1109',
-    baseTop: '#2A1810',
-    baseBottom: '#1C1109',
-  },
-
-  // 背板內面
-  backboard: {
-    top: '#140F1C',
-    bottom: '#0D0913',
-  },
-
-  // README tab bar 漸層深端(C1 點名收編;tab bar 由 expo-router 提供,不自畫)
-  voidDeep: '#0A0810',
-
-  // 瓶蓋
-  cap: '#5A3C1C',
-
-  // 酒液分家色(P3);低量一律覆寫 crimson(OaklandDusk 既有)
-  liquid: {
-    whiskey: ['#A85818', '#B0641E'],
-    rum: ['#6A2A14', '#7A3218'],
-    clear: '#D8C078',                                             // gin/vodka
-    tequila: [OaklandDusk.brand.gold, OaklandDusk.brand.sundown], // tequila/liqueur 金
-    low: OaklandDusk.accent.crimson,
-  },
-
-  // 低量 % label 文字色(README「crimson tint」,OaklandDusk 無此色)
+  // 低量光暈的淡紅(README「crimson tint」,OaklandDusk 無此色)
   crimsonTint: '#D66E7C',
   // CABINET-PHOTO:照片瓶的液面線(暖白;取自 Brok 2026-09-19 過關的酒量預覽)
   liquidSurface: '#FFCD8C',
@@ -63,26 +21,6 @@ const CabinetTokens = {
   signInk: '#26180C',
   signEdge: '#FFECCD',
 } as const
-
-// ── CABINET-BOTTLE-SIZE(2026-08-01 A 案拍板):三階瓶身尺寸 ──
-// 階層制非連續:half ≤500 / std 501–999 / large ≥1000;缺值 → std。
-// 等比縮放(glyph 為 viewBox 等比 SVG,寬隨高走 — 偏離拍板項 2 的
-// 獨立寬比,技術約束入帳);hash 抖動保留(階內有機變化)。
-export type BottleSizeTier = 'half' | 'std' | 'large'
-
-export const SIZE_TIER_SCALE: Record<BottleSizeTier, number> = {
-  half: 0.77,
-  std: 1,
-  large: 1.18,
-}
-
-export function tierForMl(totalMl: number | null | undefined): BottleSizeTier {
-  const ml = Number(totalMl)
-  if (!Number.isFinite(ml) || ml <= 0) return 'std'
-  if (ml <= 500) return 'half'
-  if (ml >= 1000) return 'large'
-  return 'std'
-}
 
 // ── CABINET-PHOTO(2026-09-17):照片背景的量測座標 ──
 // 來源圖:cabinet-background-r3(1168x2528;backend scripts/cabinet-images/processed/)。
@@ -94,9 +32,6 @@ export function tierForMl(totalMl: number | null | undefined): BottleSizeTier {
 // 渲染契約:背景以 width = 螢幕寬、height = 寬 × sourceHeight / sourceWidth、
 // 頂端對齊渲染;禁用 resizeMode cover / contain(置中裁切會讓座標全錯)。
 // 元件檔不得出現裸座標,一律經 cabinetPhotoScale() 換算成 pt。
-// CABINET_PHOTO_PREVIEW:Stage 2 起 = __DEV__(只有開發版看照片櫃);Stage 5(二)2026-09-24 Brok 裁 B 開閘 → 一律 true:
-// 之後每個 build / OTA,有酒的使用者都看到照片櫃。舊櫃只剩空庫存 / 錯誤時的畫面(inventory.tsx 的 photoMode 條件),等 5(四)退場。
-export const CABINET_PHOTO_PREVIEW = true
 export const CABINET_PHOTO = {
   background: require('@/assets/images/cabinet/cabinet-background-r3.jpg'),
   sourceWidth: 1168,

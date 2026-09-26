@@ -1,4 +1,3 @@
-import { hashId } from '@/components/cabinet/BottleGlyph'
 import PhotoBottle, { photoBottleWidth } from '@/components/cabinet/PhotoBottle'
 import CabinetTokens, {
   CABINET_PHOTO,
@@ -14,7 +13,7 @@ import CabinetTokens, {
 } from '@/constants/cabinetTokens'
 import OaklandDusk from '@/constants/OaklandDusk'
 import { V3 } from '@/constants/v3DesignTokens'
-import { photoShelfIndexFor, type BottleUnit, type PhotoShelfIndex, type ShelfId } from '@/lib/cabinet'
+import { hashId, photoShelfIndexFor, type BottleUnit, type PhotoShelfIndex, type ShelfId } from '@/lib/cabinet'
 import { router } from 'expo-router'
 import React, { useMemo } from 'react'
 import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native'

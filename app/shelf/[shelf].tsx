@@ -2,7 +2,7 @@ import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/compon
 import LevelRing from '@/components/ui/LevelRing'
 import SwipeRow from '@/components/ui/SwipeRow'
 import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
-import { CABINET_PHOTO_PREVIEW, withAlpha } from '@/constants/cabinetTokens'
+import { withAlpha } from '@/constants/cabinetTokens'
 import OaklandDusk from '@/constants/OaklandDusk'
 import Type from '@/constants/typography'
 import { V3 } from '@/constants/v3DesignTokens'
@@ -762,14 +762,9 @@ export default function ShelfDetailScreen() {
   )
 
   // CABINET-PHOTO Stage 5:照片櫃是 6 層(brandy 併 WHISKEY、others 併 LIQUEURS,決策 2),清單要列站在同一層的所有家族,
-  // 不然 cognac 站在 WHISKEY 層、點進來卻找不到。舊櫃(照片櫃未開時)維持 8 層各自的清單;開關同 inventory.tsx 選櫃子的那個。
+  // 不然 cognac 站在 WHISKEY 層、點進來卻找不到。(Stage 5(四)舊櫃退場,8 層各自清單的分支拿掉)
   const shelfItems = useMemo(
-    () =>
-      inventory.filter((item) =>
-        CABINET_PHOTO_PREVIEW
-          ? photoShelfIndexFor(shelfFor(item.family_key)) === photoShelfIndexFor(shelfId)
-          : shelfFor(item.family_key) === shelfId
-      ),
+    () => inventory.filter((item) => photoShelfIndexFor(shelfFor(item.family_key)) === photoShelfIndexFor(shelfId)),
     [inventory, shelfId]
   )
 

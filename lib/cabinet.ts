@@ -45,9 +45,14 @@ const PHOTO_SHELF_INDEX: Record<ShelfId, PhotoShelfIndex> = {
 export function photoShelfIndexFor(shelfId: ShelfId): PhotoShelfIndex {
   return PHOTO_SHELF_INDEX[shelfId]
 }
-//
-// 每層最多渲染 5 瓶,其餘以「+N」表示
-export const MAX_VISIBLE_BOTTLES = 5
+
+// 以 id 決定的穩定 hash(djb2):照片瓶的瓶型與間距都由 bottleId 導出,同一支酒永遠長一樣、放一樣。
+// Stage 5(四)自舊櫃的 BottleGlyph.tsx 原樣搬來(量測工具 applogic.py 的 hash_id 是它的鏡射)。
+export function hashId(id: string): number {
+  let h = 5381
+  for (let i = 0; i < id.length; i++) h = ((h << 5) + h + id.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
 
 // 低量判定與 My Bar 卡片的 isLow 同式:Math.round(remaining_pct) < 20
 export function isLowStockPct(remainingPct: number): boolean {
