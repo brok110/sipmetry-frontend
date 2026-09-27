@@ -65,13 +65,13 @@
 <div class="meta">
   抽驗 <b>GET /recipes/:iba_code/similar</b> 的 top-3 貼不貼:向量讀 <b>Supabase 實庫</b>、
   picks 打 <b>真實端點</b>(實機才是裁判)。分數會以 flavorSim 同款公式本地驗算交叉比對,
-  不符即紅字。⚠ 本檔含連線 key 使用,勿外流(ontology-reviewer 同規)。
+  不符即紅字。key 請用 publishable(本來就公開在 App 裡)。⚠ 不要貼 secret key(瀏覽器會被擋)。
 </div>
 
 <div class="panel">
   <div class="rowflex">
     <div><span class="lab">SUPABASE URL</span><input id="supaUrl" value="https://cuvkwqtdmzlcpidjzrgy.supabase.co"></div>
-    <div><span class="lab">SUPABASE KEY(anon 或 service_role,唯讀查詢)</span><input id="supaKey" type="password" placeholder="eyJ..."></div>
+    <div><span class="lab">SUPABASE KEY(publishable,唯讀查詢)</span><input id="supaKey" type="password" placeholder="sb_publishable_..."></div>
     <div><span class="lab">ENDPOINT BASE</span><input id="epBase" value="http://localhost:8787"></div>
     <div style="flex:0"><button id="btnConn">儲存連線並載入酒單</button></div>
   </div>
@@ -121,7 +121,7 @@ const load  = (k)=>{ try{ return localStorage.getItem(k); }catch(e){ return null
 // 連線資訊還原
 ["supaUrl","supaKey","epBase"].forEach(k=>{ const v=load("srqa_"+k); if(v) $(k).value=v; });
 
-const supaHeaders = ()=>({ apikey: $("supaKey").value.trim(), Authorization: "Bearer "+$("supaKey").value.trim() });
+const supaHeaders = ()=>({ apikey: $("supaKey").value.trim() });
 
 async function supaGet(path){
   const url = $("supaUrl").value.trim().replace(/\/$/,"") + "/rest/v1/" + path;
