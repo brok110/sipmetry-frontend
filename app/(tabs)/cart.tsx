@@ -44,6 +44,7 @@ type ScoreBreakdown = {
 type TargetResult = {
   ingredient_key: string;
   display_name: string;
+  image_url?: string | null;
   owned: boolean;
   remaining_pct: number | null;
   unlocks_count: number;
@@ -220,7 +221,7 @@ const SuggestionCard = React.memo(function SuggestionCard({
                     list. I Want This / notify / browser jump removed by
                     ruling 2026-07-28; the intent stream is now the
                     shopping_list table + check-off. */}
-                {/* B v4 + Z 案:Add 膠囊移入名字下方(卡高收斂);已加 = 綠描邊 */}
+                {/* B v4 + Z 案:Add 膠囊移入名字下方(卡高收斂);已加 = 金色 ✓ Added(RESTOCK-FOCUS 去綠) */}
                 <Pressable
                   onPress={onAdd}
                   disabled={listed}
@@ -230,23 +231,21 @@ const SuggestionCard = React.memo(function SuggestionCard({
                     flexDirection: "row", alignItems: "center", gap: 7,
                     backgroundColor: "transparent",
                     borderWidth: 1,
-                    borderColor: listed
-                      ? "rgba(74,222,128,0.4)"
-                      : "rgba(200,120,40,0.45)",
+                    borderColor: "rgba(200,120,40,0.45)",
                     borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
                   }}
                 >
                   <FontAwesome
                     name={listed ? "check" : "shopping-bag"}
                     size={12}
-                    color={listed ? "#4ade80" : OaklandDusk.brand.gold}
+                    color={OaklandDusk.brand.gold}
                   />
                   {/* Type.caption — 小膠囊標籤 */}
                   <Text style={[Type.caption, {
                     fontWeight: "700",
-                    color: listed ? "#4ade80" : OaklandDusk.brand.gold,
+                    color: OaklandDusk.brand.gold,
                   }]}>
-                    {listed ? "On list" : "Add"}
+                    {listed ? "Added" : "Add"}
                   </Text>
                 </Pressable>
               </View>
@@ -269,6 +268,34 @@ const SuggestionCard = React.memo(function SuggestionCard({
   );
 });
 
+// RESTOCK-FOCUS Stage 2:#1 PICK 與搜尋結果共用的「加入購物清單」大按鈕(未加入 = 實心金;已加入 = 安靜金框 ✓)
+function ListCta({ name, listed, onAdd }: { name: string; listed: boolean; onAdd: () => void }) {
+  return (
+    <Pressable
+      onPress={onAdd}
+      disabled={listed}
+      accessibilityRole="button"
+      accessibilityLabel={listed ? `${name} added to shopping list` : `Add ${name} to shopping list`}
+      style={{
+        marginTop: 16, minHeight: 46, borderRadius: 12,
+        flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+        borderWidth: 1,
+        borderColor: listed ? "rgba(200,120,40,0.45)" : OaklandDusk.brand.gold,
+        backgroundColor: listed ? "transparent" : OaklandDusk.brand.gold,
+      }}
+    >
+      <FontAwesome
+        name={listed ? "check" : "shopping-bag"}
+        size={14}
+        color={listed ? OaklandDusk.brand.gold : OaklandDusk.bg.void}
+      />
+      {/* Type.button — CTA */}
+      <Text style={[Type.button, { color: listed ? OaklandDusk.brand.gold : OaklandDusk.bg.void }]}>
+        {listed ? "Added to shopping list" : "Add to shopping list"}
+      </Text>
+    </Pressable>
+  );
+}
 export default function CartScreen() {
   const { session } = useAuth();
   const { favoritesByKey } = useFavorites();
@@ -460,6 +487,21 @@ export default function CartScreen() {
     };
     return [startRail, ...railsAfterHero];
   }, [focusFamily, focusItems, railsAfterHero]);
+  // RESTOCK-FOCUS Stage 2:同一瓶整頁只出現一次(#1 PICK 優先,其餘照畫面上的 rail 順序);去重後變空的 rail 不畫
+  const railsShown = useMemo<Rail[]>(() => {
+    const seen = new Set<string>();
+    if (heroItem) seen.add(heroItem.ingredient_key);
+    return railsForRender
+      .map((r): Rail => ({
+        ...r,
+        items: r.items.filter((it) => {
+          if (seen.has(it.ingredient_key)) return false;
+          seen.add(it.ingredient_key);
+          return true;
+        }),
+      }))
+      .filter((r) => r.items.length > 0);
+  }, [railsForRender, heroItem]);
   // RESTOCK-SIMPLIFY S3:rail 卡 / hero / WHATIF target 點擊 → /ingredient-info
   // (08-15「凡名字皆入口」;頁面自取個人化段,只帶 key / name / listed / from)
   const handleOpenRailItem = useCallback((it: { display_name: string } & Partial<RailItem>) => {
@@ -803,36 +845,48 @@ export default function CartScreen() {
         </Pressable>
       )}
 
-      {/* B-2 v5 hero:#1 PICK monogram 卡(railsActive 時取代 48px 數字 hero) */}
+      {/* RESTOCK-FOCUS Stage 2:#1 PICK 放大(圖 96、名字 21、酒譜名稱、加入購物清單大按鈕);點卡片其他地方 → 介紹頁 */}
       {hasFetched && railsActive && heroItem && !loading && !target && (
         <Pressable
           onPress={() => handleOpenRailItem(heroItem)}
           accessibilityRole="button"
           accessibilityLabel={`Top pick ${heroItem.display_name}`}
           style={{
-            flexDirection: "row", alignItems: "center", gap: 12,
             backgroundColor: OaklandDusk.bg.card,
             borderWidth: 1, borderColor: OaklandDusk.brand.gold,
-            borderRadius: 14, padding: 14, marginTop: 6,
+            borderRadius: 16, padding: 16, paddingTop: 22, marginTop: 10,
           }}
         >
           <View style={{
-            position: "absolute", top: -9, left: 14,
+            position: "absolute", top: -11, left: 16,
             backgroundColor: OaklandDusk.brand.yellow,
-            paddingHorizontal: 9, paddingVertical: 3, borderRadius: R.control, zIndex: 1,
+            paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.control, zIndex: 1,
           }}>
             {/* Type.label — badge kicker(沿用 #1 pick 樣式,底色 v5 yellow) */}
             <Text style={[Type.label, { color: OaklandDusk.bg.void }]}>#1 pick</Text>
           </View>
-          <Monogram label={heroItem.display_name} size={48} imageUrl={heroItem.image_url} />
-          <View style={{ flex: 1 }}>
-            {/* Type.heading — hero ingredient name */}
-            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>{heroItem.display_name}</Text>
-            {/* LEAVE: DMMono 11px hero unlock line — mockup v5 spec */}
-            <Text style={{ fontFamily: "DMMono", fontSize: 11, color: OaklandDusk.brand.sundown, marginTop: 2 }}>
-              +{heroItem.unlocks_count} cocktail{heroItem.unlocks_count === 1 ? "" : "s"} tonight
-            </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+            <Monogram label={heroItem.display_name} size={96} imageUrl={heroItem.image_url} />
+            <View style={{ flex: 1 }}>
+              {/* LEAVE: 21px hero name — RESTOCK-FOCUS mockup */}
+              <Text style={{ fontSize: 21, lineHeight: 26, fontWeight: "600", color: OaklandDusk.text.primary }}>{heroItem.display_name}</Text>
+              {/* LEAVE: DMMono 12px hero unlock line — RESTOCK-FOCUS mockup */}
+              <Text style={{ fontFamily: "DMMono", fontSize: 12, color: OaklandDusk.brand.sundown, marginTop: 4 }}>
+                +{heroItem.unlocks_count} cocktail{heroItem.unlocks_count === 1 ? "" : "s"} tonight
+              </Text>
+              {/* LEAVE: 13px recipe names — RESTOCK-FOCUS mockup */}
+              {(heroItem.recipes ?? []).length > 0 && (
+                <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 18, color: OaklandDusk.text.secondary, marginTop: 8 }}>
+                  {(heroItem.recipes ?? []).slice(0, 3).map((r) => r.name).join(" · ")}
+                </Text>
+              )}
+            </View>
           </View>
+          <ListCta
+            name={heroItem.display_name}
+            listed={listedKeys.has(heroItem.ingredient_key)}
+            onAdd={() => handleAddToList(heroItem)}
+          />
         </Pressable>
       )}
 
@@ -907,76 +961,67 @@ export default function CartScreen() {
         <ActivityIndicator color={OaklandDusk.brand.gold} style={{ marginVertical: 8 }} />
       )}
 
+      {/* RESTOCK-FOCUS Stage 2:WHATIF 搜尋結果改用與 #1 PICK 同一種卡片(標籤 YOUR SEARCH;已擁有 = 補貨語意) */}
       {target && !targetLoading && (
-        <View style={{ gap: 10 }}>
-          <Text style={{ fontFamily: "DMMono", fontSize: 10, letterSpacing: 2.5, color: OaklandDusk.text.tertiary }}>YOUR SEARCH</Text>
-          {target.owned ? (
-            <View style={{
-              borderRadius: R.panel, borderWidth: 1,
-              borderColor: "rgba(200,120,40,0.45)",
-              backgroundColor: OaklandDusk.bg.card, padding: 16,
-            }}>
-              <Pressable
-                onPress={() => router.push({
-                  pathname: "/ingredient-info",
-                  params: {
-                    key: target.ingredient_key,
-                    name: target.display_name,
-                    listed: listedKeys.has(target.ingredient_key) ? "1" : "0",
-                  },
-                })}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={`About ${target.display_name}`}
-              >
-                <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>{target.display_name}</Text>
-              </Pressable>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 7, marginTop: 5 }}>
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#4ade80" }} />
-                <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
-                  {target.remaining_pct === null
-                    ? "In My Bar"
-                    : `In My Bar · ${target.remaining_pct}% left`}
-                </Text>
-              </View>
-              <Pressable
-                onPress={() => handleAddToList(target)}
-                disabled={listedKeys.has(target.ingredient_key)}
-                accessibilityRole="button"
-                accessibilityLabel={`Add ${target.display_name} to shopping list`}
-                style={{
-                  alignSelf: "flex-start", marginTop: 14,
-                  flexDirection: "row", alignItems: "center", gap: 7,
-                  borderWidth: 1,
-                  borderColor: listedKeys.has(target.ingredient_key)
-                    ? "rgba(74,222,128,0.4)"
-                    : "rgba(200,120,40,0.45)",
-                  borderRadius: R.pill, paddingVertical: 8, paddingHorizontal: 15,
-                }}
-              >
-                <FontAwesome
-                  name={listedKeys.has(target.ingredient_key) ? "check" : "shopping-bag"}
-                  size={12}
-                  color={listedKeys.has(target.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold}
-                />
-                <Text style={[Type.caption, {
-                  fontWeight: "700",
-                  color: listedKeys.has(target.ingredient_key) ? "#4ade80" : OaklandDusk.brand.gold,
-                }]}>
-                  {listedKeys.has(target.ingredient_key) ? "On list" : "Add"}
-                </Text>
-              </Pressable>
+        <Pressable
+          onPress={() => handleOpenRailItem(target)}
+          accessibilityRole="button"
+          accessibilityLabel={`About ${target.display_name}`}
+          style={{
+            backgroundColor: OaklandDusk.bg.card,
+            borderWidth: 1, borderColor: OaklandDusk.brand.gold,
+            borderRadius: 16, padding: 16, paddingTop: 22, marginTop: 10,
+          }}
+        >
+          <View style={{
+            position: "absolute", top: -11, left: 16,
+            backgroundColor: "#2A1F14",
+            borderWidth: 1, borderColor: "rgba(200,120,40,0.55)",
+            paddingHorizontal: 10, paddingVertical: 4, borderRadius: R.control, zIndex: 1,
+          }}>
+            {/* Type.label — badge kicker(YOUR SEARCH;不用黃色,跟 #1 pick 區隔) */}
+            <Text style={[Type.label, { color: OaklandDusk.brand.sundown }]}>Your search</Text>
+          </View>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 16 }}>
+            <Monogram label={target.display_name} size={96} imageUrl={target.image_url} />
+            <View style={{ flex: 1 }}>
+              {/* LEAVE: 21px search result name — RESTOCK-FOCUS mockup */}
+              <Text style={{ fontSize: 21, lineHeight: 26, fontWeight: "600", color: OaklandDusk.text.primary }}>{target.display_name}</Text>
+              {target.owned ? (
+                <>
+                  {/* LEAVE: DMMono 12px owned line — RESTOCK-FOCUS mockup */}
+                  <Text style={{ fontFamily: "DMMono", fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 4 }}>
+                    {target.remaining_pct === null ? "You have this" : `You have this · ${target.remaining_pct}% left`}
+                  </Text>
+                  {/* LEAVE: 13px restock hint — RESTOCK-FOCUS mockup */}
+                  <Text style={{ fontSize: 13, lineHeight: 18, color: OaklandDusk.text.secondary, marginTop: 8 }}>
+                    Running low? Add it to your shopping list to restock.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  {/* LEAVE: DMMono 12px unlock line — RESTOCK-FOCUS mockup */}
+                  <Text style={{ fontFamily: "DMMono", fontSize: 12, color: OaklandDusk.brand.sundown, marginTop: 4 }}>
+                    {target.unlocks_count > 0
+                      ? `+${target.unlocks_count} cocktail${target.unlocks_count === 1 ? "" : "s"} you could make`
+                      : "No new cocktails with your bar yet"}
+                  </Text>
+                  {/* LEAVE: 13px recipe names — RESTOCK-FOCUS mockup */}
+                  {(target.recipes ?? []).length > 0 && (
+                    <Text numberOfLines={2} style={{ fontSize: 13, lineHeight: 18, color: OaklandDusk.text.secondary, marginTop: 8 }}>
+                      {(target.recipes ?? []).slice(0, 3).map((r) => r.name).join(" · ")}
+                    </Text>
+                  )}
+                </>
+              )}
             </View>
-          ) : (
-            <SuggestionCard
-              s={target}
-              isTop={false}
-              listed={listedKeys.has(target.ingredient_key)}
-              onAdd={() => handleAddToList(target)}
-              onOpenUnlocks={() => handleOpenRailItem(target)}
-            />
-          )}
-        </View>
+          </View>
+          <ListCta
+            name={target.display_name}
+            listed={listedKeys.has(target.ingredient_key)}
+            onAdd={() => handleAddToList(target)}
+          />
+        </Pressable>
       )}
 
       {target && !railsActive && primarySuggestions.length > 0 && (
@@ -1001,12 +1046,12 @@ export default function CartScreen() {
       {/* B-2:rails 區塊(v5 Frame 1;WHATIF target 時同調暗;出血對齊 GUTTER 24) */}
       {railsActive && (
         <View style={target ? { opacity: 0.45, gap: 20 } : { gap: 20 }}>
-          {railsForRender.map((rail) => (
+          {railsShown.map((rail) => (
             <View key={rail.key} style={{ gap: 8 }}>
               <View style={{ gap: 2 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  {/* Type.title — rail 標題 */}
-                  <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>{rail.title}</Text>
+                  {/* LEAVE: rail 標題改小號金色標籤(DMMono 11、字距 1.4、大寫)— RESTOCK-FOCUS mockup */}
+                  <Text style={{ fontFamily: "DMMono", fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", color: OaklandDusk.brand.gold }}>{rail.title}</Text>
                   {/* PLUS-RAILS B2:Plus 主題小標(裁決 b:8px gold 細框;rail.tier 由 backend 帶出) */}
                   {rail.tier === "plus" && (
                     <View style={{ borderWidth: 1, borderColor: OaklandDusk.brand.gold, borderRadius: 3, paddingHorizontal: 5, paddingVertical: 1 }}>

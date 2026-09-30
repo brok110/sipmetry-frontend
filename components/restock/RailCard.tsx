@@ -73,7 +73,7 @@ export const RailCard = memo(function RailCard({
           <Text style={styles.upTagText}>UPGRADE</Text>
         </View>
       )}
-      <Monogram label={item.display_name} size={42} imageUrl={item.image_url} />
+      <Monogram label={item.display_name} size={64} imageUrl={item.image_url} />
       <Text style={styles.name} numberOfLines={2}>{item.display_name}</Text>
       <Text style={styles.unlocks} numberOfLines={2}>
         {unlocksLine(item)}
@@ -82,14 +82,12 @@ export const RailCard = memo(function RailCard({
       <Pressable
         onPress={() => onAdd(item)}
         disabled={listed}
-        hitSlop={6}
+        hitSlop={7}
         accessibilityRole="button"
-        accessibilityLabel={listed ? `${item.display_name} on list` : `Add ${item.display_name} to shopping list`}
-        style={[styles.cap, listed && styles.capOn]}
+        accessibilityLabel={listed ? `${item.display_name} added to shopping list` : `Add ${item.display_name} to shopping list`}
+        style={[styles.addBtn, listed && styles.addBtnOn]}
       >
-        <Text style={[styles.capText, listed && styles.capTextOn]}>
-          {listed ? "✓ On list" : "＋ Add"}
-        </Text>
+        <Text style={[styles.addText, listed && styles.addTextOn]}>{listed ? "✓" : "+"}</Text>
       </Pressable>
     </Pressable>
   );
@@ -120,16 +118,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   monoText: { fontFamily: "DMMono", fontWeight: "500", color: OaklandDusk.brand.sundown },
-  name: { fontSize: 12, lineHeight: 15.5, minHeight: 31, color: OaklandDusk.text.primary },
+  name: { fontSize: 13, lineHeight: 16.5, minHeight: 33, color: OaklandDusk.text.primary },
   unlocks: { fontFamily: "DMMono", fontSize: 10, color: OaklandDusk.brand.sundown },
-  cap: {
+  addBtn: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: OaklandDusk.brand.gold,
-    borderRadius: 999,
-    paddingVertical: 4,
+    backgroundColor: OaklandDusk.bg.card,
     alignItems: "center",
+    justifyContent: "center",
   },
-  capOn: { borderColor: "#4ade80" },
-  capText: { fontFamily: "DMMono", fontSize: 10, color: OaklandDusk.brand.gold },
-  capTextOn: { color: "#4ade80" },
+  addBtnOn: { backgroundColor: OaklandDusk.brand.gold },
+  addText: { fontSize: 17, lineHeight: 20, fontWeight: "600", color: OaklandDusk.brand.gold },
+  addTextOn: { color: OaklandDusk.bg.void },
 });
