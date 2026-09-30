@@ -268,14 +268,14 @@ const SuggestionCard = React.memo(function SuggestionCard({
   );
 });
 
-// RESTOCK-FOCUS Stage 2:#1 PICK 與搜尋結果共用的「加入購物清單」大按鈕(未加入 = 實心金;已加入 = 安靜金框 ✓)
-function ListCta({ name, listed, onAdd }: { name: string; listed: boolean; onAdd: () => void }) {
+// RESTOCK-FOCUS Stage 2:#1 PICK 與搜尋結果共用的「加入購物清單」大按鈕(未加入 = 實心金;已加入 = 安靜金框 ✓,再按一次移除)
+function ListCta({ name, listed, onAdd, onRemove }: { name: string; listed: boolean; onAdd: () => void; onRemove?: () => void }) {
   return (
     <Pressable
-      onPress={onAdd}
-      disabled={listed}
+      onPress={listed ? onRemove : onAdd}
+      disabled={listed && !onRemove}
       accessibilityRole="button"
-      accessibilityLabel={listed ? `${name} added to shopping list` : `Add ${name} to shopping list`}
+      accessibilityLabel={listed ? `${name} is on your shopping list. Tap to remove.` : `Add ${name} to shopping list`}
       style={{
         marginTop: 16, minHeight: 46, borderRadius: 12,
         flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
@@ -683,6 +683,34 @@ export default function CartScreen() {
     },
     [session]
   );
+  // RESTOCK-FOCUS Stage 2:已加入的再按一次 → 從購物清單移除(先抓清單找項目 id,再 DELETE;與 LIST 頁同一支端點)
+  const handleRemoveFromList = useCallback(
+    async (suggestion: Pick<Suggestion, "ingredient_key" | "display_name">) => {
+      try {
+        const listRes = await apiFetch("/shopping-list", { session });
+        if (!listRes.ok) throw new Error(`status ${listRes.status}`);
+        const listData = await listRes.json();
+        const items: { id: string; ingredient_key: string }[] = Array.isArray(listData.items) ? listData.items : [];
+        const match = items.find((it) => String(it.ingredient_key) === suggestion.ingredient_key);
+        if (match) {
+          const res = await apiFetch(`/shopping-list/${match.id}`, { session, method: "DELETE" });
+          if (!res.ok) throw new Error(`status ${res.status}`);
+        }
+        setListedKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(suggestion.ingredient_key);
+          return next;
+        });
+        setListCount(match ? Math.max(0, items.length - 1) : items.length);
+        setToastMessage("Removed from your shopping list.");
+      } catch {
+        setToastMessage("Could not remove from list — try again.");
+      } finally {
+        setTimeout(() => setToastMessage(null), 3500);
+      }
+    },
+    [session]
+  );
 
   // Not logged in
   if (!session) {
@@ -886,6 +914,7 @@ export default function CartScreen() {
             name={heroItem.display_name}
             listed={listedKeys.has(heroItem.ingredient_key)}
             onAdd={() => handleAddToList(heroItem)}
+            onRemove={() => handleRemoveFromList(heroItem)}
           />
         </Pressable>
       )}
@@ -989,13 +1018,9 @@ export default function CartScreen() {
               <Text style={{ fontSize: 21, lineHeight: 26, fontWeight: "600", color: OaklandDusk.text.primary }}>{target.display_name}</Text>
               {target.owned ? (
                 <>
-                  {/* LEAVE: DMMono 12px owned line — RESTOCK-FOCUS mockup */}
+                  {/* LEAVE: DMMono 12px owned line — RESTOCK-FOCUS mockup(剩量已說明補貨時機,不另加提示句 — Brok 2026-09-29) */}
                   <Text style={{ fontFamily: "DMMono", fontSize: 12, color: OaklandDusk.text.secondary, marginTop: 4 }}>
                     {target.remaining_pct === null ? "You have this" : `You have this · ${target.remaining_pct}% left`}
-                  </Text>
-                  {/* LEAVE: 13px restock hint — RESTOCK-FOCUS mockup */}
-                  <Text style={{ fontSize: 13, lineHeight: 18, color: OaklandDusk.text.secondary, marginTop: 8 }}>
-                    Running low? Add it to your shopping list to restock.
                   </Text>
                 </>
               ) : (
@@ -1020,6 +1045,7 @@ export default function CartScreen() {
             name={target.display_name}
             listed={listedKeys.has(target.ingredient_key)}
             onAdd={() => handleAddToList(target)}
+            onRemove={() => handleRemoveFromList(target)}
           />
         </Pressable>
       )}
@@ -1076,6 +1102,7 @@ export default function CartScreen() {
                     item={it}
                     listed={listedKeys.has(it.ingredient_key)}
                     onAdd={handleAddToList}
+                    onRemove={handleRemoveFromList}
                     onPress={handleOpenRailItem}
                   />
                 ))}

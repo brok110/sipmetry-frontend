@@ -53,11 +53,13 @@ export const RailCard = memo(function RailCard({
   item,
   listed,
   onAdd,
+  onRemove,
   onPress,
 }: {
   item: RailCardItem;
   listed: boolean;
   onAdd: (item: RailCardItem) => void;
+  onRemove?: (item: RailCardItem) => void;
   onPress: (item: RailCardItem) => void;
 }) {
   const upgrade = item.is_alternative_upgrade === true;
@@ -80,11 +82,11 @@ export const RailCard = memo(function RailCard({
         {upgrade && item.alt_description ? ` · ${item.alt_description}` : ""}
       </Text>
       <Pressable
-        onPress={() => onAdd(item)}
-        disabled={listed}
+        onPress={() => (listed ? onRemove?.(item) : onAdd(item))}
+        disabled={listed && !onRemove}
         hitSlop={7}
         accessibilityRole="button"
-        accessibilityLabel={listed ? `${item.display_name} added to shopping list` : `Add ${item.display_name} to shopping list`}
+        accessibilityLabel={listed ? `${item.display_name} is on your shopping list. Tap to remove.` : `Add ${item.display_name} to shopping list`}
         style={[styles.addBtn, listed && styles.addBtnOn]}
       >
         <Text style={[styles.addText, listed && styles.addTextOn]}>{listed ? "✓" : "+"}</Text>
