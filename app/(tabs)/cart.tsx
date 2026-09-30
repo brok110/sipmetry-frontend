@@ -1055,7 +1055,7 @@ export default function CartScreen() {
       )}
 
       {!railsActive && (
-      <View style={target ? { opacity: 0.45, gap: 16 } : { gap: 16 }}>
+      <View style={target ? { opacity: 0.45, gap: 16, pointerEvents: "none" } : { gap: 16 }}>
         {primarySuggestions.map((s, i) => (
           <SuggestionCard
             key={s.ingredient_key}
@@ -1069,9 +1069,9 @@ export default function CartScreen() {
       </View>
       )}
 
-      {/* B-2:rails 區塊(v5 Frame 1;WHATIF target 時同調暗;出血對齊 GUTTER 24) */}
+      {/* B-2:rails 區塊(v5 Frame 1;WHATIF target 時同調暗且不可點 — RESTOCK-FOCUS;出血對齊 GUTTER 24) */}
       {railsActive && (
-        <View style={target ? { opacity: 0.45, gap: 20 } : { gap: 20 }}>
+        <View style={target ? { opacity: 0.45, gap: 20, pointerEvents: "none" } : { gap: 20 }}>
           {railsShown.map((rail) => (
             <View key={rail.key} style={{ gap: 8 }}>
               <View style={{ gap: 2 }}>
