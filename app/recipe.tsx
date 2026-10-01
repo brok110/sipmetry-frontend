@@ -10,6 +10,7 @@ import * as Sentry from "@sentry/react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { STAPLES_STORAGE_KEY } from "@/components/StaplesModal";
 import { DbIngredientsList } from "@/components/DbIngredientsList";
+import { YouMightLike } from "@/components/recipe/YouMightLike";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "@/context/auth";
 import { apiFetch } from "@/lib/api";
@@ -1251,7 +1252,7 @@ export default function TabTwoScreen() {
             onPress={() =>
               router.push({
                 pathname: "/cocktail-story",
-                params: { iba_code: dbRecipe.iba_code, name: dbRecipe.name, story: dbRecipe.story },
+                params: { name: dbRecipe.name, story: dbRecipe.story },
               })
             }
             hitSlop={12}
@@ -1363,6 +1364,14 @@ export default function TabTwoScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* RECIPE-REFRESH(2026-09-30):YOU MIGHT LIKE 從故事頁搬到 Instructions 下方;guest 模式把朋友家的酒帶到下一杯。 */}
+        {dbRecipe ? (
+          <YouMightLike
+            ibaCode={ibaCode}
+            guestParams={isGuestSession ? { mode: "quick_look", scan_items_json: paramToString((params as any).scan_items_json) } : undefined}
+          />
+        ) : null}
 
         {error ? (
           <View style={{ padding: 12, borderWidth: 1, borderColor: OaklandDusk.accent.crimson, borderRadius: 14, backgroundColor: OaklandDusk.accent.roseBg }}>
