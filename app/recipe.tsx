@@ -78,7 +78,7 @@ function paramToString(v: any): string {
   return "";
 }
 function storyTeaser(story: string | null | undefined): string {
-  const words = String(story || "").trim().split(/\s+/).slice(0, 3).join(" ");
+  const words = String(story || "").trim().split(/\s+/).slice(0, 5).join(" ");
   return `${words.replace(/[\s,.;:!?–—-]+$/, "")}…`;
 }
 
@@ -1244,7 +1244,7 @@ export default function TabTwoScreen() {
         <Text style={[Type.display, styles.primaryText]}>
           {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
         </Text>
-        {/* RECIPE-REFRESH(2026-09-30):故事入口改為標題下一行「故事前三個字 + … + 書本」,整行可點;
+        {/* RECIPE-REFRESH(2026-09-30):故事入口改為標題下一行「故事前五個字 + … + 書本」,整行可點;
             story 為 null 時不渲染。取代 2026-08-19 標題同列 book icon(INGREDIENT-INFO 二期)。 */}
         {dbRecipe?.story ? (
           <Pressable
