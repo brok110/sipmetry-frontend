@@ -77,6 +77,10 @@ function paramToString(v: any): string {
   if (Array.isArray(v) && typeof v[0] === "string") return v[0];
   return "";
 }
+function storyTeaser(story: string | null | undefined): string {
+  const words = String(story || "").trim().split(/\s+/).slice(0, 3).join(" ");
+  return `${words.replace(/[\s,.;:!?–—-]+$/, "")}…`;
+}
 
 const NO_SELECTION_HEADER_OPTIONS = {
   title: "",
@@ -703,29 +707,7 @@ export default function TabTwoScreen() {
     return compareFlavorVectors(recipeFlavorVector, userPreferenceVector, DEFAULT_FLAVOR_WEIGHTS);
   }, [recipeFlavorVector, userPreferenceVector]);
 
-  const confidenceSignal = useMemo(() => {
-    if (!ingredientAvailability || !dbRecipe) return null;
-    const ingKeys = dbRecipe.ingredients
-      .map((it) => String(it.item ?? "").trim())
-      .filter(Boolean);
-    const allAvailable = ingKeys.every((k) => {
-      const info = ingredientAvailability[k];
-      return info?.status === "in_bar" || info?.status === "substitute";
-    });
-    // Optional ingredients don't block making the drink (backend can_make
-    // excludes is_optional), so they don't count toward "Missing N"
-    const missingCount = dbRecipe.ingredients
-      .filter((it) => !it.is_optional)
-      .map((it) => String(it.item ?? "").trim())
-      .filter(Boolean)
-      .filter((k) => {
-        const info = ingredientAvailability[k];
-        return !info || info.status === "missing";
-      }).length;
-    // Optional-only gaps still count as ready (backend can_make parity)
-    const isReady = missingCount === 0;
-    return { allAvailable, missingCount, isReady };
-  }, [ingredientAvailability, dbRecipe]);
+  // RECIPE-REFRESH(2026-09-30):C2 狀態條的完成度計算(useMemo)一併移除。
 
   const copyDebug = async () => {
     try {
@@ -1259,72 +1241,41 @@ export default function TabTwoScreen() {
         {/* Main content */}
         <View style={styles.mainContent}>
         {/* Type.display — recipe title */}
-        {/* INGREDIENT-INFO 二期:故事書 icon 入口(2026-08-19 實機回饋
-            改版:mono 行被 HIGH PROOF 實心塊壓過,改 title 同列 book icon,
-            Brok 手繪定稿)。story 為 null 時 icon 不渲染;hitSlop 撐 44pt;
-            長酒名折行時 icon 停列尾垂直置中(一期折行教訓,穩健解)。 */}
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <Text style={[Type.display, styles.primaryText, { flexShrink: 1 }]}>
-            {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
-          </Text>
-          {dbRecipe?.story ? (
-            <Pressable
-              onPress={() =>
-                router.push({
-                  pathname: "/cocktail-story",
-                  params: { iba_code: dbRecipe.iba_code, name: dbRecipe.name, story: dbRecipe.story },
-                })
-              }
-              hitSlop={16}
-              accessibilityRole="button"
-              accessibilityLabel={`Read the story of ${dbRecipe.name}`}
-              style={{ marginLeft: 12 }}
-            >
-              <FontAwesome name="book" size={20} color={OaklandDusk.brand.gold} />
-            </Pressable>
-          ) : null}
-        </View>
+        <Text style={[Type.display, styles.primaryText]}>
+          {recipeTitle ? recipeTitle : ibaCode ? "Recipe" : "Recipe"}
+        </Text>
+        {/* RECIPE-REFRESH(2026-09-30):故事入口改為標題下一行「故事前三個字 + … + 書本」,整行可點;
+            story 為 null 時不渲染。取代 2026-08-19 標題同列 book icon(INGREDIENT-INFO 二期)。 */}
+        {dbRecipe?.story ? (
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/cocktail-story",
+                params: { iba_code: dbRecipe.iba_code, name: dbRecipe.name, story: dbRecipe.story },
+              })
+            }
+            hitSlop={12}
+            accessibilityRole="button"
+            accessibilityLabel={`Read the story of ${dbRecipe.name}`}
+            style={styles.storyTeaserRow}
+          >
+            <Text style={styles.storyTeaserText} numberOfLines={1}>
+              {storyTeaser(dbRecipe.story)}
+            </Text>
+            <FontAwesome name="book" size={16} color={OaklandDusk.brand.gold} />
+          </Pressable>
+        ) : null}
 
         {/* SAFETY-BADGE (2026-08-13): 成分事實列 — 全展、後端序 */}
         <BadgeRow badges={(dbRecipe as any)?.badges} />
 
         {tasteTags.length > 0 ? (
           <Pressable onLongPress={__DEV__ ? copyDebug : undefined} delayLongPress={450}>
-            <View style={styles.tasteTagsRow}>
-              {tasteTags.map((tag) => (
-                <View
-                  key={tag}
-                  style={{
-                    backgroundColor: OaklandDusk.brand.tagBg,
-                    paddingHorizontal: 10,
-                    paddingVertical: 4,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: OaklandDusk.brand.gold }}>{tag}</Text>
-                </View>
-              ))}
-            </View>
+            <Text style={styles.tasteLine}>{tasteTags.join("  ·  ")}</Text>
           </Pressable>
         ) : null}
 
-        {/* C2: Confidence signal */}
-        {confidenceSignal && (
-          <View style={confidenceSignal.isReady ? styles.confidenceBoxReady : styles.confidenceBoxNotReady}>
-            {confidenceSignal.isReady ? (
-              <Text style={styles.confidenceCheckmark}>✓</Text>
-            ) : (
-              <FontAwesome name="cart-plus" size={14} color={OaklandDusk.brand.gold} />
-            )}
-            <Text style={confidenceSignal.isReady ? styles.confidenceTextReady : styles.confidenceTextNotReady}>
-              {confidenceSignal.isReady
-                ? confidenceSignal.allAvailable ? "You have everything" : "Ready to make"
-                : confidenceSignal.missingCount === 1
-                  ? "Just 1 ingredient away"
-                  : `${confidenceSignal.missingCount} ingredients away`}
-            </Text>
-          </View>
-        )}
+        {/* RECIPE-REFRESH(2026-09-30):C2 狀態條整個移除(Brok 裁);缺料由材料列紅邊與「+ LIST」表達。 */}
 
         {loading ? (
           <View style={styles.loadingCard}>
@@ -1566,47 +1517,24 @@ const styles = StyleSheet.create({
   secondaryText: {
     color: OaklandDusk.text.secondary,
   },
-  tasteTagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-  },
-  confidenceBoxReady: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(29,158,117,0.06)",
-    borderWidth: 1,
-    borderColor: "rgba(29,158,117,0.15)",
-    borderRadius: 14,
-    marginBottom: 12,
-  },
-  confidenceBoxNotReady: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    backgroundColor: "rgba(200,120,40,0.06)",
-    borderWidth: 1,
-    borderColor: "rgba(200,120,40,0.15)",
-    borderRadius: 14,
-    marginBottom: 12,
-  },
-  confidenceCheckmark: {
-    color: OaklandDusk.semantic.ready,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-  confidenceTextReady: {
-    color: OaklandDusk.semantic.ready,
+  tasteLine: {
+    fontFamily: "DMMono",
     fontSize: 12,
-  },
-  confidenceTextNotReady: {
+    letterSpacing: 1.5,
     color: OaklandDusk.brand.gold,
-    fontSize: 12,
+    textTransform: "uppercase",
+  },
+  storyTeaserRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    alignSelf: "flex-start",
+    marginTop: -8,
+  },
+  storyTeaserText: {
+    fontSize: 16,
+    color: OaklandDusk.text.secondary,
+    flexShrink: 1,
   },
   loadingCard: {
     padding: 12,
