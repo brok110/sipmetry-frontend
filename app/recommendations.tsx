@@ -246,7 +246,7 @@ export default function RecommendationsScreen() {
           {/* Thumbnail — tap opens lightbox */}
           <CocktailThumbnail imageUrl={r.image_url} />
 
-          {/* Left: name + flavor tags + View recipe */}
+          {/* Left: name + badges + flavor tags. CARD-LIST-TIDY(2026-10-01):拿掉重複的 Make this,點整張卡就會進 recipe。 */}
           <View style={{ flex: 1, paddingRight: 12, marginLeft: 12, gap: 6 }}>
             {/* Type.heading — drink name / card title */}
             <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>
@@ -270,20 +270,6 @@ export default function RecommendationsScreen() {
                 ))}
               </View>
             )}
-
-            <Pressable
-              onPress={() => openRecipe(r, idx)}
-              style={{
-                flexDirection: "row", alignItems: "center", gap: 4,
-                borderWidth: 1, borderColor: OaklandDusk.bg.border,
-                borderRadius: 8,
-                paddingHorizontal: 10, paddingVertical: 4,
-                alignSelf: "flex-start",
-              }}
-            >
-              <Text style={{ fontSize: 11, color: OaklandDusk.text.secondary }}>Make this</Text>
-              <Text style={{ fontSize: 11, color: OaklandDusk.text.tertiary }}>›</Text>
-            </Pressable>
           </View>
 
           {/* Right: bucket badge + missing items with cart */}
