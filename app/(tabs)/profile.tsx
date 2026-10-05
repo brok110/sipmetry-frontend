@@ -333,7 +333,7 @@ export default function ProfileScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => openUrl("https://brok110.github.io/sipmetry-frontend/privacy")}
+            onPress={() => openUrl("https://sipmetry.app/privacy.html")}
             style={{
               flexDirection: "row",
               alignItems: "center",

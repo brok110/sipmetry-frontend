@@ -118,15 +118,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInWithApple = async () => {
     try {
       const { AppleAuthenticationScope, signInAsync } = await import('expo-apple-authentication')
+      const Crypto = await import('expo-crypto')
+      const rawNonce = Crypto.randomUUID()
+      const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce)
       const credential = await signInAsync({
         requestedScopes: [
           AppleAuthenticationScope.FULL_NAME,
           AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       })
       const { error } = await supabase.auth.signInWithIdToken({
         provider: 'apple',
         token: credential.identityToken!,
+        nonce: rawNonce,
       })
       return { error: error?.message ?? null }
     } catch (e: any) {
@@ -182,16 +187,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const upgradeWithApple = async () => {
     try {
       const { AppleAuthenticationScope, signInAsync } = await import('expo-apple-authentication')
+      const Crypto = await import('expo-crypto')
+      const rawNonce = Crypto.randomUUID()
+      const hashedNonce = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, rawNonce)
       const credential = await signInAsync({
         requestedScopes: [
           AppleAuthenticationScope.FULL_NAME,
           AppleAuthenticationScope.EMAIL,
         ],
+        nonce: hashedNonce,
       })
 
       const { error } = await supabase.auth.linkIdentity({
         provider: 'apple',
         token: credential.identityToken!,
+        nonce: rawNonce,
       })
       return { error: error?.message ?? null }
     } catch (e: any) {
