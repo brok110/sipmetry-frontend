@@ -1,9 +1,9 @@
 // app/(tabs)/bartender.tsx
 // V2 Category Carousel homepage per sipmetry-v3-carousel.html:
 // sticky search input → SPOTLIGHT row (seeded pick from hero top-5) →
-// fixed page: READY pinned first, three seeded-draw middle rails, HUNT
-// pinned last — driven by GET /browse-recipes through the pure row engine
-// (lib/browse/rowEngine). Typing in the search bar or applying filters
+// fixed page: two IN SEASON theme rails (THEME-TAGS Stage 5, 2026-10-07),
+// then READY, ONE AWAY, HUNT — driven by GET /browse-recipes through the
+// pure row engine (lib/browse/rowEngine). Typing in the search bar or applying filters
 // (FilterSheet) swaps the body for an inline 2-col results grid (Mode B);
 // clearing both restores the carousel. Components stay dumb.
 
@@ -29,8 +29,8 @@ import SuggestionList from "@/components/browse/SuggestionList";
 import FilterSheet, { type BrowseFilters } from "@/components/browse/FilterSheet";
 import {
   buildRails,
+  dayIndex,
   humanizeKey,
-  seededPickOne,
   STYLE_DISPLAY_NAMES,
   type BrowseItem,
 } from "@/lib/browse/rowEngine";
@@ -341,9 +341,12 @@ export default function BartenderScreen() {
     setQuery(s.label);
   }, [dismissSuggestions]);
 
-  // Seeded spotlight: same nonce + same candidates → same pick.
+  // Spotlight cycles through the hero candidates: the calendar day picks
+  // today's cold-open drink, every logo tap advances one — never the same
+  // drink twice in a row (THEME-TAGS Stage 5, 2026-10-07: the seeded pick
+  // repeated). Same day offset the rails use, so the whole page steps together.
   const heroPick = useMemo(
-    () => seededPickOne(heroRecs, refreshNonce),
+    () => (heroRecs.length > 0 ? heroRecs[(refreshNonce + dayIndex(new Date())) % heroRecs.length] ?? null : null),
     [heroRecs, refreshNonce]
   );
 
@@ -354,9 +357,10 @@ export default function BartenderScreen() {
   }, [heroPick]);
 
   // Spotlight joins the used-set so its recipe never repeats in a rail.
-  // refreshNonce doubles as the shuffle seed for the whole page.
+  // refreshNonce doubles as the shuffle seed for the whole page; today's
+  // date picks the month's IN SEASON themes (read when the memo runs).
   const rails = useMemo(
-    () => buildRails(browseItems, { excludeCodes: heroPick ? [heroPick.iba_code] : [], seed: refreshNonce }),
+    () => buildRails(browseItems, { excludeCodes: heroPick ? [heroPick.iba_code] : [], seed: refreshNonce, date: new Date() }),
     [browseItems, heroPick, refreshNonce]
   );
 
