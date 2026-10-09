@@ -313,6 +313,7 @@ export default function CartScreen() {
 
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pulling, setPulling] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [meta, setMeta] = useState<{ reason?: string; message?: string } | null>(null);
@@ -588,6 +589,12 @@ export default function CartScreen() {
     }
   }, [session, userInteractions, focusFamily]);
 
+  // 下拉轉圈只跟手指走:進頁自動載入、帶參數重抓改顯示頁內的 Looking over your shelf(SILENT-REFRESH)
+  const handlePullRefresh = () => {
+    setPulling(true);
+    fetchSuggestions().finally(() => setPulling(false));
+  };
+
   // ── WHATIF(S4):typeahead 串既有 /search-suggestions,只取 ingredient ──
   useEffect(() => {
     const q = searchText.trim();
@@ -772,7 +779,7 @@ export default function CartScreen() {
       contentContainerStyle={{ padding: 24, gap: 16, paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
       refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={fetchSuggestions} tintColor={OaklandDusk.brand.gold} />
+        <RefreshControl refreshing={pulling} onRefresh={handlePullRefresh} tintColor={OaklandDusk.brand.gold} />
       }
     >
       {/* Header */}
@@ -850,8 +857,8 @@ export default function CartScreen() {
         </View>
       )}
 
-      {/* Loading */}
-      {loading && !hasFetched && (
+      {/* Loading:不是下拉的載入(進頁、帶參數重抓、Tap to retry)都顯示;下拉時只有 RefreshControl 轉圈(SILENT-REFRESH) */}
+      {loading && !pulling && (
         <View style={{ padding: 40, alignItems: "center" }}>
           <ActivityIndicator size="large" color={OaklandDusk.brand.gold} />
           {/* Type.body — loading state description */}
