@@ -71,7 +71,6 @@ type InventoryContextValue = {
   inventoryByIngredientKey: Record<string, InventoryItem>;
   availableIngredientKeys: string[];
   loading: boolean;
-  refreshing: boolean;
   initialized: boolean;
   error: string | null;
   refreshInventory: (options?: RefreshOptions) => Promise<InventoryItem[]>;
@@ -150,7 +149,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   const accessToken = session?.access_token ?? null;
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const authVersionRef = useRef(0);
@@ -170,13 +168,11 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
         setInventory([]);
         setError(null);
         setLoading(false);
-        setRefreshing(false);
         setInitialized(true);
         return [];
       }
 
-      if (silent) setRefreshing(true);
-      else setLoading(true);
+      if (!silent) setLoading(true);
 
       setError(null);
 
@@ -214,7 +210,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       } finally {
         if (version === authVersionRef.current) {
           setLoading(false);
-          setRefreshing(false);
         }
       }
     },
@@ -227,7 +222,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       setInventory([]);
       setError(null);
       setLoading(false);
-      setRefreshing(false);
       setInitialized(true);
       return;
     }
@@ -446,7 +440,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       inventoryByIngredientKey,
       availableIngredientKeys,
       loading,
-      refreshing,
       initialized,
       error,
       refreshInventory,
@@ -463,7 +456,6 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
       inventoryByIngredientKey,
       availableIngredientKeys,
       loading,
-      refreshing,
       initialized,
       error,
       refreshInventory,

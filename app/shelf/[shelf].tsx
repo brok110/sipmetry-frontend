@@ -695,7 +695,6 @@ export default function ShelfDetailScreen() {
   const { trackAndOpenPurchaseLink } = usePurchaseIntent()
   const {
     inventory,
-    refreshing,
     initialized,
     refreshInventory,
     updateInventoryItem,
@@ -741,8 +740,13 @@ export default function ShelfDetailScreen() {
     }
   }, [validShelf, initialized, shelfItems.length])
 
+  // 下拉轉圈只跟手指走:背景重抓(進頁、回前景、編輯 / 刪除後補抓)不碰它(SILENT-REFRESH)
+  const [pulling, setPulling] = useState(false)
   const handleRefresh = () => {
-    refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {})
+    setPulling(true)
+    refreshInventory({ silent: true, notifyLowStock: true })
+      .catch(() => {})
+      .finally(() => setPulling(false))
   }
 
   const handleSortSelect = (key: SortBy) => {
@@ -947,7 +951,7 @@ export default function ShelfDetailScreen() {
         contentContainerStyle={styles.container}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={pulling} onRefresh={handleRefresh} tintColor={OaklandDusk.brand.gold} />
         }
       >
         {/* Sort Dropdown Modal */}

@@ -56,7 +56,6 @@ export default function MyBarScreen() {
     inventory,
     availableIngredientKeys,
     loading,
-    refreshing,
     error,
     initialized,
     refreshInventory,
@@ -134,8 +133,13 @@ export default function MyBarScreen() {
     }, [refreshInventory])
   )
 
+  // 下拉轉圈只跟手指走:背景重抓(進頁、回前景、編輯後補抓)不碰它(SILENT-REFRESH)
+  const [pulling, setPulling] = useState(false)
   const handleRefresh = () => {
-    refreshInventory({ silent: true, notifyLowStock: true }).catch(() => {})
+    setPulling(true)
+    refreshInventory({ silent: true, notifyLowStock: true })
+      .catch(() => {})
+      .finally(() => setPulling(false))
   }
 
   // ── Cabinet 分組(lib/cabinet):一瓶一張照片瓶;PhotoCabinet 再併成 6 層 ──────
@@ -254,7 +258,7 @@ export default function MyBarScreen() {
         </View>
         {error ? (
           <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>Couldn't load your bar just now — pull down to try again.</Text>
           </View>
         ) : null}
       </View>
@@ -264,7 +268,7 @@ export default function MyBarScreen() {
         contentContainerStyle={styles.photoContainer}
         keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          <RefreshControl refreshing={pulling} onRefresh={handleRefresh} tintColor={OaklandDusk.brand.gold} />
         }
       >
 
