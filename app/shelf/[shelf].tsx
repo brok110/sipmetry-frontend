@@ -1,6 +1,4 @@
-import HintBubble, { GUIDE_KEYS, dismissGuide, isGuideDismissed } from '@/components/GuideBubble'
 import LevelRing from '@/components/ui/LevelRing'
-import SwipeRow from '@/components/ui/SwipeRow'
 import { DEFAULT_BOTTLE_ML } from '@/constants/defaults'
 import { withAlpha } from '@/constants/cabinetTokens'
 import OaklandDusk from '@/constants/OaklandDusk'
@@ -38,12 +36,12 @@ import Animated, {
 } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-// ── 以下 list 區塊(sort 控制、SwipeRow 卡片、edit modal、盲點、RESTOCK pill)
+// ── 以下 list 區塊(sort 控制、卡片、edit modal、盲點、RESTOCK pill)
 //    自 app/(tabs)/inventory.tsx 整段搬家(CABINET-3A §C5),互動與文案原樣 ──
 
 type SortBy =
   | 'date_added'
-  | 'remaining_volume'
+  | 'remaining_pct'
   | 'family'
   | 'last_used_at'
   | 'brand_name'
@@ -52,12 +50,23 @@ type SortOrder = 'asc' | 'desc'
 // All 6 sort options shown in the dropdown
 const DROPDOWN_SORT_OPTIONS: { key: SortBy; label: string }[] = [
   { key: 'date_added',       label: 'Added' },
-  { key: 'remaining_volume', label: 'Remaining Volume' },
+  { key: 'remaining_pct',    label: 'Remaining' },
   { key: 'family',           label: 'Family' },
   { key: 'last_used_at',     label: 'Last Used' },
   { key: 'brand_name',       label: 'Brand Name' },
 ]
 
+
+// GESTURE-CONSOLIDATE:Remaining 排序看卡片圓環那一瓶(created_at 最早 = 正在用的那瓶)的剩餘 %,四捨五入與圓環一致;bottles 空的過渡態用整列。
+function openBottlePct(item: InventoryItem): number {
+  if (item.bottles.length === 0) {
+    const total = Number(item.total_ml)
+    return total > 0 ? Math.round((Number(item.remaining_volume) / total) * 100) : 0
+  }
+  const first = [...item.bottles].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0]
+  const total = Number(first.total_ml)
+  return total > 0 ? Math.round((Number(first.remaining_volume) / total) * 100) : 0
+}
 
 function sortInventory(items: InventoryItem[], by: SortBy, order: SortOrder): InventoryItem[] {
   const dir = order === 'asc' ? 1 : -1
@@ -68,8 +77,9 @@ function sortInventory(items: InventoryItem[], by: SortBy, order: SortOrder): In
         const tb = new Date(b.created_at ?? 0).getTime()
         return (ta - tb) * dir
       }
-      case 'remaining_volume': {
-        return (Number(a.remaining_volume ?? 0) - Number(b.remaining_volume ?? 0)) * dir
+      case 'remaining_pct': {
+        const d = (openBottlePct(a) - openBottlePct(b)) * dir
+        return d !== 0 ? d : a.display_name.localeCompare(b.display_name)
       }
       case 'family': {
         const ca = a.family_key ?? ''
@@ -305,6 +315,7 @@ function EditBottleModal({
   visible,
   onClose,
   onSave,
+  onRemove,
 }: {
   item: InventoryItem | null
   bottle: InventoryBottle | null
@@ -312,6 +323,7 @@ function EditBottleModal({
   visible: boolean
   onClose: () => void
   onSave: (id: string, updates: { display_name: string; total_ml: number; remaining_pct: number; bottle_id?: string }) => Promise<void>
+  onRemove: () => void
 }) {
   const [name, setName] = useState('')
   const [totalMl, setTotalMl] = useState(DEFAULT_BOTTLE_ML)
@@ -387,7 +399,20 @@ function EditBottleModal({
       >
         <Pressable style={modalStyles.overlay} onPress={onClose}>
           <Pressable style={modalStyles.sheet} onPress={(e) => e.stopPropagation()}>
-            <Text style={modalStyles.title}>Edit Bottle</Text>
+            <View style={modalStyles.titleRow}>
+              <Text style={modalStyles.title}>Edit Bottle</Text>
+              <Pressable
+                hitSlop={{ top: 9, bottom: 9, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel="Remove this bottle"
+                onPress={onRemove}
+                disabled={saving}
+                style={modalStyles.removePill}
+              >
+                <FontAwesome name="trash-o" size={12} color="rgb(214,110,124)" />
+                <Text style={modalStyles.removePillText}>REMOVE</Text>
+              </Pressable>
+            </View>
             {item.bottles.length > 1 ? (
               <Text style={modalStyles.bottleHint}>
                 {`Bottle #${bottleIndex} of ${item.bottles.length}`}
@@ -498,10 +523,7 @@ function InventoryCard({
   item,
   sortBy,
   onEdit,
-  onDelete,
   onRestock,
-  isFirstCard,
-  onSwipeOpen,
   selectMode,
   selected,
   onToggleSelect,
@@ -509,10 +531,7 @@ function InventoryCard({
   item: InventoryItem
   sortBy: SortBy
   onEdit: (item: InventoryItem, bottle: InventoryBottle, ordinal: number) => void
-  onDelete: (id: string, name: string, bottle: InventoryBottle, ordinal: number, totalBottles: number) => void
   onRestock?: () => void
-  isFirstCard?: boolean
-  onSwipeOpen?: () => void
   selectMode?: boolean
   selected?: boolean
   onToggleSelect?: () => void
@@ -588,6 +607,13 @@ function InventoryCard({
                 : ''}
               {bottleMl}ml left{multi ? ` · ${formatAddedDate(bottle.created_at)}` : ''}
             </Text>
+          </View>
+
+          {/* Level ring:當前瓶 */}
+          <LevelRing percent={bottlePct} size={40} />
+        </View>
+        <View style={styles.cardFooter}>
+          <View style={styles.cardFooterSide}>
             {isLow && onRestock ? (
               <Pressable
                 hitSlop={8}
@@ -599,24 +625,33 @@ function InventoryCard({
               </Pressable>
             ) : null}
           </View>
-
-          {/* Level ring:當前瓶 */}
-          <LevelRing percent={bottlePct} size={40} />
-        </View>
-        {multi && (
-          <View style={styles.pageDots}>
-            {bottles.map((b, i) => (
-              <Pressable key={b.id} hitSlop={8} onPress={() => setPageIdx(i)} accessibilityLabel={`Bottle ${i + 1}`}>
-                <View style={[styles.pageDot, i === safeIdx && styles.pageDotActive]} />
-              </Pressable>
-            ))}
+          {multi ? (
+            <View style={styles.pageDots}>
+              {bottles.map((b, i) => (
+                <Pressable key={b.id} hitSlop={8} onPress={() => setPageIdx(i)} accessibilityLabel={`Bottle ${i + 1}`}>
+                  <View style={[styles.pageDot, i === safeIdx && styles.pageDotActive]} />
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+          <View style={[styles.cardFooterSide, styles.cardFooterEnd]}>
+            <Pressable
+              hitSlop={{ top: 9, bottom: 9, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={multi ? `Edit ${item.display_name}, bottle ${safeIdx + 1}` : `Edit ${item.display_name}`}
+              onPress={() => onEdit(item, bottle, safeIdx + 1)}
+              style={styles.editPill}
+            >
+              <FontAwesome name="pencil" size={11} color={OaklandDusk.brand.gold} />
+              <Text style={styles.editPillText}>EDIT</Text>
+            </Pressable>
           </View>
-        )}
+        </View>
       </View>
   )
 
   // 選取態:整列單一 Pressable = toggle;透明覆蓋層吸收卡內全部
-  // Pressable(名稱連結/盲點/RESTOCK/翻瓶/頁點),swipe 不掛載。
+  // Pressable(名稱連結/盲點/RESTOCK/EDIT/翻瓶/頁點)。
   if (selectMode) {
     return (
       <Pressable
@@ -635,72 +670,15 @@ function InventoryCard({
     )
   }
 
-  // 一般態:SwipeRow 結構原樣,內容改引 cardInner
+  // 一般態:點卡片換瓶(多瓶);編輯 / 移除走卡片底部 EDIT(GESTURE-CONSOLIDATE 拿掉左滑)
   return (
-    <SwipeRow
-      onEdit={() => onEdit(item, bottle, safeIdx + 1)}
-      onDelete={() => onDelete(item.id, item.display_name, bottle, safeIdx + 1, bottles.length)}
-      onSwipeOpen={isFirstCard ? onSwipeOpen : undefined}
+    <Pressable
+      disabled={!multi}
+      onPress={() => setPageIdx((safeIdx + 1) % bottles.length)}
+      accessibilityLabel={multi ? `Bottle ${safeIdx + 1} of ${bottles.length}, tap for next bottle` : undefined}
     >
-      <Pressable
-        disabled={!multi}
-        onPress={() => setPageIdx((safeIdx + 1) % bottles.length)}
-        accessibilityLabel={multi ? `Bottle ${safeIdx + 1} of ${bottles.length}, tap for next bottle` : undefined}
-      >
-        {cardInner}
-      </Pressable>
-    </SwipeRow>
-  )
-}
-
-// ── Inventory card with swipe guide ──────────────────────────────────────────
-function InventoryCardWithGuide({
-  item,
-  sortBy,
-  onEdit,
-  onDelete,
-  onRestock,
-  isFirstCard,
-  guideSwipeDismissed,
-  onSwipeOpen,
-}: {
-  item: InventoryItem
-  sortBy: SortBy
-  onEdit: (item: InventoryItem, bottle: InventoryBottle, ordinal: number) => void
-  onDelete: (id: string, name: string, bottle: InventoryBottle, ordinal: number, totalBottles: number) => void
-  onRestock?: () => void
-  isFirstCard: boolean
-  guideSwipeDismissed: boolean
-  onSwipeOpen: () => void
-}) {
-  return isFirstCard && !guideSwipeDismissed ? (
-    <HintBubble
-      storageKey={GUIDE_KEYS.MYBAR_SWIPE}
-      visible={!guideSwipeDismissed}
-      onDismiss={onSwipeOpen}
-      hintType="swipe"
-      hintColor="skyblue"
-    >
-      <InventoryCard
-        item={item}
-        sortBy={sortBy}
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onRestock={onRestock}
-        isFirstCard={isFirstCard}
-        onSwipeOpen={onSwipeOpen}
-      />
-    </HintBubble>
-  ) : (
-    <InventoryCard
-      item={item}
-      sortBy={sortBy}
-      onEdit={onEdit}
-      onDelete={onDelete}
-      onRestock={onRestock}
-      isFirstCard={isFirstCard}
-      onSwipeOpen={onSwipeOpen}
-    />
+      {cardInner}
+    </Pressable>
   )
 }
 
@@ -725,35 +703,18 @@ export default function ShelfDetailScreen() {
     deleteInventoryBottle,
   } = useInventory()
 
-  // ── Sort state (預設：加入時間 降冪) ──────────────────────
-  const [sortBy, setSortBy] = useState<SortBy>('date_added')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
+  // ── Sort state (預設：剩餘 % 升冪,快沒了的在最上面) ──────────────────────
+  const [sortBy, setSortBy] = useState<SortBy>('remaining_pct')
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
   const [showSortDropdown, setShowSortDropdown] = useState(false)
   const [editItem, setEditItem] = useState<InventoryItem | null>(null)
   const [editBottle, setEditBottle] = useState<InventoryBottle | null>(null)
   const [editBottleIndex, setEditBottleIndex] = useState(1)
-  const [guideSwipeDismissed, setGuideSwipeDismissed] = useState(true)
 
   // INV-MULTIDELETE:選取態(iOS Photos 式 SELECT/CANCEL 多選批刪)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [batchDeleting, setBatchDeleting] = useState(false)
-
-  // swipe 提示沿用原 My Bar 的 gating 鏈(CTA、GP_STEP_6 皆 dismissed 後才出現)
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        const ctaD = await isGuideDismissed(GUIDE_KEYS.MYBAR_CTA);
-        if (!ctaD) return;
-
-        const gpStep6D = await isGuideDismissed(GUIDE_KEYS.GP_STEP_6);
-        if (!gpStep6D) return;
-
-        const swipeD = await isGuideDismissed(GUIDE_KEYS.MYBAR_SWIPE);
-        if (!swipeD) setGuideSwipeDismissed(false);
-      })();
-    }, [])
-  )
 
   useFocusEffect(
     React.useCallback(() => {
@@ -791,20 +752,12 @@ export default function ShelfDetailScreen() {
     } else {
       // 切換條件：依條件設預設方向
       setSortBy(key)
-      setSortOrder(key === 'family' ? 'asc' : 'desc')
+      setSortOrder(key === 'family' || key === 'remaining_pct' ? 'asc' : 'desc')
     }
     setShowSortDropdown(false)
   }
 
-  const dismissSwipeGuide = () => {
-    if (!guideSwipeDismissed) {
-      setGuideSwipeDismissed(true)
-      dismissGuide(GUIDE_KEYS.MYBAR_SWIPE)
-    }
-  }
-
   const handleEdit = (item: InventoryItem, bottle: InventoryBottle, ordinal: number) => {
-    dismissSwipeGuide()
     setEditItem(item)
     setEditBottle(bottle)
     setEditBottleIndex(ordinal)
@@ -826,9 +779,9 @@ export default function ShelfDetailScreen() {
     name: string,
     bottle: InventoryBottle,
     ordinal: number,
-    totalBottles: number
+    totalBottles: number,
+    onRemoved?: () => void
   ) => {
-    dismissSwipeGuide()
     const last = totalBottles <= 1
     Alert.alert(
       last ? 'Remove from My Bar' : `Remove bottle #${ordinal}`,
@@ -847,6 +800,7 @@ export default function ShelfDetailScreen() {
               } else {
                 await deleteInventoryBottle(id, bottle.id)
               }
+              onRemoved?.()
             } catch (e: any) {
               Alert.alert('Error', e?.message ?? 'Could not delete bottle')
             }
@@ -858,7 +812,6 @@ export default function ShelfDetailScreen() {
 
   // ── INV-MULTIDELETE:選取態 handlers ─────────────────────────────
   const enterSelectMode = () => {
-    dismissSwipeGuide()
     setSelectMode(true)
     setSelectedIds(new Set())
   }
@@ -1044,6 +997,17 @@ export default function ShelfDetailScreen() {
           visible={editItem !== null}
           onClose={() => { setEditItem(null); setEditBottle(null) }}
           onSave={handleEditSave}
+          onRemove={() => {
+            if (!editItem || !editBottle) return
+            handleDelete(
+              editItem.id,
+              editItem.display_name,
+              editBottle,
+              editBottleIndex,
+              Math.max(1, editItem.bottles.length),
+              () => { setEditItem(null); setEditBottle(null) }
+            )
+          }}
         />
 
         <View style={styles.list}>
@@ -1063,7 +1027,6 @@ export default function ShelfDetailScreen() {
                         item={item}
                         sortBy={sortBy}
                         onEdit={handleEdit}
-                        onDelete={handleDelete}
                         onRestock={() => trackAndOpenPurchaseLink({
                         ingredientKey: item.ingredient_key,
                         displayName: item.display_name,
@@ -1077,48 +1040,24 @@ export default function ShelfDetailScreen() {
                   )
                 })
               })()
-            : sortedItems.map((item, idx) =>
-                idx === 0 && !selectMode ? (
-                  <InventoryCardWithGuide
-                    key={item.id}
-                    item={item}
-                    sortBy={sortBy}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onRestock={() => trackAndOpenPurchaseLink({
-                          ingredientKey: item.ingredient_key,
-                          displayName: item.display_name,
-                          source: "my_bar",
-                        })}
-                    isFirstCard
-                    guideSwipeDismissed={guideSwipeDismissed}
-                    onSwipeOpen={dismissSwipeGuide}
-                  />
-                ) : (
-                  <InventoryCard
-                    key={item.id}
-                    item={item}
-                    sortBy={sortBy}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onRestock={() => trackAndOpenPurchaseLink({
-                          ingredientKey: item.ingredient_key,
-                          displayName: item.display_name,
-                          source: "my_bar",
-                        })}
-                    selectMode={selectMode}
-                    selected={selectedIds.has(item.id)}
-                    onToggleSelect={() => toggleSelected(item.id)}
-                  />
-                )
-              )
+            : sortedItems.map((item) => (
+                <InventoryCard
+                  key={item.id}
+                  item={item}
+                  sortBy={sortBy}
+                  onEdit={handleEdit}
+                  onRestock={() => trackAndOpenPurchaseLink({
+                        ingredientKey: item.ingredient_key,
+                        displayName: item.display_name,
+                        source: "my_bar",
+                      })}
+                  selectMode={selectMode}
+                  selected={selectedIds.has(item.id)}
+                  onToggleSelect={() => toggleSelected(item.id)}
+                />
+              ))
           }
         </View>
-        {!guideSwipeDismissed && (
-          <Text style={{ fontSize: 11, color: OaklandDusk.text.disabled, textAlign: 'center', marginTop: 16 }}>
-            ← Swipe left on a bottle to edit or remove
-          </Text>
-        )}
       </ScrollView>
 
       {/* INV-MULTIDELETE:選取態底部固定 Delete bar */}
@@ -1333,7 +1272,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 10,
   },
   pageDot: {
     width: 8,
@@ -1346,7 +1284,6 @@ const styles = StyleSheet.create({
   },
   restockPill: {
     alignSelf: 'flex-start',
-    marginTop: 8,
     paddingHorizontal: 11,
     paddingVertical: 5,
     borderWidth: 1,
@@ -1358,6 +1295,33 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 0.7,
     color: 'rgb(214,110,124)',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardFooterSide: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  cardFooterEnd: {
+    alignItems: 'flex-end',
+  },
+  editPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: withAlpha(OaklandDusk.brand.gold, 0.45),
+    borderRadius: 999,
+  },
+  editPillText: {
+    ...Type.label,
+    fontSize: 11,
+    letterSpacing: 0.7,
+    color: OaklandDusk.brand.gold,
   },
 
   // ── INV-MULTIDELETE:選取態 ──
@@ -1436,6 +1400,28 @@ const modalStyles = StyleSheet.create({
     ...Type.title,
     marginBottom: 4,
     color: OaklandDusk.text.primary,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  removePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgb(192,72,88)',
+    borderRadius: 999,
+  },
+  removePillText: {
+    ...Type.label,
+    fontSize: 11,
+    letterSpacing: 0.7,
+    color: 'rgb(214,110,124)',
   },
   fieldLabel: {
     ...Type.label,
