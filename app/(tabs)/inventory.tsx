@@ -326,7 +326,7 @@ export default function MyBarScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <ActivityIndicator size="small" color={OaklandDusk.bg.void} />
                   <Text style={{ fontSize: 15, fontWeight: '700', color: OaklandDusk.bg.void }}>
-                    Finding recipes...
+                    Seeing what you can make…
                   </Text>
                 </View>
               ) : (

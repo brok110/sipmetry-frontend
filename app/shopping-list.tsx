@@ -324,10 +324,10 @@ export default function ShoppingListScreen() {
           <View style={styles.emptyWrap}>
             <FontAwesome name="shopping-bag" size={40} color={OaklandDusk.text.tertiary} />
             <Text style={[Type.body, { color: OaklandDusk.text.secondary }]}>
-              Nothing on your list yet.
+              Your list is empty
             </Text>
             <Text style={[Type.caption, styles.emptyHint]}>
-              Add missing bottles from recipes or restock suggestions.
+              When a drink needs a bottle you don't have, it lands here.
             </Text>
           </View>
         )}

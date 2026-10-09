@@ -723,7 +723,7 @@ export default function CartScreen() {
           <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>Smart Restock</Text>
           {/* Type.body — sign-in description */}
           <Text style={[Type.body, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
-            Sign in to get personalized bottle recommendations based on your bar.
+            Sign in and we'll pick your next bottle from what's on your shelf.
           </Text>
         </View>
       </View>
@@ -781,7 +781,7 @@ export default function CartScreen() {
         <Text style={[Type.display, { color: OaklandDusk.text.primary }]}>What to buy next?</Text>
         {/* Type.caption — small secondary subtitle */}
         <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>
-          Based on bottles you already own
+          Going by what's already on your shelf
         </Text>
       </View>
 
@@ -855,7 +855,7 @@ export default function CartScreen() {
         <View style={{ padding: 40, alignItems: "center" }}>
           <ActivityIndicator size="large" color={OaklandDusk.brand.gold} />
           {/* Type.body — loading state description */}
-          <Text style={[Type.body, { color: OaklandDusk.text.secondary, marginTop: 12 }]}>Analyzing your bar...</Text>
+          <Text style={[Type.body, { color: OaklandDusk.text.secondary, marginTop: 12 }]}>Looking over your shelf…</Text>
         </View>
       )}
 
@@ -950,10 +950,10 @@ export default function CartScreen() {
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
             <FontAwesome name="search" size={36} color={OaklandDusk.text.tertiary} />
             {/* Type.heading — empty-state title */}
-            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>No bottles in your bar yet</Text>
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Nothing on the shelf yet</Text>
             {/* Type.caption — empty-state description */}
             <Text style={[Type.caption, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
-              Scan your bottles first, then come back for personalized recommendations.
+              Scan a few bottles first — then we'll know what to suggest.
             </Text>
             <Pressable
               onPress={() => router.push("/(tabs)/inventory")}
@@ -975,10 +975,10 @@ export default function CartScreen() {
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
             <FontAwesome name="check-circle" size={36} color="#6B8F6B" />
             {/* Type.heading — empty-state title */}
-            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Your bar is well stocked!</Text>
+            <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Your bar's in good shape</Text>
             {/* Type.caption — empty-state description */}
             <Text style={[Type.caption, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
-              Scan more bottles or add favorites to get better suggestions.
+              Nothing urgent to buy. Favorite a few drinks and the picks get sharper.
             </Text>
           </View>
         )

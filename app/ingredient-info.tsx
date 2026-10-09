@@ -163,7 +163,7 @@ export default function IngredientInfoScreen() {
       if (!res.ok) throw new Error(`status ${res.status}`)
       setListed(true)
     } catch {
-      Alert.alert('Error', 'Could not add this to your list. Please try again.')
+      Alert.alert("Didn't make the list", "Couldn't add it just now — try again.")
     } finally {
       setAdding(false)
     }

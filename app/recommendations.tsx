@@ -389,10 +389,10 @@ export default function RecommendationsScreen() {
         ListEmptyComponent={
           <View style={{ padding: 24, alignItems: "center", gap: 8 }}>
             {/* Type.title — empty state heading */}
-            <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>No matches found</Text>
+            <Text style={[Type.title, { color: OaklandDusk.text.primary }]}>Nothing you can make yet</Text>
             {/* Type.body — empty state description */}
             <Text style={[Type.body, { color: OaklandDusk.text.secondary, textAlign: "center" }]}>
-              Try scanning more bottles or adding ingredients to your bar.
+              A bottle or two more and this list fills up.
             </Text>
           </View>
         }

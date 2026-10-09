@@ -13,6 +13,16 @@
 - **Mood:** A well-curated cocktail bar at dusk. Warm, sophisticated, confident. Oakland's industrial heritage meets California sunset. Not a tech app, not a SaaS dashboard. The UI should feel like it was built by someone who actually makes drinks.
 - **Dark mode only:** Intentional constraint. Matches the environment (making drinks, often at night). Stronger brand identity over universal accessibility.
 
+## Voice
+
+Copy is held to the same bar as the UI: written by someone who actually makes drinks, not by a dashboard.
+
+- **Talk about the shelf, not the data.** Say bottle, shelf, drink, pour. Never say data, recommendations, history, usage, analyzing, intensity.
+- **Empty states and errors say what happened and what to do next.** Never title an alert "Error" or "Not ready".
+- **Warmth comes from being specific, not from exclamation marks.** Warm, sophisticated, confident — never cute.
+- **Labels stay plain** (see Typography: clarity over personality). Rail titles may have flavor (`LONDON CALLING`); buttons and tab names do not.
+- **Benchmarks:** `TONIGHT'S POUR`, `What if I add…`, `You're close!`, `Keep your bar safe`, `What did you buy?`
+
 ## Typography
 
 ### Current (System Fonts)

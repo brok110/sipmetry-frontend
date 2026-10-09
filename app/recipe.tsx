@@ -773,8 +773,8 @@ export default function TabTwoScreen() {
     // Guard: show alert if user tries to add when already at the 50-recipe limit
     if (!wasFav && favoritesAtLimit) {
       Alert.alert(
-        "Favorites full",
-        "You've reached the 50-recipe limit. Remove a favorite to add a new one."
+        "Favorites are full",
+        "Fifty is the limit — let one go to make room."
       );
       return;
     }
@@ -909,12 +909,12 @@ export default function TabTwoScreen() {
       });
     }
     if (!session?.access_token) {
-      Alert.alert('Sign in required', 'Please sign in to track your usage.')
+      Alert.alert('Sign in first', "So we can remember what you've made.")
       return
     }
 
     if (!dbRecipe || dbRecipe.ingredients.length === 0) {
-      Alert.alert('Not ready', 'Recipe not loaded yet. Please wait.')
+      Alert.alert('One sec', 'The recipe is still loading.')
       return
     }
 
@@ -1044,7 +1044,7 @@ export default function TabTwoScreen() {
   // Optimistic flip to "✓ On list"; rolled back with an Alert on failure.
   const handleAddToList = useCallback(async (ingredientKey: string, displayName: string) => {
     if (!session?.access_token) {
-      Alert.alert("Sign in required", "Please sign in to use the shopping list.");
+      Alert.alert("Sign in first", "So your list stays with your account.");
       return;
     }
     const code = String(ibaCode || (dbRecipe?.iba_code ?? "")).trim();
@@ -1068,7 +1068,7 @@ export default function TabTwoScreen() {
         next.delete(ingredientKey);
         return next;
       });
-      Alert.alert("Error", "Could not add to your shopping list. Please try again.");
+      Alert.alert("Didn't make the list", "Couldn't add it just now — try again.");
     }
   }, [session, ibaCode, dbRecipe, recipeTitle]);
 

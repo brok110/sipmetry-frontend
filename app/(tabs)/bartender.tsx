@@ -458,7 +458,7 @@ export default function BartenderScreen() {
           onPress={() => router.push({ pathname: "/scan", params: { intent: "addToBar" } })}
         >
           <Text style={styles.explorationBannerText}>
-            EXPLORING WITH A SAMPLE BAR  ·  TAP TO SCAN YOUR BOTTLES
+            THIS IS A SAMPLE BAR  ·  SCAN YOURS TO MAKE IT REAL
           </Text>
         </Pressable>
       )}
@@ -668,13 +668,13 @@ export default function BartenderScreen() {
               </View>
             ) : searchError ? (
               <View style={styles.centerFill}>
-                <Text style={styles.stateMsg}>something went wrong</Text>
+                <Text style={styles.stateMsg}>that search didn't go through</Text>
                 <Text style={styles.stateSubMsg}>{searchError}</Text>
               </View>
             ) : (
               <View style={styles.centerFill}>
                 <FontAwesome name="glass" size={48} color={OaklandDusk.text.tertiary} />
-                <Text style={[styles.stateMsg, { marginTop: 16 }]}>no cocktails found</Text>
+                <Text style={[styles.stateMsg, { marginTop: 16 }]}>nothing on the menu by that name</Text>
                 <Text style={styles.stateSubMsg}>
                   {filtersActive
                     ? "TRY REMOVING A FILTER"

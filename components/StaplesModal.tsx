@@ -78,7 +78,7 @@ export default function StaplesModal({ visible, loading, onConfirm, onCancel }: 
             Do you have these?
           </Text>
           <Text style={{ fontSize: 13, color: OaklandDusk.text.secondary, lineHeight: 18 }}>
-            Common ingredients that improve your recommendations.
+            Everyday things that unlock a lot of drinks.
           </Text>
 
           <View style={{ gap: 10 }}>

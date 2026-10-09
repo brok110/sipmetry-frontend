@@ -341,7 +341,7 @@ export default function TabZeroPreferencesScreen() {
           }}
         >
           <Text style={[Type.heading, { color: OaklandDusk.text.primary }]}>Taste</Text>
-          <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>Slide to adjust intensity (0–3).</Text>
+          <Text style={[Type.caption, { color: OaklandDusk.text.secondary }]}>Slide to set how much you want.</Text>
 
           <View style={{ gap: 8 }}>
             <View style={{ gap: 4 }}>
@@ -467,7 +467,7 @@ export default function TabZeroPreferencesScreen() {
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               <FontAwesome name="bar-chart" size={14} color={OaklandDusk.text.secondary} />
-              <Text style={[Type.heading, { color: OaklandDusk.text.primary, flex: 1 }]}>Learned from your history</Text>
+              <Text style={[Type.heading, { color: OaklandDusk.text.primary, flex: 1 }]}>What your ratings say</Text>
               <Pressable onPress={refreshLearned} hitSlop={8}>
                 <FontAwesome name="refresh" size={14} color={learnedLoading ? OaklandDusk.text.disabled : OaklandDusk.text.secondary} />
               </Pressable>
@@ -490,7 +490,7 @@ export default function TabZeroPreferencesScreen() {
               </>
             ) : (
               <Text style={[Type.body, { color: OaklandDusk.text.tertiary }]}>
-                Rate a few cocktails and your taste profile will appear here.
+                Rate a few drinks and your taste starts to show here.
               </Text>
             )}
           </View>

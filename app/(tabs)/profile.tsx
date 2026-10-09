@@ -154,7 +154,7 @@ export default function ProfileScreen() {
               Create Account
             </Text>
             <Text style={[Type.caption, { color: OaklandDusk.text.tertiary }]}>
-              Protect your data across devices
+              Keep your bar when you switch phones
             </Text>
           </Pressable>
         )}
@@ -172,7 +172,7 @@ export default function ProfileScreen() {
             <Text style={[Type.heading, { textAlign: "center", color: OaklandDusk.text.primary }]}>{userEmail}</Text>
           ) : (
             <>
-              <Text style={[Type.body, { textAlign: "center", color: OaklandDusk.text.secondary }]}>Not signed in</Text>
+              <Text style={[Type.body, { textAlign: "center", color: OaklandDusk.text.secondary }]}>Browsing as a guest</Text>
               <Pressable
                 onPress={() => router.push("/login?mode=signin")}
                 style={{

@@ -654,7 +654,7 @@ export default function TabOneScreen() {
       } else if (t.failed > 0) {
         title = "Some bottles couldn't be saved";
       } else {
-        title = "No spirits found";
+        title = "Couldn't spot a bottle — try a closer, brighter shot";
       }
 
       for (const x of t.extra) {
